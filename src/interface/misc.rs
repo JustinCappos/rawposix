@@ -321,313 +321,313 @@ pub struct AdvisoryLock {
 * In case an exclusive lock is held, the guard value is set to -1.
 * In case a shared lock is held, the guard value is incremented by 1.
 */
-impl AdvisoryLock {
-    pub fn new() -> Self {
-        Self {
-            advisory_lock: RustRfc::new(Mutex::new(0)),
-            advisory_condvar: Condvar::new(),
-        }
-    }
+// impl AdvisoryLock {
+//     pub fn new() -> Self {
+//         Self {
+//             advisory_lock: RustRfc::new(Mutex::new(0)),
+//             advisory_condvar: Condvar::new(),
+//         }
+//     }
 
-    // lock_ex is used to acquire an exclusive lock
-    // if the lock cannot be obtained, it waits
-    pub fn lock_ex(&self) {
-        let mut waitedguard = self.advisory_lock.lock();
-        while *waitedguard != 0 {
-            self.advisory_condvar.wait(&mut waitedguard);
-        }
-        *waitedguard = -1;
-    }
+//     // lock_ex is used to acquire an exclusive lock
+//     // if the lock cannot be obtained, it waits
+//     pub fn lock_ex(&self) {
+//         let mut waitedguard = self.advisory_lock.lock();
+//         while *waitedguard != 0 {
+//             self.advisory_condvar.wait(&mut waitedguard);
+//         }
+//         *waitedguard = -1;
+//     }
 
-    // lock_sh is used to acquire a shared lock
-    // if the lock cannot be obtained, it waits
-    pub fn lock_sh(&self) {
-        let mut waitedguard = self.advisory_lock.lock();
-        while *waitedguard < 0 {
-            self.advisory_condvar.wait(&mut waitedguard);
-        }
-        *waitedguard += 1;
-    }
-    // try_lock_ex is used to try to acquire an exclusive lock
-    // if the lock cannot be obtained, it returns false
-    pub fn try_lock_ex(&self) -> bool {
-        if let Some(mut guard) = self.advisory_lock.try_lock() {
-            if *guard == 0 {
-                *guard = -1;
-                return true;
-            }
-        }
-        false
-    }
-    // try_lock_sh is used to try to acquire a shared lock
-    // if the lock cannot be obtained, it returns false
-    pub fn try_lock_sh(&self) -> bool {
-        if let Some(mut guard) = self.advisory_lock.try_lock() {
-            if *guard >= 0 {
-                *guard += 1;
-                return true;
-            }
-        }
-        false
-    }
+//     // lock_sh is used to acquire a shared lock
+//     // if the lock cannot be obtained, it waits
+//     pub fn lock_sh(&self) {
+//         let mut waitedguard = self.advisory_lock.lock();
+//         while *waitedguard < 0 {
+//             self.advisory_condvar.wait(&mut waitedguard);
+//         }
+//         *waitedguard += 1;
+//     }
+//     // try_lock_ex is used to try to acquire an exclusive lock
+//     // if the lock cannot be obtained, it returns false
+//     pub fn try_lock_ex(&self) -> bool {
+//         if let Some(mut guard) = self.advisory_lock.try_lock() {
+//             if *guard == 0 {
+//                 *guard = -1;
+//                 return true;
+//             }
+//         }
+//         false
+//     }
+//     // try_lock_sh is used to try to acquire a shared lock
+//     // if the lock cannot be obtained, it returns false
+//     pub fn try_lock_sh(&self) -> bool {
+//         if let Some(mut guard) = self.advisory_lock.try_lock() {
+//             if *guard >= 0 {
+//                 *guard += 1;
+//                 return true;
+//             }
+//         }
+//         false
+//     }
 
-    /*
-     * unlock is used to release a lock
-     * If a shared lock was held(guard value > 0), it decrements the guard value by one
-     * if no more shared locks are held (i.e. the guard value is now zero), then it notifies a waiting writer
-     * If an exclusive lock was held, it sets the guard value to zero and notifies all waiting readers and writers
-     */
-    pub fn unlock(&self) -> bool {
-        let mut guard = self.advisory_lock.lock();
+//     /*
+//      * unlock is used to release a lock
+//      * If a shared lock was held(guard value > 0), it decrements the guard value by one
+//      * if no more shared locks are held (i.e. the guard value is now zero), then it notifies a waiting writer
+//      * If an exclusive lock was held, it sets the guard value to zero and notifies all waiting readers and writers
+//      */
+//     pub fn unlock(&self) -> bool {
+//         let mut guard = self.advisory_lock.lock();
 
-        // check if a shared lock is held
-        if *guard > 0 {
-            // release one shared lock by decrementing the guard value
-            *guard -= 1;
+//         // check if a shared lock is held
+//         if *guard > 0 {
+//             // release one shared lock by decrementing the guard value
+//             *guard -= 1;
 
-            // if no more shared locks are held, notify a waiting writer and return
-            // only a writer could be waiting at this point
-            if *guard == 0 {
-                self.advisory_condvar.notify_one();
-            }
-            true
-        } else if *guard == -1 {
-            // check if an exclusive lock is held
-            // release the exclusive lock by setting guard to 0
-            *guard = 0;
+//             // if no more shared locks are held, notify a waiting writer and return
+//             // only a writer could be waiting at this point
+//             if *guard == 0 {
+//                 self.advisory_condvar.notify_one();
+//             }
+//             true
+//         } else if *guard == -1 {
+//             // check if an exclusive lock is held
+//             // release the exclusive lock by setting guard to 0
+//             *guard = 0;
 
-            // notify any waiting reads or writers and return
-            self.advisory_condvar.notify_all();
-            true
-        } else {
-            false
-        }
-    }
-}
+//             // notify any waiting reads or writers and return
+//             self.advisory_condvar.notify_all();
+//             true
+//         } else {
+//             false
+//         }
+//     }
+// }
 
-pub struct RawMutex {
-    inner: libc::pthread_mutex_t,
-}
+// pub struct RawMutex {
+//     inner: libc::pthread_mutex_t,
+// }
 
-impl RawMutex {
-    pub fn create() -> Result<Self, i32> {
-        let libcret;
-        let mut retval = Self {
-            inner: unsafe { std::mem::zeroed() },
-        };
-        unsafe {
-            libcret = libc::pthread_mutex_init(
-                (&mut retval.inner) as *mut libc::pthread_mutex_t,
-                std::ptr::null(),
-            );
-        }
-        if libcret < 0 {
-            Err(libcret)
-        } else {
-            Ok(retval)
-        }
-    }
+// impl RawMutex {
+//     pub fn create() -> Result<Self, i32> {
+//         let libcret;
+//         let mut retval = Self {
+//             inner: unsafe { std::mem::zeroed() },
+//         };
+//         unsafe {
+//             libcret = libc::pthread_mutex_init(
+//                 (&mut retval.inner) as *mut libc::pthread_mutex_t,
+//                 std::ptr::null(),
+//             );
+//         }
+//         if libcret < 0 {
+//             Err(libcret)
+//         } else {
+//             Ok(retval)
+//         }
+//     }
 
-    pub fn lock(&self) -> i32 {
-        unsafe {
-            libc::pthread_mutex_lock(
-                (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-            )
-        }
-    }
+//     pub fn lock(&self) -> i32 {
+//         unsafe {
+//             libc::pthread_mutex_lock(
+//                 (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+//             )
+//         }
+//     }
 
-    pub fn trylock(&self) -> i32 {
-        unsafe {
-            libc::pthread_mutex_trylock(
-                (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-            )
-        }
-    }
+//     pub fn trylock(&self) -> i32 {
+//         unsafe {
+//             libc::pthread_mutex_trylock(
+//                 (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+//             )
+//         }
+//     }
 
-    pub fn unlock(&self) -> i32 {
-        unsafe {
-            libc::pthread_mutex_unlock(
-                (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-            )
-        }
-    }
-}
+//     pub fn unlock(&self) -> i32 {
+//         unsafe {
+//             libc::pthread_mutex_unlock(
+//                 (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+//             )
+//         }
+//     }
+// }
 
-impl std::fmt::Debug for RawMutex {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("<mutex>")
-    }
-}
+// impl std::fmt::Debug for RawMutex {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.write_str("<mutex>")
+//     }
+// }
 
-impl Drop for RawMutex {
-    fn drop(&mut self) {
-        unsafe {
-            libc::pthread_mutex_destroy((&mut self.inner) as *mut libc::pthread_mutex_t);
-        }
-    }
-}
+// impl Drop for RawMutex {
+//     fn drop(&mut self) {
+//         unsafe {
+//             libc::pthread_mutex_destroy((&mut self.inner) as *mut libc::pthread_mutex_t);
+//         }
+//     }
+// }
 
-pub struct RawCondvar {
-    inner: libc::pthread_cond_t,
-}
+// pub struct RawCondvar {
+//     inner: libc::pthread_cond_t,
+// }
 
-impl RawCondvar {
-    pub fn create() -> Result<Self, i32> {
-        let libcret;
-        let mut retval = Self {
-            inner: unsafe { std::mem::zeroed() },
-        };
-        unsafe {
-            libcret = libc::pthread_cond_init(
-                (&mut retval.inner) as *mut libc::pthread_cond_t,
-                std::ptr::null(),
-            );
-        }
-        if libcret < 0 {
-            Err(libcret)
-        } else {
-            Ok(retval)
-        }
-    }
+// impl RawCondvar {
+//     pub fn create() -> Result<Self, i32> {
+//         let libcret;
+//         let mut retval = Self {
+//             inner: unsafe { std::mem::zeroed() },
+//         };
+//         unsafe {
+//             libcret = libc::pthread_cond_init(
+//                 (&mut retval.inner) as *mut libc::pthread_cond_t,
+//                 std::ptr::null(),
+//             );
+//         }
+//         if libcret < 0 {
+//             Err(libcret)
+//         } else {
+//             Ok(retval)
+//         }
+//     }
 
-    pub fn signal(&self) -> i32 {
-        unsafe {
-            libc::pthread_cond_signal(
-                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-            )
-        }
-    }
+//     pub fn signal(&self) -> i32 {
+//         unsafe {
+//             libc::pthread_cond_signal(
+//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+//             )
+//         }
+//     }
 
-    pub fn broadcast(&self) -> i32 {
-        unsafe {
-            libc::pthread_cond_broadcast(
-                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-            )
-        }
-    }
+//     pub fn broadcast(&self) -> i32 {
+//         unsafe {
+//             libc::pthread_cond_broadcast(
+//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+//             )
+//         }
+//     }
 
-    pub fn wait(&self, mutex: &RawMutex) -> i32 {
-        unsafe {
-            libc::pthread_cond_wait(
-                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-                (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-            )
-        }
-    }
+//     pub fn wait(&self, mutex: &RawMutex) -> i32 {
+//         unsafe {
+//             libc::pthread_cond_wait(
+//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+//                 (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+//             )
+//         }
+//     }
 
-    pub fn timedwait(&self, mutex: &RawMutex, abs_duration: Duration) -> i32 {
-        let abstime = libc::timespec {
-            tv_sec: abs_duration.as_secs() as i64,
-            tv_nsec: (abs_duration.as_nanos() % 1000000000) as i64,
-        };
-        unsafe {
-            libc::pthread_cond_timedwait(
-                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-                (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-                (&abstime) as *const libc::timespec,
-            )
-        }
-    }
-}
+//     pub fn timedwait(&self, mutex: &RawMutex, abs_duration: Duration) -> i32 {
+//         let abstime = libc::timespec {
+//             tv_sec: abs_duration.as_secs() as i64,
+//             tv_nsec: (abs_duration.as_nanos() % 1000000000) as i64,
+//         };
+//         unsafe {
+//             libc::pthread_cond_timedwait(
+//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+//                 (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+//                 (&abstime) as *const libc::timespec,
+//             )
+//         }
+//     }
+// }
 
-impl Drop for RawCondvar {
-    fn drop(&mut self) {
-        unsafe {
-            libc::pthread_cond_destroy((&mut self.inner) as *mut libc::pthread_cond_t);
-        }
-    }
-}
+// impl Drop for RawCondvar {
+//     fn drop(&mut self) {
+//         unsafe {
+//             libc::pthread_cond_destroy((&mut self.inner) as *mut libc::pthread_cond_t);
+//         }
+//     }
+// }
 
-impl std::fmt::Debug for RawCondvar {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("<condvar>")
-    }
-}
+// impl std::fmt::Debug for RawCondvar {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.write_str("<condvar>")
+//     }
+// }
 
-/*
-* RustSemaphore is the rust version of sem_t
-*/
-#[derive(Debug)]
-pub struct RustSemaphore {
-    pub value: Mutex<u32>,
-    pub is_shared: RustAtomicBool,
-}
+// /*
+// * RustSemaphore is the rust version of sem_t
+// */
+// #[derive(Debug)]
+// pub struct RustSemaphore {
+//     pub value: Mutex<u32>,
+//     pub is_shared: RustAtomicBool,
+// }
 
-// Semaphore implementation
-// we busy wait on lock if value is 0, otherwise we decrease the value
-// unlock will increase value up to SEM_VALUE_MAX
-impl RustSemaphore {
-    pub fn new(value_handle: u32, is_shared: bool) -> Self {
-        Self {
-            value: Mutex::new(value_handle),
-            is_shared: RustAtomicBool::new(is_shared),
-        }
-    }
+// // Semaphore implementation
+// // we busy wait on lock if value is 0, otherwise we decrease the value
+// // unlock will increase value up to SEM_VALUE_MAX
+// impl RustSemaphore {
+//     pub fn new(value_handle: u32, is_shared: bool) -> Self {
+//         Self {
+//             value: Mutex::new(value_handle),
+//             is_shared: RustAtomicBool::new(is_shared),
+//         }
+//     }
 
-    pub fn lock(&self) {
-        loop {
-            // acquire the mutex lock
-            let mut value = self.value.lock();
-            if *value == 0 {
-                // wait for semaphore to be unlocked by another process/thread
-                interface::lind_yield();
-            } else {
-                // decrement the value
-                *value = if *value > 0 { *value - 1 } else { 0 };
-                break;
-            }
-        }
-    }
+//     pub fn lock(&self) {
+//         loop {
+//             // acquire the mutex lock
+//             let mut value = self.value.lock();
+//             if *value == 0 {
+//                 // wait for semaphore to be unlocked by another process/thread
+//                 interface::lind_yield();
+//             } else {
+//                 // decrement the value
+//                 *value = if *value > 0 { *value - 1 } else { 0 };
+//                 break;
+//             }
+//         }
+//     }
 
-    pub fn unlock(&self) -> bool {
-        // acquire the mutex lock
-        let mut value = self.value.lock();
-        // check if the maximum allowable value for a semaphore has been reached
-        if *value < SEM_VALUE_MAX {
-            // increment the value
-            *value = *value + 1;
-            return true;
-        } else {
-            return false;
-        }
-    }
+//     pub fn unlock(&self) -> bool {
+//         // acquire the mutex lock
+//         let mut value = self.value.lock();
+//         // check if the maximum allowable value for a semaphore has been reached
+//         if *value < SEM_VALUE_MAX {
+//             // increment the value
+//             *value = *value + 1;
+//             return true;
+//         } else {
+//             return false;
+//         }
+//     }
 
-    pub fn get_value(&self) -> i32 {
-        // returns the value of the semaphore
-        *self.value.lock() as i32
-    }
+//     pub fn get_value(&self) -> i32 {
+//         // returns the value of the semaphore
+//         *self.value.lock() as i32
+//     }
 
-    pub fn trylock(&self) -> bool {
-        // acquire the mutex lock
-        let mut value = self.value.lock();
-        if *value == 0 {
-            // semaphore is locked by another process/thread
-            return false;
-        } else {
-            // decrement the value
-            *value = if *value > 0 { *value - 1 } else { 0 };
-            return true;
-        }
-    }
+//     pub fn trylock(&self) -> bool {
+//         // acquire the mutex lock
+//         let mut value = self.value.lock();
+//         if *value == 0 {
+//             // semaphore is locked by another process/thread
+//             return false;
+//         } else {
+//             // decrement the value
+//             *value = if *value > 0 { *value - 1 } else { 0 };
+//             return true;
+//         }
+//     }
 
-    pub fn timedlock(&self, timeout: Duration) -> bool {
-        // start the timer to check for timeout
-        let start_time = interface::starttimer();
-        loop {
-            // acquire the mutex lock
-            let mut value = self.value.lock();
-            if *value == 0 {
-                // check if we have timed out
-                let elapsed_time = interface::readtimer(start_time);
-                if elapsed_time > timeout {
-                    return false;
-                }
-                // if not timed out wait for semaphore to be unlocked by another process/thread
-                interface::lind_yield();
-            } else {
-                *value = if *value > 0 { *value - 1 } else { 0 };
-                return true;
-            }
-        }
-    }
-}
+//     pub fn timedlock(&self, timeout: Duration) -> bool {
+//         // start the timer to check for timeout
+//         let start_time = interface::starttimer();
+//         loop {
+//             // acquire the mutex lock
+//             let mut value = self.value.lock();
+//             if *value == 0 {
+//                 // check if we have timed out
+//                 let elapsed_time = interface::readtimer(start_time);
+//                 if elapsed_time > timeout {
+//                     return false;
+//                 }
+//                 // if not timed out wait for semaphore to be unlocked by another process/thread
+//                 interface::lind_yield();
+//             } else {
+//                 *value = if *value > 0 { *value - 1 } else { 0 };
+//                 return true;
+//             }
+//         }
+//     }
+// }

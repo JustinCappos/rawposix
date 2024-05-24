@@ -5,12 +5,15 @@ use super::fs_constants::*;
 use super::sys_constants::*;
 use crate::interface;
 use crate::safeposix::cage::Errno::EINVAL;
-use crate::safeposix::cage::{FileDescriptor::*, *};
-use crate::safeposix::filesystem::*;
-use crate::safeposix::net::NET_METADATA;
-use crate::safeposix::shm::*;
+use crate::safeposix::cage::*;
+// use crate::safeposix::filesystem::*;
+// use crate::safeposix::net::NET_METADATA;
+// use crate::safeposix::shm::*;
 
 use libc::*;
+use std::os::unix::io::RawFd;
+
+use crate::example_grates::fdtable::*;
 
 /* 
 *   We will receive parameters with type u64 by default, then we will do type conversion inside
@@ -20,10 +23,6 @@ use libc::*;
 *   - cloexec in get_unused_virtual_fd()..?
 *   - there's no getdents() API in rust libc
 *   
-*   [TODO]
-*   - close() for imp
-*   - fcntl() for different return type (including the imp)
-*   - pipe() / pipe2()
 */
 
 impl Cage {
@@ -33,13 +32,13 @@ impl Cage {
     *   Mapping a new virtual fd and kernel fd that libc::socket returned
     *   Then return virtual fd
     */
-    pub fn open_syscall(&self, path: &str, oflag: u64, mode: u64) -> i32 {
+    pub fn open_syscall(&self, path: &str, oflag: u64, mode: u64) -> u64 {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
 
         let kernel_fd = unsafe { libc::open(path_c as *const i8, oflag as i32) };
 
-        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
+        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
         virtual_fd
     }
 
@@ -100,8 +99,8 @@ impl Cage {
         let kernel_fd = unsafe {
             libc::creat(path_c as *const i8, mode as u16)
         };
-        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
-        virtual_fd
+        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        virtual_fd as i32
     }
 
     //------------------------------------STAT SYSCALL------------------------------------
@@ -123,7 +122,7 @@ impl Cage {
     pub fn fstat_syscall(&self, virtual_fd: u64, statbuf: &mut stat) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fstat(kernel_fd, statbuf)
+            libc::fstat(kernel_fd as i32, statbuf)
         }
     }
 
@@ -146,7 +145,7 @@ impl Cage {
     pub fn fstatfs_syscall(&self, virtual_fd: u64, databuf: &mut statfs) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe{
-            libc::fstatfs(kernel_fd, databuf)
+            libc::fstatfs(kernel_fd as i32, databuf)
         }
     }
 
@@ -160,7 +159,7 @@ impl Cage {
     pub fn read_syscall(&self, virtual_fd: u64, readbuf: *mut u8, count: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::read(kernel_fd, readbuf as *mut c_void, count as usize) as i32
+            libc::read(kernel_fd as i32, readbuf as *mut c_void, count as usize) as i32
         }
     }
 
@@ -174,7 +173,7 @@ impl Cage {
     pub fn pread_syscall(&self, virtual_fd: u64, buf: *mut u8, count: u64, offset: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::pread(kernel_fd, buf as *mut c_void, count as usize, offset as i64) as i32
+            libc::pread(kernel_fd as i32, buf as *mut c_void, count as usize, offset as i64) as i32
         }
     }
 
@@ -188,7 +187,7 @@ impl Cage {
     pub fn write_syscall(&self, virtual_fd: u64, buf: *const u8, count: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::write(kernel_fd, buf as *const c_void, count as usize) as i32
+            libc::write(kernel_fd as i32, buf as *const c_void, count as usize) as i32
         }
     }
 
@@ -202,7 +201,7 @@ impl Cage {
     pub fn pwrite_syscall(&self, virtual_fd: u64, buf: *const u8, count: u64, offset: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::pwrite(kernel_fd, buf as *const c_void, count as usize, offset as i64) as i32
+            libc::pwrite(kernel_fd as i32, buf as *const c_void, count as usize, offset as i64) as i32
         }
     }
 
@@ -216,7 +215,7 @@ impl Cage {
     pub fn lseek_syscall(&self, virtual_fd: u64, offset: u64, whence: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::lseek(kernel_fd, offset as i64, whence as i32) as i32
+            libc::lseek(kernel_fd as i32, offset as i64, whence as i32) as i32
         }
     }
 
@@ -239,7 +238,7 @@ impl Cage {
     pub fn fchdir_syscall(&self, virtual_fd: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fchdir(kernel_fd)
+            libc::fchdir(kernel_fd as i32)
         }
     }
 
@@ -255,159 +254,30 @@ impl Cage {
     }
 
     //------------------------------------DUP & DUP2 SYSCALLS------------------------------------
-
-    pub fn dup_syscall(&self, fd: i32, start_desc: Option<i32>) -> i32 {
-        //if a starting fd was passed, then use that as the starting point, but otherwise, use the designated minimum of STARTINGFD
-        let start_fd = match start_desc {
-            Some(start_desc) => start_desc,
-            None => STARTINGFD,
-        };
-
-        if start_fd == fd {
-            return start_fd;
-        } //if the file descriptors are equal, return the new one
-
-        // get the filedesc_enum
-        let checkedfd = self.get_filedescriptor(fd).unwrap();
-        let filedesc_enum = checkedfd.write();
-        let filedesc_enum = if let Some(f) = &*filedesc_enum {
-            f
-        } else {
-            return syscall_error(Errno::EBADF, "dup", "Invalid old file descriptor.");
-        };
-
-        //checking whether the fd exists in the file table
-        return Self::_dup2_helper(&self, filedesc_enum, start_fd, false);
+    /* 
+    *   dup() / dup2() will return a file descriptor 
+    *   Mapping a new virtual fd and kernel fd that libc::dup returned
+    *   Then return virtual fd
+    */
+    pub fn dup_syscall(&self, virtual_fd: u64, _start_desc: Option<i32>) -> u64 {
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+        let ret_kernelfd = unsafe{ libc::dup(kernel_fd as i32) };
+        let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
+        ret_virtualfd
     }
 
-    pub fn dup2_syscall(&self, oldfd: i32, newfd: i32) -> i32 {
-        //checking if the new fd is out of range
-        if newfd >= MAXFD || newfd < 0 {
-            return syscall_error(
-                Errno::EBADF,
-                "dup2",
-                "provided file descriptor is out of range",
-            );
-        }
-
-        if newfd == oldfd {
-            return newfd;
-        } //if the file descriptors are equal, return the new one
-
-        // get the filedesc_enum
-        let checkedfd = self.get_filedescriptor(oldfd).unwrap();
-        let filedesc_enum = checkedfd.write();
-        let filedesc_enum = if let Some(f) = &*filedesc_enum {
-            f
-        } else {
-            return syscall_error(Errno::EBADF, "dup2", "Invalid old file descriptor.");
+    /* 
+    */
+    pub fn dup2_syscall(&self, old_virtualfd: u64, new_virtualfd: u64) -> u64 {
+        let old_kernelfd = translate_virtual_fd(self.cageid, old_virtualfd).unwrap();
+        let new_kernelfd = unsafe {
+            libc::dup(old_kernelfd as i32)
         };
-
-        //if the old fd exists, execute the helper, else return error
-        return Self::_dup2_helper(&self, filedesc_enum, newfd, true);
-    }
-
-    pub fn _dup2_helper(&self, filedesc_enum: &FileDescriptor, newfd: i32, fromdup2: bool) -> i32 {
-        let (dupfd, mut dupfdguard) = if fromdup2 {
-            let mut fdguard = self.filedescriptortable[newfd as usize].write();
-            let closebool = fdguard.is_some();
-            drop(fdguard);
-            // close the fd in the way of the new fd. mirror the implementation of linux, ignore the potential error of the close here
-            if closebool {
-                let _close_result = Self::_close_helper_inner(&self, newfd);
-            }
-
-            // re-grab clean fd
-            fdguard = self.filedescriptortable[newfd as usize].write();
-            (newfd, fdguard)
-        } else {
-            let (newdupfd, guardopt) = self.get_next_fd(Some(newfd));
-            if newdupfd < 0 {
-                return syscall_error(
-                    Errno::ENFILE,
-                    "dup2_helper",
-                    "no available file descriptor number could be found",
-                );
-            }
-            (newdupfd, guardopt.unwrap())
-        };
-
-        let dupfdoption = &mut *dupfdguard;
-
-        match filedesc_enum {
-            File(normalfile_filedesc_obj) => {
-                let inodenum = normalfile_filedesc_obj.inode;
-                let mut inodeobj = FS_METADATA.inodetable.get_mut(&inodenum).unwrap();
-                //incrementing the ref count so that when close is executed on the dup'd file
-                //the original file does not get a negative ref count
-                match *inodeobj {
-                    Inode::File(ref mut normalfile_inode_obj) => {
-                        normalfile_inode_obj.refcount += 1;
-                    }
-                    Inode::Dir(ref mut dir_inode_obj) => {
-                        dir_inode_obj.refcount += 1;
-                    }
-                    Inode::CharDev(ref mut chardev_inode_obj) => {
-                        chardev_inode_obj.refcount += 1;
-                    }
-                    Inode::Socket(_) => panic!("dup: fd and inode do not match."),
-                }
-            }
-            Pipe(pipe_filedesc_obj) => {
-                pipe_filedesc_obj.pipe.incr_ref(pipe_filedesc_obj.flags);
-            }
-            Socket(ref socket_filedesc_obj) => {
-                //we handle the closing of sockets on drop
-                // checking whether this is a domain socket
-
-                let sock_tmp = socket_filedesc_obj.handle.clone();
-                let sockhandle = sock_tmp.write();
-                let socket_type = sockhandle.domain;
-                if socket_type == AF_UNIX {
-                    if let Some(sockinfo) = &sockhandle.unix_info {
-                        if let Some(sendpipe) = sockinfo.sendpipe.as_ref() {
-                            sendpipe.incr_ref(O_WRONLY);
-                        }
-                        if let Some(receivepipe) = sockinfo.receivepipe.as_ref() {
-                            receivepipe.incr_ref(O_RDONLY);
-                        }
-                    }
-                }
-            }
-            Stream(_normalfile_filedesc_obj) => {
-                // no stream refs
-            }
-            _ => {
-                return syscall_error(Errno::EACCES, "dup or dup2", "can't dup the provided file");
-            }
-        }
-
-        let mut dupd_fd_enum = filedesc_enum.clone(); //clones the arc for sockethandle
-
-        // get and clone fd, wrap and insert into table.
-        match dupd_fd_enum {
-            // we don't want to pass on the CLOEXEC flag
-            File(ref mut normalfile_filedesc_obj) => {
-                normalfile_filedesc_obj.flags = normalfile_filedesc_obj.flags & !O_CLOEXEC;
-            }
-            Pipe(ref mut pipe_filedesc_obj) => {
-                pipe_filedesc_obj.flags = pipe_filedesc_obj.flags & !O_CLOEXEC;
-            }
-            Socket(ref mut socket_filedesc_obj) => {
-                // can do this for domainsockets and sockets
-                socket_filedesc_obj.flags = socket_filedesc_obj.flags & !O_CLOEXEC;
-            }
-            Stream(ref mut stream_filedesc_obj) => {
-                stream_filedesc_obj.flags = stream_filedesc_obj.flags & !O_CLOEXEC;
-            }
-            _ => {
-                return syscall_error(Errno::EACCES, "dup or dup2", "can't dup the provided file");
-            }
-        }
-
-        let _insertval = dupfdoption.insert(dupd_fd_enum);
-
-        return dupfd;
+        // Map new kernel fd with provided kernel fd
+        let _ret_kernelfd = unsafe{ libc::dup2(old_kernelfd as i32, new_kernelfd) };
+        let optinfo = get_optionalinfo(self.cageid, old_virtualfd).unwrap();
+        let _ = get_specific_virtual_fd(self.cageid, new_virtualfd, new_kernelfd as u64, false, optinfo).unwrap();
+        new_virtualfd
     }
 
     //------------------------------------CLOSE SYSCALL------------------------------------
@@ -417,8 +287,10 @@ impl Cage {
     */
     pub fn close_syscall(&self, virtual_fd: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+        // Remove file descriptor from virtual fdtable
+        let _ = rm_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::close(kernel_fd)
+            libc::close(kernel_fd as i32)
         }
     }
 
@@ -457,150 +329,28 @@ impl Cage {
 
        On error, -1 is returned 
     */
-    pub fn fcntl_syscall(&self, fd: i32, cmd: i32, arg: i32) -> i32 {
-        let checkedfd = self.get_filedescriptor(fd).unwrap();
-        let mut unlocked_fd = checkedfd.write();
-        if let Some(filedesc_enum) = &mut *unlocked_fd {
-            let flags = match filedesc_enum {
-                Epoll(obj) => &mut obj.flags,
-                Pipe(obj) => &mut obj.flags,
-                Stream(obj) => &mut obj.flags,
-                File(obj) => &mut obj.flags,
-                Socket(ref mut sockfdobj) => {
-                    if cmd == F_SETFL && arg >= 0 {
-                        let sock_tmp = sockfdobj.handle.clone();
-                        let mut sockhandle = sock_tmp.write();
-
-                        if let Some(ins) = &mut sockhandle.innersocket {
-                            let fcntlret;
-                            if arg & O_NONBLOCK == O_NONBLOCK {
-                                //set for non-blocking I/O
-                                fcntlret = ins.set_nonblocking();
-                            } else {
-                                //clear non-blocking I/O
-                                fcntlret = ins.set_blocking();
-                            }
-                            if fcntlret < 0 {
-                                match Errno::from_discriminant(interface::get_errno()) {
-                                    Ok(i) => {
-                                        return syscall_error(
-                                            i,
-                                            "fcntl",
-                                            "The libc call to fcntl failed!",
-                                        );
-                                    }
-                                    Err(()) => panic!("Unknown errno value from fcntl returned!"),
-                                };
-                            }
-                        }
-                    }
-
-                    &mut sockfdobj.flags
-                }
-            };
-
-            //matching the tuple
-            match (cmd, arg) {
-                //because the arg parameter is not used in certain commands, it can be anything (..)
-                (F_GETFD, ..) => *flags & O_CLOEXEC,
-                // set the flags but make sure that the flags are valid
-                (F_SETFD, arg) if arg >= 0 => {
-                    if arg & O_CLOEXEC != 0 {
-                        *flags |= O_CLOEXEC;
-                    } else {
-                        *flags &= !O_CLOEXEC;
-                    }
-                    0
-                }
-                (F_GETFL, ..) => {
-                    //for get, we just need to return the flags
-                    *flags & !O_CLOEXEC
-                }
-                (F_SETFL, arg) if arg >= 0 => {
-                    *flags |= arg;
-                    0
-                }
-                (F_DUPFD, arg) if arg >= 0 => self._dup2_helper(&filedesc_enum, arg, false),
-                //TO DO: implement. this one is saying get the signals
-                (F_GETOWN, ..) => {
-                    0 //TO DO: traditional SIGIO behavior
-                }
-                (F_SETOWN, arg) if arg >= 0 => {
-                    0 //this would return the PID if positive and the process group if negative,
-                      //either way do nothing and return success
-                }
-                _ => syscall_error(
-                    Errno::EINVAL,
-                    "fcntl",
-                    "Arguments provided do not match implemented parameters",
-                ),
-            }
-        } else {
-            syscall_error(Errno::EBADF, "fcntl", "Invalid file descriptor")
+    pub fn fcntl_syscall(&self, virtual_fd: u64, cmd: u64, arg: u64) -> i32 {
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+        if (cmd as i32) == libc::F_DUPFD {
+            let new_kernelfd = unsafe { libc::fcntl(kernel_fd as i32, cmd as i32, arg) };
+            // Get status
+            let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd as u64, false, 0).unwrap();
+            return new_virtualfd as i32;
         }
+        unsafe { libc::fcntl(kernel_fd as i32, cmd as i32, arg) }
     }
 
     //------------------------------------IOCTL SYSCALL------------------------------------
-
-    pub fn ioctl_syscall(&self, fd: i32, request: u32, ptrunion: IoctlPtrUnion) -> i32 {
-        let checkedfd = self.get_filedescriptor(fd).unwrap();
-        let mut unlocked_fd = checkedfd.write();
-        if let Some(filedesc_enum) = &mut *unlocked_fd {
-            match request {
-                FIONBIO => {
-                    let arg_result = interface::get_ioctl_int(ptrunion);
-                    //matching the tuple and passing in filedesc_enum
-                    match (arg_result, filedesc_enum) {
-                        (Err(arg_result), ..)=> {
-                            return arg_result; //syscall_error
-                        }
-                        (Ok(arg_result), Socket(ref mut sockfdobj)) => {
-                            let sock_tmp = sockfdobj.handle.clone();
-                            let mut sockhandle = sock_tmp.write();
-
-                            let flags = &mut sockfdobj.flags;
-                            let arg: i32 = arg_result;
-                            let mut ioctlret = 0;
-
-                            if arg == 0 { //clear non-blocking I/O
-                                *flags &= !O_NONBLOCK;
-                                if let Some(ins) = &mut sockhandle.innersocket {
-                                    ioctlret = ins.set_blocking();
-                                }
-                            } else { //set for non-blocking I/O
-                                *flags |= O_NONBLOCK;
-                                if let Some(ins) = &mut sockhandle.innersocket {
-                                    ioctlret = ins.set_nonblocking();
-                                }
-                            }
-                            if ioctlret < 0 {
-                                match Errno::from_discriminant(interface::get_errno()) {
-                                    Ok(i) => {return syscall_error(i, "ioctl", "The libc call to ioctl failed!");},
-                                    Err(()) => panic!("Unknown errno value from ioctl returned!"),
-                                };
-                            }
-
-                            0
-                        }
-                        _ => {syscall_error(Errno::ENOTTY, "ioctl", "The specified request does not apply to the kind of object that the file descriptor fd references.")}
-                    }
-                }
-                FIOASYNC => {
-                    //not implemented
-                    interface::log_verbose(
-                        "ioctl(FIOASYNC) is not implemented, and just returns 0.",
-                    );
-                    0
-                }
-                _ => syscall_error(
-                    Errno::EINVAL,
-                    "ioctl",
-                    "Arguments provided do not match implemented parameters",
-                ),
-            }
-        } else {
-            syscall_error(Errno::EBADF, "ioctl", "Invalid file descriptor")
-        }
+    /*
+    *   The third argument is an untyped pointer to memory.  It's traditionally char *argp 
+    *   (from the days before void * was valid C), and will be so named for this discussion.
+    *   ioctl() will return 0 when success and -1 when fail. 
+    *   Note: A few ioctl() requests use the return value as an output parameter and return 
+    *   a nonnegative value on success.
+    */
+    pub fn ioctl_syscall(&self, virtual_fd: u64, request: u64, ptrunion: IoctlPtrUnion) -> i32 {
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+        unsafe { libc::ioctl(kernel_fd as i32, request, ptrunion as *mut _ as *mut c_void) }
     }
 
 
@@ -623,7 +373,7 @@ impl Cage {
     pub fn fchmod_syscall(&self, virtual_fd: u64, mode: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fchmod(kernel_fd, mode as u16)
+            libc::fchmod(kernel_fd as i32, mode as u16)
         }
     }
 
@@ -646,7 +396,7 @@ impl Cage {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         // Do type conversion to translate from c_void into i32
         unsafe {
-            ((libc::mmap(addr as *mut c_void, len as usize, prot as i32, flags as i32, kernel_fd, off as i64) as i64) 
+            ((libc::mmap(addr as *mut c_void, len as usize, prot as i32, flags as i32, kernel_fd as i32, off as i64) as i64) 
                 & 0xffffffff) as i32
         }
     }
@@ -671,7 +421,7 @@ impl Cage {
     pub fn flock_syscall(&self, virtual_fd: u64, operation: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::flock(kernel_fd, operation as i32)
+            libc::flock(kernel_fd as i32, operation as i32)
         }
     }
 
@@ -706,7 +456,7 @@ impl Cage {
     pub fn fsync_syscall(&self, virtual_fd: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fsync(kernel_fd)
+            libc::fsync(kernel_fd as i32)
         }
     }
 
@@ -718,7 +468,7 @@ impl Cage {
     pub fn fdatasync_syscall(&self, virtual_fd: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fdatasync(kernel_fd)
+            libc::fdatasync(kernel_fd as i32)
         }
     }
 
@@ -748,7 +498,7 @@ impl Cage {
     pub fn ftruncate_syscall(&self, virtual_fd: u64, length: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::ftruncate(kernel_fd, length as i64)
+            libc::ftruncate(kernel_fd as i32, length as i64)
         }
     }
 
@@ -764,45 +514,31 @@ impl Cage {
     }
 
     //------------------PIPE SYSCALL------------------
-    pub fn pipe_syscall(&self, pipefd: &mut PipeArray) -> i32 {
-        self.pipe2_syscall(pipefd, 0)
+    /*
+    *   When using the rust libc, a pipe file descriptor (pipefd) is typically an array 
+    *   containing two integers. This array is populated by the pipe system call, with one 
+    *   integer for the read end and the other for the write end.
+    *
+    *   pipe() will return 0 when sucess, -1 when fail 
+    */
+    pub fn pipe_syscall(&self, pipefd: &[u64]) -> i32 {
+        let mut kernel_fds = Vec::with_capacity(2);
+        for index in 0..2 {
+            let virtual_fd = pipefd[index];
+            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+            kernel_fds.push(kernel_fd);
+        }
+        unsafe { libc::pipe(kernel_fds.as_mut_ptr() as *mut i32) }
     }
 
-    pub fn pipe2_syscall(&self, pipefd: &mut PipeArray, flags: i32) -> i32 {
-        let flagsmask = O_CLOEXEC | O_NONBLOCK;
-        let actualflags = flags & flagsmask;
-
-        let pipe = interface::RustRfc::new(interface::new_pipe(PIPE_CAPACITY));
-
-        // get an fd for each end of the pipe and set flags to RD_ONLY and WR_ONLY
-        // append each to pipefds list
-
-        let accflags = [O_RDONLY, O_WRONLY];
-        for accflag in accflags {
-            let (fd, guardopt) = self.get_next_fd(None);
-            if fd < 0 {
-                return fd;
-            }
-            let fdoption = &mut *guardopt.unwrap();
-
-            let _insertval = fdoption.insert(Pipe(PipeDesc {
-                pipe: pipe.clone(),
-                flags: accflag | actualflags,
-                advlock: interface::RustRfc::new(interface::AdvisoryLock::new()),
-            }));
-
-            match accflag {
-                O_RDONLY => {
-                    pipefd.readfd = fd;
-                }
-                O_WRONLY => {
-                    pipefd.writefd = fd;
-                }
-                _ => panic!("How did you get here."),
-            }
+    pub fn pipe2_syscall(&self, pipefd: &[u64], flags: u64) -> i32 {
+        let mut kernel_fds = Vec::with_capacity(2);
+        for index in 0..2 {
+            let virtual_fd = pipefd[index];
+            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+            kernel_fds.push(kernel_fd);
         }
-
-        0 // success
+        unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) }
     }
 
     //------------------GETDENTS SYSCALL------------------
@@ -813,12 +549,11 @@ impl Cage {
     *   - 0, EOF
     *   - -1, fail 
     */
-    pub fn getdents_syscall(&self, virtual_fd: u64, dirp: *mut u8, bufsize: u64) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe {
-            libc::getdents(kernel_fd, dirp, bufsize as )
-        }
-    }
+    // pub fn getdents_syscall(&self, virtual_fd: u64, dirp: *mut u8, bufsize: u64) -> i32 {
+    //     let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+    //     unsafe {
+    //     }
+    // }
 
     //------------------------------------GETCWD SYSCALL------------------------------------
     /*
@@ -832,805 +567,166 @@ impl Cage {
         }
     }
 
-    //------------------SHMHELPERS----------------------
-
-    pub fn rev_shm_find_index_by_addr(rev_shm: &Vec<(u32, i32)>, shmaddr: u32) -> Option<usize> {
-        for (index, val) in rev_shm.iter().enumerate() {
-            if val.0 == shmaddr as u32 {
-                return Some(index);
-            }
-        }
-        None
-    }
-
-    pub fn rev_shm_find_addrs_by_shmid(rev_shm: &Vec<(u32, i32)>, shmid: i32) -> Vec<u32> {
-        let mut addrvec = Vec::new();
-        for val in rev_shm.iter() {
-            if val.1 == shmid as i32 {
-                addrvec.push(val.0);
-            }
-        }
-
-        return addrvec;
-    }
-
-    pub fn search_for_addr_in_region(
-        rev_shm: &Vec<(u32, i32)>,
-        search_addr: u32,
-    ) -> Option<(u32, i32)> {
-        let metadata = &SHM_METADATA;
-        for val in rev_shm.iter() {
-            let addr = val.0;
-            let shmid = val.1;
-            if let Some(segment) = metadata.shmtable.get_mut(&shmid) {
-                let range = addr..(addr + segment.size as u32);
-                if range.contains(&search_addr) {
-                    return Some((addr, shmid));
-                }
-            }
-        }
-        None
-    }
-
     //------------------SHMGET SYSCALL------------------
-
-    pub fn shmget_syscall(&self, key: i32, size: usize, shmflg: i32) -> i32 {
-        if key == IPC_PRIVATE {
-            return syscall_error(Errno::ENOENT, "shmget", "IPC_PRIVATE not implemented");
-        }
-        let shmid: i32;
-        let metadata = &SHM_METADATA;
-
-        match metadata.shmkeyidtable.entry(key) {
-            interface::RustHashEntry::Occupied(occupied) => {
-                if (IPC_CREAT | IPC_EXCL) == (shmflg & (IPC_CREAT | IPC_EXCL)) {
-                    return syscall_error(
-                        Errno::EEXIST,
-                        "shmget",
-                        "key already exists and IPC_CREAT and IPC_EXCL were used",
-                    );
-                }
-                shmid = *occupied.get();
-            }
-            interface::RustHashEntry::Vacant(vacant) => {
-                if 0 == (shmflg & IPC_CREAT) {
-                    return syscall_error(
-                        Errno::ENOENT,
-                        "shmget",
-                        "tried to use a key that did not exist, and IPC_CREAT was not specified",
-                    );
-                }
-
-                if (size as u32) < SHMMIN || (size as u32) > SHMMAX {
-                    return syscall_error(
-                        Errno::EINVAL,
-                        "shmget",
-                        "Size is less than SHMMIN or more than SHMMAX",
-                    );
-                }
-
-                shmid = metadata.new_keyid();
-                vacant.insert(shmid);
-                let mode = (shmflg & 0x1FF) as u16; // mode is 9 least signficant bits of shmflag, even if we dont really do anything with them
-
-                let segment = new_shm_segment(
-                    key,
-                    size,
-                    self.cageid as u32,
-                    DEFAULT_UID,
-                    DEFAULT_GID,
-                    mode,
-                );
-                metadata.shmtable.insert(shmid, segment);
-            }
-        };
-        shmid // return the shmid
+    /* 
+    *   shmget() will return:
+    *   - a valid shared memory identifier, success
+    *   - -1, fail
+    */
+    pub fn shmget_syscall(&self, key: u64, size: u64, shmflg: u64) -> i32 {
+        unsafe { libc::shmget(key as i32, size as usize, shmflg as i32) as i32 }
     }
 
     //------------------SHMAT SYSCALL------------------
-
-    pub fn shmat_syscall(&self, shmid: i32, shmaddr: *mut u8, shmflg: i32) -> i32 {
-        let metadata = &SHM_METADATA;
-        let prot: i32;
-        if let Some(mut segment) = metadata.shmtable.get_mut(&shmid) {
-            if 0 != (shmflg & SHM_RDONLY) {
-                prot = PROT_READ;
-            } else {
-                prot = PROT_READ | PROT_WRITE;
-            }
-            let mut rev_shm = self.rev_shm.lock();
-            rev_shm.push((shmaddr as u32, shmid));
-            drop(rev_shm);
-
-            // update semaphores
-            if !segment.semaphor_offsets.is_empty() {
-                // lets just look at the first cage in the set, since we only need to grab the ref from one
-                if let Some(cageid) = segment
-                    .attached_cages
-                    .clone()
-                    .into_read_only()
-                    .keys()
-                    .next()
-                {
-                    let cage2 = interface::cagetable_getref(*cageid);
-                    let cage2_rev_shm = cage2.rev_shm.lock();
-                    let addrs = Self::rev_shm_find_addrs_by_shmid(&cage2_rev_shm, shmid); // find all the addresses assoc. with shmid
-                    for offset in segment.semaphor_offsets.iter() {
-                        let sementry = cage2.sem_table.get(&(addrs[0] + *offset)).unwrap().clone(); //add  semaphors into semtable at addr + offsets
-                        self.sem_table.insert(shmaddr as u32 + *offset, sementry);
-                    }
-                }
-            }
-
-            segment.map_shm(shmaddr, prot, self.cageid)
-        } else {
-            syscall_error(Errno::EINVAL, "shmat", "Invalid shmid value")
-        }
+    /* 
+    *   shmat() will return:
+    *   - the segment's start address, success
+    *   - -1, fail    
+    */
+    pub fn shmat_syscall(&self, shmid: u64, shmaddr: *mut u8, shmflg: u64) -> i32 {
+        // Convert address to adapt to NaCl
+        ((unsafe { libc::shmat(shmid as i32, shmaddr as *const c_void, shmflg as i32)} as i64 ) & 0xffffffff) as i32
     }
 
     //------------------SHMDT SYSCALL------------------
-
+    /* 
+    *   shmdt() will return 0 when sucess, -1 when fail 
+    */
     pub fn shmdt_syscall(&self, shmaddr: *mut u8) -> i32 {
-        let metadata = &SHM_METADATA;
-        let mut rm = false;
-        let mut rev_shm = self.rev_shm.lock();
-        let rev_shm_index = Self::rev_shm_find_index_by_addr(&rev_shm, shmaddr as u32);
-
-        if let Some(index) = rev_shm_index {
-            let shmid = rev_shm[index].1;
-            match metadata.shmtable.entry(shmid) {
-                interface::RustHashEntry::Occupied(mut occupied) => {
-                    let segment = occupied.get_mut();
-
-                    // update semaphores
-                    for offset in segment.semaphor_offsets.iter() {
-                        self.sem_table.remove(&(shmaddr as u32 + *offset));
-                    }
-
-                    segment.unmap_shm(shmaddr, self.cageid);
-
-                    if segment.rmid && segment.shminfo.shm_nattch == 0 {
-                        rm = true;
-                    }
-                    rev_shm.swap_remove(index);
-
-                    if rm {
-                        let key = segment.key;
-                        occupied.remove_entry();
-                        metadata.shmkeyidtable.remove(&key);
-                    }
-
-                    return shmid; //NaCl relies on this non-posix behavior of returning the shmid on success
-                }
-                interface::RustHashEntry::Vacant(_) => {
-                    panic!("Inode not created for some reason");
-                }
-            };
-        } else {
-            return syscall_error(
-                Errno::EINVAL,
-                "shmdt",
-                "No shared memory segment at shmaddr",
-            );
-        }
-    }
-
-    //------------------SHMCTL SYSCALL------------------
-
-    pub fn shmctl_syscall(&self, shmid: i32, cmd: i32, buf: Option<&mut ShmidsStruct>) -> i32 {
-        let metadata = &SHM_METADATA;
-
-        if let Some(mut segment) = metadata.shmtable.get_mut(&shmid) {
-            match cmd {
-                IPC_STAT => {
-                    *buf.unwrap() = segment.shminfo;
-                }
-                IPC_RMID => {
-                    segment.rmid = true;
-                    segment.shminfo.shm_perm.mode |= SHM_DEST as u16;
-                    if segment.shminfo.shm_nattch == 0 {
-                        let key = segment.key;
-                        drop(segment);
-                        metadata.shmtable.remove(&shmid);
-                        metadata.shmkeyidtable.remove(&key);
-                    }
-                }
-                _ => {
-                    return syscall_error(
-                        Errno::EINVAL,
-                        "shmctl",
-                        "Arguments provided do not match implemented parameters",
-                    );
-                }
-            }
-        } else {
-            return syscall_error(Errno::EINVAL, "shmctl", "Invalid identifier");
-        }
-
-        0 //shmctl has succeeded!
+        unsafe { libc::shmdt(shmaddr as *const c_void) }
     }
 
     //------------------MUTEX SYSCALLS------------------
-
-    pub fn mutex_create_syscall(&self) -> i32 {
-        let mut mutextable = self.mutex_table.write();
-        let mut index_option = None;
-        for i in 0..mutextable.len() {
-            if mutextable[i].is_none() {
-                index_option = Some(i);
-                break;
-            }
-        }
-
-        let index = if let Some(ind) = index_option {
-            ind
-        } else {
-            mutextable.push(None);
-            mutextable.len() - 1
-        };
-
-        let mutex_result = interface::RawMutex::create();
-        match mutex_result {
-            Ok(mutex) => {
-                mutextable[index] = Some(interface::RustRfc::new(mutex));
-                index as i32
-            }
-            Err(_) => match Errno::from_discriminant(interface::get_errno()) {
-                Ok(i) => syscall_error(
-                    i,
-                    "mutex_create",
-                    "The libc call to pthread_mutex_init failed!",
-                ),
-                Err(()) => panic!("Unknown errno value from pthread_mutex_init returned!"),
-            },
-        }
+    /* 
+    *   pthread_mutex_init() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_mutex_init_syscall(&self, lock: *mut pthread_mutex_t, attr: *const pthread_mutexattr_t) -> i32 {
+        unsafe { libc::pthread_mutex_init(lock, attr) }
     }
 
-    pub fn mutex_destroy_syscall(&self, mutex_handle: i32) -> i32 {
-        let mut mutextable = self.mutex_table.write();
-        if mutex_handle < mutextable.len() as i32
-            && mutex_handle >= 0
-            && mutextable[mutex_handle as usize].is_some()
-        {
-            mutextable[mutex_handle as usize] = None;
-            0
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "mutex_destroy",
-                "Mutex handle does not refer to a valid mutex!",
-            )
-        }
-        //the RawMutex is destroyed on Drop
-
-        //this is currently assumed to always succeed, as the man page does not list possible
-        //errors for pthread_mutex_destroy
+    /* 
+    *   pthread_mutex_destroy() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_mutex_destroy_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
+        unsafe { libc::pthread_mutex_destroy(lock) }
     }
 
-    pub fn mutex_lock_syscall(&self, mutex_handle: i32) -> i32 {
-        let mutextable = self.mutex_table.read();
-        if mutex_handle < mutextable.len() as i32
-            && mutex_handle >= 0
-            && mutextable[mutex_handle as usize].is_some()
-        {
-            let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
-            drop(mutextable);
-            let retval = clonedmutex.lock();
-
-            if retval < 0 {
-                match Errno::from_discriminant(interface::get_errno()) {
-                    Ok(i) => {
-                        return syscall_error(
-                            i,
-                            "mutex_lock",
-                            "The libc call to pthread_mutex_lock failed!",
-                        );
-                    }
-                    Err(()) => panic!("Unknown errno value from pthread_mutex_lock returned!"),
-                };
-            }
-
-            retval
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "mutex_lock",
-                "Mutex handle does not refer to a valid mutex!",
-            )
-        }
+    /* 
+    *   pthread_mutex_lock() will return 0 when sucess, -1 when fail 
+    */
+    pub fn pthread_mutex_lock_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
+        unsafe{ libc::pthread_mutex_lock(lock) }
     }
 
-    pub fn mutex_trylock_syscall(&self, mutex_handle: i32) -> i32 {
-        let mutextable = self.mutex_table.read();
-        if mutex_handle < mutextable.len() as i32
-            && mutex_handle >= 0
-            && mutextable[mutex_handle as usize].is_some()
-        {
-            let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
-            drop(mutextable);
-            let retval = clonedmutex.trylock();
-
-            if retval < 0 {
-                match Errno::from_discriminant(interface::get_errno()) {
-                    Ok(i) => {
-                        return syscall_error(
-                            i,
-                            "mutex_trylock",
-                            "The libc call to pthread_mutex_trylock failed!",
-                        );
-                    }
-                    Err(()) => panic!("Unknown errno value from pthread_mutex_trylock returned!"),
-                };
-            }
-
-            retval
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "mutex_trylock",
-                "Mutex handle does not refer to a valid mutex!",
-            )
-        }
+    /* 
+    *   pthread_mutex_trylock() will return 0 when acquire lock, -1 when fail 
+    */
+    pub fn pthread_mutex_trylock_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
+        unsafe{ libc::pthread_mutex_trylock(lock) }
     }
 
-    pub fn mutex_unlock_syscall(&self, mutex_handle: i32) -> i32 {
-        let mutextable = self.mutex_table.read();
-        if mutex_handle < mutextable.len() as i32
-            && mutex_handle >= 0
-            && mutextable[mutex_handle as usize].is_some()
-        {
-            let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
-            drop(mutextable);
-            let retval = clonedmutex.unlock();
-
-            if retval < 0 {
-                match Errno::from_discriminant(interface::get_errno()) {
-                    Ok(i) => {
-                        return syscall_error(
-                            i,
-                            "mutex_unlock",
-                            "The libc call to pthread_mutex_unlock failed!",
-                        );
-                    }
-                    Err(()) => panic!("Unknown errno value from pthread_mutex_unlock returned!"),
-                };
-            }
-
-            retval
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "mutex_unlock",
-                "Mutex handle does not refer to a valid mutex!",
-            )
-        }
+    /* 
+    *   pthread_mutex_unlock() will return 0 when sucess, -1 when fail 
+    */
+    pub fn pthread_mutex_unlock_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
+        unsafe{ libc::pthread_mutex_unlock(lock) }
     }
 
     //------------------CONDVAR SYSCALLS------------------
-
-    pub fn cond_create_syscall(&self) -> i32 {
-        let mut cvtable = self.cv_table.write();
-        let mut index_option = None;
-        for i in 0..cvtable.len() {
-            if cvtable[i].is_none() {
-                index_option = Some(i);
-                break;
-            }
-        }
-
-        let index = if let Some(ind) = index_option {
-            ind
-        } else {
-            cvtable.push(None);
-            cvtable.len() - 1
-        };
-
-        let cv_result = interface::RawCondvar::create();
-        match cv_result {
-            Ok(cv) => {
-                cvtable[index] = Some(interface::RustRfc::new(cv));
-                index as i32
-            }
-            Err(_) => match Errno::from_discriminant(interface::get_errno()) {
-                Ok(i) => syscall_error(
-                    i,
-                    "cond_create",
-                    "The libc call to pthread_cond_init failed!",
-                ),
-                Err(()) => panic!("Unknown errno value from pthread_cond_init returned!"),
-            },
-        }
+    /* 
+    *   pthread_cond_init() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_cond_init_syscall(&self, cond: *mut pthread_cond_t, attr: *const pthread_condattr_t) -> i32 {
+        unsafe{ libc::pthread_cond_init(cond, attr) }
     }
 
-    pub fn cond_destroy_syscall(&self, cv_handle: i32) -> i32 {
-        let mut cvtable = self.cv_table.write();
-        if cv_handle < cvtable.len() as i32
-            && cv_handle >= 0
-            && cvtable[cv_handle as usize].is_some()
-        {
-            cvtable[cv_handle as usize] = None;
-            0
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "cond_destroy",
-                "Condvar handle does not refer to a valid condvar!",
-            )
-        }
-        //the RawCondvar is destroyed on Drop
-
-        //this is currently assumed to always succeed, as the man page does not list possible
-        //errors for pthread_cv_destroy
+    /* 
+    *   pthread_cond_idestroy() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_cond_destroy_syscall(&self, cond: *mut pthread_cond_t) -> i32 {
+        unsafe{ libc::pthread_cond_destroy(cond) }
     }
 
-    pub fn cond_signal_syscall(&self, cv_handle: i32) -> i32 {
-        let cvtable = self.cv_table.read();
-        if cv_handle < cvtable.len() as i32
-            && cv_handle >= 0
-            && cvtable[cv_handle as usize].is_some()
-        {
-            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
-            drop(cvtable);
-            let retval = clonedcv.signal();
-
-            if retval < 0 {
-                match Errno::from_discriminant(interface::get_errno()) {
-                    Ok(i) => {
-                        return syscall_error(
-                            i,
-                            "cond_signal",
-                            "The libc call to pthread_cond_signal failed!",
-                        );
-                    }
-                    Err(()) => panic!("Unknown errno value from pthread_cond_signal returned!"),
-                };
-            }
-
-            retval
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "cond_signal",
-                "Condvar handle does not refer to a valid condvar!",
-            )
-        }
+    /* 
+    *   pthread_cond_signal() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_cond_signal_syscall(&self, cond: *mut pthread_cond_t) -> i32 {
+        unsafe{ libc::pthread_cond_signal(cond) }
     }
 
-    pub fn cond_broadcast_syscall(&self, cv_handle: i32) -> i32 {
-        let cvtable = self.cv_table.read();
-        if cv_handle < cvtable.len() as i32
-            && cv_handle >= 0
-            && cvtable[cv_handle as usize].is_some()
-        {
-            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
-            drop(cvtable);
-            let retval = clonedcv.broadcast();
-
-            if retval < 0 {
-                match Errno::from_discriminant(interface::get_errno()) {
-                    Ok(i) => {
-                        return syscall_error(
-                            i,
-                            "cond_broadcast",
-                            "The libc call to pthread_cond_broadcast failed!",
-                        );
-                    }
-                    Err(()) => panic!("Unknown errno value from pthread_cond_broadcast returned!"),
-                };
-            }
-
-            retval
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "cond_broadcast",
-                "Condvar handle does not refer to a valid condvar!",
-            )
-        }
+    /* 
+    *   pthread_cond_broadcast() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_cond_broadcast_syscall(&self, cond: *mut pthread_cond_t) -> i32 {
+        unsafe{ libc::pthread_cond_broadcast(cond) }
     }
 
-    pub fn cond_wait_syscall(&self, cv_handle: i32, mutex_handle: i32) -> i32 {
-        let cvtable = self.cv_table.read();
-        if cv_handle < cvtable.len() as i32
-            && cv_handle >= 0
-            && cvtable[cv_handle as usize].is_some()
-        {
-            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
-            drop(cvtable);
-
-            let mutextable = self.mutex_table.read();
-            if mutex_handle < mutextable.len() as i32
-                && mutex_handle >= 0
-                && mutextable[mutex_handle as usize].is_some()
-            {
-                let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
-                drop(mutextable);
-                let retval = clonedcv.wait(&*clonedmutex);
-
-                // if the cancel status is set in the cage, we trap around a cancel point
-                // until the individual thread is signaled to cancel itself
-                if self
-                    .cancelstatus
-                    .load(interface::RustAtomicOrdering::Relaxed)
-                {
-                    loop {
-                        interface::cancelpoint(self.cageid);
-                    } // we check cancellation status here without letting the function return
-                }
-
-                if retval < 0 {
-                    match Errno::from_discriminant(interface::get_errno()) {
-                        Ok(i) => {
-                            return syscall_error(
-                                i,
-                                "cond_wait",
-                                "The libc call to pthread_cond_wait failed!",
-                            );
-                        }
-                        Err(()) => panic!("Unknown errno value from pthread_cond_wait returned!"),
-                    };
-                }
-
-                retval
-            } else {
-                //undefined behavior
-                syscall_error(
-                    Errno::EBADF,
-                    "cond_wait",
-                    "Mutex handle does not refer to a valid mutex!",
-                )
-            }
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "cond_wait",
-                "Condvar handle does not refer to a valid condvar!",
-            )
-        }
+    /* 
+    *   pthread_cond_wait() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_cond_wait_syscall(&self, cond: *mut pthread_cond_t, lock: *mut pthread_mutex_t) -> i32 {
+        unsafe{ libc::pthread_cond_wait(cond, lock) }
     }
 
-    pub fn cond_timedwait_syscall(
+    /* 
+    *   pthread_cond_timedwait() will return 0 when sucess, errno when fail 
+    */
+    pub fn pthread_cond_timedwait_syscall(
         &self,
-        cv_handle: i32,
-        mutex_handle: i32,
-        time: interface::RustDuration,
+        cond: *mut pthread_cond_t,
+        lock: *mut pthread_mutex_t,
+        abstime: *const timespec
     ) -> i32 {
-        let cvtable = self.cv_table.read();
-        if cv_handle < cvtable.len() as i32
-            && cv_handle >= 0
-            && cvtable[cv_handle as usize].is_some()
-        {
-            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
-            drop(cvtable);
-
-            let mutextable = self.mutex_table.read();
-            if mutex_handle < mutextable.len() as i32
-                && mutex_handle >= 0
-                && mutextable[mutex_handle as usize].is_some()
-            {
-                let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
-                drop(mutextable);
-                let retval = clonedcv.timedwait(&*clonedmutex, time);
-                if retval < 0 {
-                    match Errno::from_discriminant(interface::get_errno()) {
-                        Ok(i) => {
-                            return syscall_error(
-                                i,
-                                "cond_wait",
-                                "The libc call to pthread_cond_wait failed!",
-                            );
-                        }
-                        Err(()) => panic!("Unknown errno value from pthread_cond_wait returned!"),
-                    };
-                }
-
-                retval
-            } else {
-                //undefined behavior
-                syscall_error(
-                    Errno::EBADF,
-                    "cond_wait",
-                    "Mutex handle does not refer to a valid mutex!",
-                )
-            }
-        } else {
-            //undefined behavior
-            syscall_error(
-                Errno::EBADF,
-                "cond_wait",
-                "Condvar handle does not refer to a valid condvar!",
-            )
-        }
+        unsafe{ libc::pthread_cond_timedwait(cond, lock, abstime) }
     }
 
     //------------------SEMAPHORE SYSCALLS------------------
     /*
-     *  Initialize semaphore object SEM to value
-     *  pshared used to indicate whether the semaphore is shared in threads (when equals to 0)
-     *  or shared between processes (when nonzero)
-     */
-    pub fn sem_init_syscall(&self, sem_handle: u32, pshared: i32, value: u32) -> i32 {
-        // Boundary check
-        if value > SEM_VALUE_MAX {
-            return syscall_error(Errno::EINVAL, "sem_init", "value exceeds SEM_VALUE_MAX");
-        }
-
-        let metadata = &SHM_METADATA;
-        let is_shared = pshared != 0;
-
-        // Iterate semaphore table, if semaphore is already initialzed return error
-        let semtable = &self.sem_table;
-
-        // Will initialize only it's new
-        if !semtable.contains_key(&sem_handle) {
-            let new_semaphore =
-                interface::RustRfc::new(interface::RustSemaphore::new(value, is_shared));
-            semtable.insert(sem_handle, new_semaphore.clone());
-
-            if is_shared {
-                let rev_shm = self.rev_shm.lock();
-                // if its shared and exists in an existing mapping we need to add it to other cages
-                if let Some((mapaddr, shmid)) =
-                    Self::search_for_addr_in_region(&rev_shm, sem_handle)
-                {
-                    let offset = mapaddr - sem_handle;
-                    if let Some(segment) = metadata.shmtable.get_mut(&shmid) {
-                        for cageid in segment.attached_cages.clone().into_read_only().keys() {
-                            // iterate through all cages with segment attached and add semaphor in segments at attached addr + offset
-                            let cage = interface::cagetable_getref(*cageid);
-                            let addrs = Self::rev_shm_find_addrs_by_shmid(&rev_shm, shmid);
-                            for addr in addrs.iter() {
-                                cage.sem_table.insert(addr + offset, new_semaphore.clone());
-                            }
-                        }
-                        segment.semaphor_offsets.insert(offset);
-                    }
-                }
-            }
-            return 0;
-        }
-
-        return syscall_error(Errno::EBADF, "sem_init", "semaphore already initialized");
-    }
-
-    pub fn sem_wait_syscall(&self, sem_handle: u32) -> i32 {
-        let semtable = &self.sem_table;
-        // Check whether semaphore exists
-        if let Some(sementry) = semtable.get_mut(&sem_handle) {
-            let semaphore = sementry.clone();
-            drop(sementry);
-            semaphore.lock();
-        } else {
-            return syscall_error(Errno::EINVAL, "sem_wait", "sem is not a valid semaphore");
-        }
-        return 0;
-    }
-
-    pub fn sem_post_syscall(&self, sem_handle: u32) -> i32 {
-        let semtable = &self.sem_table;
-        if let Some(sementry) = semtable.get_mut(&sem_handle) {
-            let semaphore = sementry.clone();
-            drop(sementry);
-            if !semaphore.unlock() {
-                return syscall_error(
-                    Errno::EOVERFLOW,
-                    "sem_post",
-                    "The maximum allowable value for a semaphore would be exceeded",
-                );
-            }
-        } else {
-            return syscall_error(Errno::EINVAL, "sem_wait", "sem is not a valid semaphore");
-        }
-        return 0;
-    }
-
-    pub fn sem_destroy_syscall(&self, sem_handle: u32) -> i32 {
-        let metadata = &SHM_METADATA;
-
-        let semtable = &self.sem_table;
-        // remove entry from semaphore table
-        if let Some(sementry) = semtable.remove(&sem_handle) {
-            if sementry
-                .1
-                .is_shared
-                .load(interface::RustAtomicOrdering::Relaxed)
-            {
-                // if its shared we'll need to remove it from other attachments
-                let rev_shm = self.rev_shm.lock();
-                if let Some((mapaddr, shmid)) =
-                    Self::search_for_addr_in_region(&rev_shm, sem_handle)
-                {
-                    // find all segments that contain semaphore
-                    let offset = mapaddr - sem_handle;
-                    if let Some(segment) = metadata.shmtable.get_mut(&shmid) {
-                        for cageid in segment.attached_cages.clone().into_read_only().keys() {
-                            // iterate through all cages containing segment
-                            let cage = interface::cagetable_getref(*cageid);
-                            let addrs = Self::rev_shm_find_addrs_by_shmid(&rev_shm, shmid);
-                            for addr in addrs.iter() {
-                                cage.sem_table.remove(&(addr + offset)); //remove semapoores at attached addresses + the offset
-                            }
-                        }
-                    }
-                }
-            }
-            return 0;
-        } else {
-            return syscall_error(Errno::EINVAL, "sem_destroy", "sem is not a valid semaphore");
-        }
+    *   sem_init() will return 0 when sucess, -1 when fail 
+    */
+    pub fn sem_init_syscall(&self, sem: *mut sem_t, pshared: u64, value: u64) -> i32 {
+        unsafe{ libc::sem_init(sem, pshared as i32, value as u32) }
     }
 
     /*
-     * Take only sem_t *sem as argument, and return int *sval
-     */
-    pub fn sem_getvalue_syscall(&self, sem_handle: u32) -> i32 {
-        let semtable = &self.sem_table;
-        if let Some(sementry) = semtable.get_mut(&sem_handle) {
-            let semaphore = sementry.clone();
-            drop(sementry);
-            return semaphore.get_value();
-        }
-        return syscall_error(
-            Errno::EINVAL,
-            "sem_getvalue",
-            "sem is not a valid semaphore",
-        );
+    *   sem_wait() will return 0 when sucess, -1 when fail 
+    */
+    pub fn sem_wait_syscall(&self, sem: *mut sem_t) -> i32 {
+        unsafe{ libc::sem_wait(sem) }
     }
 
-    pub fn sem_trywait_syscall(&self, sem_handle: u32) -> i32 {
-        let semtable = &self.sem_table;
-        // Check whether semaphore exists
-        if let Some(sementry) = semtable.get_mut(&sem_handle) {
-            let semaphore = sementry.clone();
-            drop(sementry);
-            if !semaphore.trylock() {
-                return syscall_error(
-                    Errno::EAGAIN,
-                    "sem_trywait",
-                    "The operation could not be performed without blocking",
-                );
-            }
-        } else {
-            return syscall_error(Errno::EINVAL, "sem_trywait", "sem is not a valid semaphore");
-        }
-        return 0;
+    /*
+    *   sem_post() will return 0 when sucess, -1 when fail 
+    */
+    pub fn sem_post_syscall(&self, sem: *mut sem_t) -> i32 {
+        unsafe{ libc::sem_post(sem) }
     }
 
-    pub fn sem_timedwait_syscall(&self, sem_handle: u32, time: interface::RustDuration) -> i32 {
-        let abstime = libc::timespec {
-            tv_sec: time.as_secs() as i64,
-            tv_nsec: (time.as_nanos() % 1000000000) as i64,
-        };
-        if abstime.tv_nsec < 0 {
-            return syscall_error(Errno::EINVAL, "sem_timedwait", "Invalid timedout");
-        }
-        let semtable = &self.sem_table;
-        // Check whether semaphore exists
-        if let Some(sementry) = semtable.get_mut(&sem_handle) {
-            let semaphore = sementry.clone();
-            drop(sementry);
-            if !semaphore.timedlock(time) {
-                return syscall_error(
-                    Errno::ETIMEDOUT,
-                    "sem_timedwait",
-                    "The call timed out before the semaphore could be locked",
-                );
-            }
-        } else {
-            return syscall_error(
-                Errno::EINVAL,
-                "sem_timedwait",
-                "sem is not a valid semaphore",
-            );
-        }
-        return 0;
+    /*
+    *   sem_destroy() will return 0 when sucess, -1 when fail 
+    */
+    pub fn sem_destroy_syscall(&self, sem: *mut sem_t) -> i32 {
+        unsafe{ libc::sem_destroy(sem) }
+    }
+
+    /*
+    *   sem_getvalue() will return 0 when sucess, -1 when fail 
+    */
+    pub fn sem_getvalue_syscall(&self, sem: *mut sem_t, sval: u64) -> i32 {
+        unsafe{ libc::sem_getvalue(sem, sval as i32) }
+    }
+
+    /*
+    *   sem_trywait() will return 0 when sucess, -1 when fail 
+    */
+    pub fn sem_trywait_syscall(&self, sem: *mut sem_t) -> i32 {
+       unsafe{ libc::sem_trywait(sem) }
+    }
+
+    /*
+    *   sem_timedwait() will return 0 when sucess, -1 when fail 
+    */
+    pub fn sem_timedwait_syscall(&self, sem: *mut sem_t, abstime: *const timespec) -> i32 {
+        unsafe{ libc::sem_timedwait(sem, abstime) }
     }
 }
