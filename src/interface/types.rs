@@ -2,31 +2,32 @@
 use crate::interface;
 use crate::interface::errnos::{syscall_error, Errno};
 
+use bit_set::BitSet;
 use libc::*;
 
 const SIZEOF_SOCKADDR: u32 = 16;
 
 //redefining the FSData struct in this file so that we maintain flow of program
 //derive eq attributes for testing whether the structs equal other fsdata structs from stat/fstat
-#[derive(Eq, PartialEq, Default)]
-#[repr(C)]
-pub struct FSData {
-    pub f_type: u64,
-    pub f_bsize: u64,
-    pub f_blocks: u64,
-    pub f_bfree: u64,
-    pub f_bavail: u64,
-    //total files in the file system -- should be infinite
-    pub f_files: u64,
-    //free files in the file system -- should be infinite
-    pub f_ffiles: u64,
-    pub f_fsid: u64,
-    //not really a limit for naming, but 254 works
-    pub f_namelen: u64,
-    //arbitrary val for blocksize as well
-    pub f_frsize: u64,
-    pub f_spare: [u8; 32],
-}
+// #[derive(Eq, PartialEq, Default)]
+// #[repr(C)]
+// pub struct FSData {
+//     pub f_type: u64,
+//     pub f_bsize: u64,
+//     pub f_blocks: u64,
+//     pub f_bfree: u64,
+//     pub f_bavail: u64,
+//     //total files in the file system -- should be infinite
+//     pub f_files: u64,
+//     //free files in the file system -- should be infinite
+//     pub f_ffiles: u64,
+//     pub f_fsid: u64,
+//     //not really a limit for naming, but 254 works
+//     pub f_namelen: u64,
+//     //arbitrary val for blocksize as well
+//     pub f_frsize: u64,
+//     pub f_spare: [u8; 32],
+// }
 
 //redefining the StatData struct in this file so that we maintain flow of program
 //derive eq attributes for testing whether the structs equal other statdata structs from stat/fstat
@@ -134,18 +135,18 @@ pub struct IpcPermStruct {
     pub __unused2: u32,
 }
 
-#[derive(Copy, Clone, Default)]
-#[repr(C)]
-pub struct ShmidsStruct {
-    pub shm_perm: IpcPermStruct,
-    pub shm_segsz: u32,
-    pub shm_atime: isize,
-    pub shm_dtime: isize,
-    pub shm_ctime: isize,
-    pub shm_cpid: u32,
-    pub shm_lpid: u32,
-    pub shm_nattch: u32,
-}
+// #[derive(Copy, Clone, Default)]
+// #[repr(C)]
+// pub struct ShmidsStruct {
+//     pub shm_perm: IpcPermStruct,
+//     pub shm_segsz: u32,
+//     pub shm_atime: isize,
+//     pub shm_dtime: isize,
+//     pub shm_ctime: isize,
+//     pub shm_cpid: u32,
+//     pub shm_lpid: u32,
+//     pub shm_nattch: u32,
+// }
 
 pub type SigsetType = u64;
 
@@ -181,18 +182,25 @@ pub union Arg {
     pub dispatch_intptr: *mut i32,
     pub dispatch_pollstructarray: *mut PollStruct,
     pub dispatch_epollevent: *mut EpollEvent,
-    pub dispatch_structtimeval: *mut TimeVal,
-    pub dispatch_structtimespec: *mut TimeSpec,
+    // pub dispatch_structtimeval: *mut TimeVal,
+    pub dispatch_structtimeval: *mut timeval,
+    pub dispatch_structtimespec_lind: *mut TimeSpec,
+    pub dispatch_structtimespec: *mut timespec,
     pub dispatch_pipearray: *mut PipeArray,
     pub dispatch_sockpair: *mut SockPair,
-    pub dispatch_ioctlptrunion: IoctlPtrUnion,
+    // pub dispatch_ioctlptrunion: IoctlPtrUnion,
+    pub dispatch_ioctlptrunion: *mut winsize,
     pub dispatch_sigactionstruct: *mut SigactionStruct,
     pub dispatch_constsigactionstruct: *const SigactionStruct,
     pub dispatch_sigsett: *mut SigsetType,
     pub dispatch_constsigsett: *const SigsetType,
-    pub dispatch_structitimerval: *mut ITimerVal,
-    pub dispatch_conststructitimerval: *const ITimerVal,
-    pub dispatch_fdset: *mut libc::fd_set,
+    // pub dispatch_structitimerval: *mut ITimerVal,
+    pub dispatch_structitimerval: *mut itimerval,
+    // pub dispatch_conststructitimerval: *const ITimerVal,
+    pub dispatch_conststructitimerval: *const itimerval,
+    pub dispatch_fdset: *mut BitSet,
+    pub dispatch_structsem: *mut sem_t,
+    // pub dispatch_ifaddrs: *mut ifaddrs,
 }
 
 use std::mem::size_of;
@@ -289,13 +297,25 @@ pub fn get_mutcbuf_null(union_argument: Arg) -> Result<Option<*mut u8>, i32> {
     return Ok(None);
 }
 
-pub fn get_fdset(union_argument: Arg) -> Result<Option<&'static mut interface::FdSet>, i32> {
-    let data: *mut libc::fd_set = unsafe { union_argument.dispatch_fdset };
-    if !data.is_null() {
-        let internal_fds: &mut interface::FdSet = interface::FdSet::new_from_ptr(data);
-        return Ok(Some(internal_fds));
+// pub fn get_fdset(union_argument: Arg) -> Result<Option<&'static mut interface::FdSet>, i32> {
+//     let data: *mut libc::fd_set = unsafe { union_argument.dispatch_fdset };
+//     if !data.is_null() {
+//         let internal_fds: &mut interface::FdSet = interface::FdSet::new_from_ptr(data);
+//         return Ok(Some(internal_fds));
+//     }
+//     return Ok(None);
+// }
+
+pub fn get_fdset<'a>(union_argument: Arg) -> Result<*mut BitSet, i32> {
+    let pointer = unsafe { union_argument.dispatch_fdset };
+    if !pointer.is_null() {
+        return Ok(pointer);
     }
-    return Ok(None);
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
 
 pub fn get_cstr<'a>(union_argument: Arg) -> Result<&'a str, i32> {
@@ -387,26 +407,41 @@ pub fn get_shmidstruct<'a>(union_argument: Arg) -> Result<&'a mut shmid_ds, i32>
         "input data not valid",
     ));
 }
-/* [TODO] */
-pub fn get_ioctlptrunion(union_argument: Arg) -> Result<IoctlPtrUnion, i32> {
-    return Ok(unsafe { union_argument.dispatch_ioctlptrunion });
-}
-/* [TODO] */
-pub fn get_ioctl_int<'a>(ptrunion: IoctlPtrUnion) -> Result<i32, i32> {
-    let pointer = unsafe { ptrunion.int_ptr };
+
+pub fn get_ioctlptrunion<'a>(union_argument: Arg) -> Result<&'a mut winsize, i32> {
+    let pointer = unsafe { union_argument.dispatch_ioctlptrunion };
     if !pointer.is_null() {
-        return Ok(unsafe { *pointer });
+        return Ok(unsafe {
+            &mut *pointer
+        });
     }
-    return Err(syscall_error(Errno::EFAULT, "ioctl", "argp is not valid"));
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
-/* [TODO] */
-pub fn get_ioctl_char<'a>(ptrunion: IoctlPtrUnion) -> Result<u8, i32> {
-    let pointer = unsafe { ptrunion.c_char_ptr };
-    if !pointer.is_null() {
-        return Ok(unsafe { *pointer });
-    }
-    return Err(syscall_error(Errno::EFAULT, "ioctl", "argp is not valid"));
-}
+
+
+// pub fn get_ioctlptrunion(union_argument: Arg) -> Result<IoctlPtrUnion, i32> {
+//     return Ok(unsafe { union_argument.dispatch_ioctlptrunion });
+// }
+
+// pub fn get_ioctl_int<'a>(ptrunion: IoctlPtrUnion) -> Result<i32, i32> {
+//     let pointer = unsafe { ptrunion.int_ptr };
+//     if !pointer.is_null() {
+//         return Ok(unsafe { *pointer });
+//     }
+//     return Err(syscall_error(Errno::EFAULT, "ioctl", "argp is not valid"));
+// }
+
+// pub fn get_ioctl_char<'a>(ptrunion: IoctlPtrUnion) -> Result<u8, i32> {
+//     let pointer = unsafe { ptrunion.c_char_ptr };
+//     if !pointer.is_null() {
+//         return Ok(unsafe { *pointer });
+//     }
+//     return Err(syscall_error(Errno::EFAULT, "ioctl", "argp is not valid"));
+// }
 /* [TODO] */
 /// Given the vector of tuples produced from getdents_syscall, each of which consists of
 /// a ClippedDirent struct and a u8 vector representing the name, and also given the
@@ -691,39 +726,74 @@ pub fn copy_out_intptr(union_argument: Arg, intval: i32) {
     }
 }
 
-pub fn duration_fromtimeval(union_argument: Arg) -> Result<Option<interface::RustDuration>, i32> {
+// pub fn duration_fromtimeval(union_argument: Arg) -> Result<Option<interface::RustDuration>, i32> {
+//     let pointer = unsafe { union_argument.dispatch_structtimeval };
+//     if !pointer.is_null() {
+//         let times = unsafe { &mut *pointer };
+//         return Ok(Some(interface::RustDuration::new(
+//             times.tv_sec as u64,
+//             times.tv_usec as u32 * 1000,
+//         )));
+//     } else {
+//         return Ok(None);
+//     }
+// }
+
+pub fn get_timerval<'a>(union_argument: Arg) -> Result<&'a mut timeval, i32> {
     let pointer = unsafe { union_argument.dispatch_structtimeval };
     if !pointer.is_null() {
-        let times = unsafe { &mut *pointer };
-        return Ok(Some(interface::RustDuration::new(
-            times.tv_sec as u64,
-            times.tv_usec as u32 * 1000,
-        )));
-    } else {
-        return Ok(None);
-    }
+        return Ok(unsafe { &mut *pointer });
+    } 
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
 
-pub fn get_itimerval<'a>(union_argument: Arg) -> Result<Option<&'a mut ITimerVal>, i32> {
+// pub fn get_itimerval<'a>(union_argument: Arg) -> Result<Option<&'a mut ITimerVal>, i32> {
+//     let pointer = unsafe { union_argument.dispatch_structitimerval };
+//     if !pointer.is_null() {
+//         Ok(Some(unsafe { &mut *pointer }))
+//     } else {
+//         Ok(None)
+//     }
+// }
+pub fn get_itimerval<'a>(union_argument: Arg) -> Result<&'a mut itimerval, i32> {
     let pointer = unsafe { union_argument.dispatch_structitimerval };
     if !pointer.is_null() {
-        Ok(Some(unsafe { &mut *pointer }))
-    } else {
-        Ok(None)
-    }
+        return Ok(unsafe { &mut *pointer });
+    } 
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
 
-pub fn get_constitimerval<'a>(union_argument: Arg) -> Result<Option<&'a ITimerVal>, i32> {
+// pub fn get_constitimerval<'a>(union_argument: Arg) -> Result<Option<&'a ITimerVal>, i32> {
+//     let pointer = unsafe { union_argument.dispatch_conststructitimerval };
+//     if !pointer.is_null() {
+//         Ok(Some(unsafe { &*pointer }))
+//     } else {
+//         Ok(None)
+//     }
+// }
+
+pub fn get_constitimerval<'a>(union_argument: Arg) -> Result<&'a itimerval, i32> {
     let pointer = unsafe { union_argument.dispatch_conststructitimerval };
     if !pointer.is_null() {
-        Ok(Some(unsafe { &*pointer }))
-    } else {
-        Ok(None)
-    }
+        return Ok(unsafe { &*pointer });
+    } 
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
 
 pub fn duration_fromtimespec(union_argument: Arg) -> Result<interface::RustDuration, i32> {
-    let pointer = unsafe { union_argument.dispatch_structtimespec };
+    let pointer = unsafe { union_argument.dispatch_structtimespec_lind };
     if !pointer.is_null() {
         let times = unsafe { &mut *pointer };
         if times.tv_nsec < 0 || times.tv_nsec >= 1000000000 {
@@ -744,6 +814,20 @@ pub fn duration_fromtimespec(union_argument: Arg) -> Result<interface::RustDurat
             "input timespec is null",
         ));
     }
+}
+
+pub fn get_timespec<'a>(union_argument: Arg) -> Result<&'a timespec, i32> {
+    let pointer = unsafe { union_argument.dispatch_structtimespec };
+    if !pointer.is_null() {
+        return Ok( unsafe {
+            &*pointer
+        });
+    }
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
 
 pub fn get_duration_from_millis(
@@ -811,3 +895,31 @@ pub fn get_constsigsett<'a>(union_argument: Arg) -> Result<Option<&'a SigsetType
         Ok(None)
     }
 }
+
+pub fn get_sem<'a>(union_argument: Arg) -> Result<&'a mut sem_t, i32> {
+    let pointer = unsafe { union_argument.dispatch_structsem };
+    if !pointer.is_null() {
+        return Ok(unsafe {
+            &mut *pointer
+        });
+    }
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
+}
+
+// pub fn get_ifaddrs<'a>(union_argument: Arg) -> Result<&'a mut ifaddrs, i32> {
+//     let pointer = unsafe { *union_argument.dispatch_ifaddrs };
+//     if !pointer.is_null() {
+//         return Ok(unsafe {
+//             &mut *pointer
+//         });
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }

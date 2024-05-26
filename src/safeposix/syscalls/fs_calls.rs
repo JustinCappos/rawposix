@@ -32,11 +32,11 @@ impl Cage {
     *   Mapping a new virtual fd and kernel fd that libc::socket returned
     *   Then return virtual fd
     */
-    pub fn open_syscall(&self, path: &str, oflag: u64, mode: u64) -> i32 {
+    pub fn open_syscall(&self, path: &str, oflag: i32, mode: u32) -> i32 {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
 
-        let kernel_fd = unsafe { libc::open(path_c as *const i8, oflag as i32) };
+        let kernel_fd = unsafe { libc::open(path_c as *const i8, oflag) };
 
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         virtual_fd
@@ -46,11 +46,11 @@ impl Cage {
     /*
     *   mkdir() will return 0 when success and -1 when fail 
     */
-    pub fn mkdir_syscall(&self, path: &str, mode: u64) -> i32 {
+    pub fn mkdir_syscall(&self, path: &str, mode: u32) -> i32 {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
-            libc::mkdir(path_c as *const i8, mode as u16)
+            libc::mkdir(path_c as *const u8, mode as u16)
         }
     }
 
@@ -156,10 +156,10 @@ impl Cage {
     *   - the number of bytes read is returned, success
     *   - -1, fail 
     */
-    pub fn read_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: u64) -> i32 {
+    pub fn read_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: usize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::read(kernel_fd, readbuf as *mut c_void, count as usize) as i32
+            libc::read(kernel_fd, readbuf as *mut c_void, count) as i32
         }
     }
 
@@ -170,10 +170,10 @@ impl Cage {
     *   - the number of bytes read is returned, success
     *   - -1, fail 
     */
-    pub fn pread_syscall(&self, virtual_fd: i32, buf: *mut u8, count: u64, offset: u64) -> i32 {
+    pub fn pread_syscall(&self, virtual_fd: i32, buf: *mut u8, count: usize, offset: i64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::pread(kernel_fd, buf as *mut c_void, count as usize, offset as i64) as i32
+            libc::pread(kernel_fd, buf as *mut c_void, count, offset) as i32
         }
     }
 
@@ -184,10 +184,10 @@ impl Cage {
     *   - the number of bytes writen is returned, success
     *   - -1, fail 
     */
-    pub fn write_syscall(&self, virtual_fd: i32, buf: *const u8, count: u64) -> i32 {
+    pub fn write_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::write(kernel_fd, buf as *const c_void, count as usize) as i32
+            libc::write(kernel_fd, buf as *const c_void, count) as i32
         }
     }
 
@@ -198,10 +198,10 @@ impl Cage {
     *   - the number of bytes read is returned, success
     *   - -1, fail 
     */
-    pub fn pwrite_syscall(&self, virtual_fd: i32, buf: *const u8, count: u64, offset: u64) -> i32 {
+    pub fn pwrite_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize, offset: i64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::pwrite(kernel_fd, buf as *const c_void, count as usize, offset as i64) as i32
+            libc::pwrite(kernel_fd, buf as *const c_void, count, offset) as i32
         }
     }
 
@@ -212,10 +212,10 @@ impl Cage {
     *   -  the resulting offset location as measured in bytes from the beginning of the file
     *   - -1, fail 
     */
-    pub fn lseek_syscall(&self, virtual_fd: i32, offset: u64, whence: u64) -> i32 {
+    pub fn lseek_syscall(&self, virtual_fd: i32, offset: isize, whence: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::lseek(kernel_fd, offset as i64, whence as i32) as i32
+            libc::lseek(kernel_fd, offset as i64, whence) as i32
         }
     }
 
@@ -223,7 +223,7 @@ impl Cage {
     /*
     *   access() will return 0 when sucess, -1 when fail 
     */
-    pub fn access_syscall(&self, path: &str, amode: u64) -> i32 {
+    pub fn access_syscall(&self, path: &str, amode: u32) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
             libc::access(path_c as *const i8, amode as i32)
@@ -329,15 +329,15 @@ impl Cage {
 
        On error, -1 is returned 
     */
-    pub fn fcntl_syscall(&self, virtual_fd: i32, cmd: u64, arg: u64) -> i32 {
+    pub fn fcntl_syscall(&self, virtual_fd: i32, cmd: i32, arg: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        if (cmd as i32) == libc::F_DUPFD {
-            let new_kernelfd = unsafe { libc::fcntl(kernel_fd, cmd as i32, arg) };
+        if cmd == libc::F_DUPFD {
+            let new_kernelfd = unsafe { libc::fcntl(kernel_fd, cmd, arg) };
             // Get status
             let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd, false, 0).unwrap();
-            return new_virtualfd as i32;
+            return new_virtualfd;
         }
-        unsafe { libc::fcntl(kernel_fd, cmd as i32, arg) }
+        unsafe { libc::fcntl(kernel_fd, cmd, arg) }
     }
 
     //------------------------------------IOCTL SYSCALL------------------------------------
@@ -348,9 +348,9 @@ impl Cage {
     *   Note: A few ioctl() requests use the return value as an output parameter and return 
     *   a nonnegative value on success.
     */
-    pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: IoctlPtrUnion) -> i32 {
+    pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: *mut winsize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::ioctl(kernel_fd, request, ptrunion as *mut _ as *mut c_void) }
+        unsafe { libc::ioctl(kernel_fd, request, ptrunion as *mut c_void) }
     }
 
 
@@ -358,7 +358,7 @@ impl Cage {
     /*
     *   chmod() will return 0 when success and -1 when fail 
     */
-    pub fn chmod_syscall(&self, path: &str, mode: u64) -> i32 {
+    pub fn chmod_syscall(&self, path: &str, mode: u32) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
             libc::chmod(path_c as *const i8, mode as u16)
@@ -370,7 +370,7 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fchmod() will return 0 when sucess, -1 when fail 
     */
-    pub fn fchmod_syscall(&self, virtual_fd: i32, mode: u64) -> i32 {
+    pub fn fchmod_syscall(&self, virtual_fd: i32, mode: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
             libc::fchmod(kernel_fd, mode as u16)
@@ -387,16 +387,16 @@ impl Cage {
     pub fn mmap_syscall(
         &self,
         addr: *mut u8,
-        len: u64,
-        prot: u64,
-        flags: u64,
+        len: usize,
+        prot: i32,
+        flags: i32,
         virtual_fd: i32,
-        off: u64,
+        off: i64,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         // Do type conversion to translate from c_void into i32
         unsafe {
-            ((libc::mmap(addr as *mut c_void, len as usize, prot as i32, flags as i32, kernel_fd, off as i64) as i64) 
+            ((libc::mmap(addr as *mut c_void, len, prot, flags, kernel_fd, off) as i64) 
                 & 0xffffffff) as i32
         }
     }
@@ -407,9 +407,9 @@ impl Cage {
     *   - 0, success
     *   - -1, fail
     */
-    pub fn munmap_syscall(&self, addr: *mut u8, len: u64) -> i32 {
+    pub fn munmap_syscall(&self, addr: *mut u8, len: usize) -> i32 {
         unsafe {
-            libc::munmap(addr as *mut c_void, len as usize)
+            libc::munmap(addr as *mut c_void, len)
         }
     }
 
@@ -418,10 +418,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   flock() will return 0 when sucess, -1 when fail 
     */
-    pub fn flock_syscall(&self, virtual_fd: i32, operation: u64) -> i32 {
+    pub fn flock_syscall(&self, virtual_fd: i32, operation: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::flock(kernel_fd, operation as i32)
+            libc::flock(kernel_fd, operation)
         }
     }
 
@@ -480,13 +480,13 @@ impl Cage {
     pub fn sync_file_range_syscall(
         &self,
         virtual_fd: i32,
-        offset: u64,
-        nbytes: u64,
-        flags: u64,
+        offset: isize,
+        nbytes: isize,
+        flags: u32,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::sync_file_range(kernel_fd, offset as i64, nbytes as i64, flags as u32)
+            libc::sync_file_range(kernel_fd, offset as i64, nbytes as i64, flags)
         }
     }
 
@@ -495,10 +495,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   ftruncate() will return 0 when sucess, -1 when fail 
     */
-    pub fn ftruncate_syscall(&self, virtual_fd: i32, length: i64) -> i32 {
+    pub fn ftruncate_syscall(&self, virtual_fd: i32, length: isize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::ftruncate(kernel_fd, length as i64)
+            libc::ftruncate(kernel_fd, length)
         }
     }
 
@@ -506,10 +506,10 @@ impl Cage {
     /*
     *   truncate() will return 0 when sucess, -1 when fail 
     */
-    pub fn truncate_syscall(&self, path: &str, length: u64) -> i32 {
+    pub fn truncate_syscall(&self, path: &str, length: isize) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
-            libc::truncate(path_c as *const i8, length as i64)
+            libc::truncate(path_c as *const u8, length as i64)
         }
     }
 
@@ -521,23 +521,25 @@ impl Cage {
     *
     *   pipe() will return 0 when sucess, -1 when fail 
     */
-    pub fn pipe_syscall(&self, pipefd: &[i32]) -> i32 {
+    pub fn pipe_syscall(&self, pipefd: &mut PipeArray) -> i32 {
         let mut kernel_fds = Vec::with_capacity(2);
-        for index in 0..2 {
-            let virtual_fd = pipefd[index];
-            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-            kernel_fds.push(kernel_fd);
-        }
+        let virtual_read = pipefd.readfd;
+        let kernel_read = translate_virtual_fd(self.cageid, virtual_read).unwrap();
+        kernel_fds.push(kernel_read);
+        let virtual_write = pipefd.writefd;
+        let kernel_write = translate_virtual_fd(self.cageid, virtual_write).unwrap();
+        kernel_fds.push(kernel_write);
         unsafe { libc::pipe(kernel_fds.as_mut_ptr() as *mut i32) }
     }
 
-    pub fn pipe2_syscall(&self, pipefd: &[i32], flags: u64) -> i32 {
+    pub fn pipe2_syscall(&self, pipefd: &mut PipeArray, flags: i32) -> i32 {
         let mut kernel_fds = Vec::with_capacity(2);
-        for index in 0..2 {
-            let virtual_fd = pipefd[index];
-            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-            kernel_fds.push(kernel_fd);
-        }
+        let virtual_read = pipefd.readfd;
+        let kernel_read = translate_virtual_fd(self.cageid, virtual_read).unwrap();
+        kernel_fds.push(kernel_read);
+        let virtual_write = pipefd.writefd;
+        let kernel_write = translate_virtual_fd(self.cageid, virtual_write).unwrap();
+        kernel_fds.push(kernel_write);
         unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) }
     }
 
@@ -561,9 +563,9 @@ impl Cage {
     *   - a pointer to a string containing the pathname of the current working directory, success
     *   - null, fail 
     */
-    pub fn getcwd_syscall(&self, buf: *mut u8, bufsize: u64) -> i32 {
+    pub fn getcwd_syscall(&self, buf: *mut u8, bufsize: u32) -> i32 {
         unsafe {
-            libc::getcwd(buf as *mut i8, bufsize as usize) as i32
+            libc::getcwd(buf, bufsize as usize) as i32
         }
     }
 
@@ -573,8 +575,8 @@ impl Cage {
     *   - a valid shared memory identifier, success
     *   - -1, fail
     */
-    pub fn shmget_syscall(&self, key: u64, size: u64, shmflg: u64) -> i32 {
-        unsafe { libc::shmget(key as i32, size as usize, shmflg as i32) as i32 }
+    pub fn shmget_syscall(&self, key: i32, size: usize, shmflg: i32) -> i32 {
+        unsafe { libc::shmget(key, size, shmflg) as i32 }
     }
 
     //------------------SHMAT SYSCALL------------------
@@ -583,9 +585,9 @@ impl Cage {
     *   - the segment's start address, success
     *   - -1, fail    
     */
-    pub fn shmat_syscall(&self, shmid: u64, shmaddr: *mut u8, shmflg: u64) -> i32 {
+    pub fn shmat_syscall(&self, shmid: i32, shmaddr: *mut u8, shmflg: i32) -> i32 {
         // Convert address to adapt to NaCl
-        ((unsafe { libc::shmat(shmid as i32, shmaddr as *const c_void, shmflg as i32)} as i64 ) & 0xffffffff) as i32
+        ((unsafe { libc::shmat(shmid, shmaddr as *const c_void, shmflg)} as i64 ) & 0xffffffff) as i32
     }
 
     //------------------SHMDT SYSCALL------------------
@@ -1004,8 +1006,8 @@ impl Cage {
     /*
     *   sem_init() will return 0 when sucess, -1 when fail 
     */
-    pub fn sem_init_syscall(&self, sem: *mut sem_t, pshared: u64, value: u64) -> i32 {
-        unsafe{ libc::sem_init(sem, pshared as i32, value as u32) }
+    pub fn sem_init_syscall(&self, sem: *mut sem_t, pshared: i32, value: u32) -> i32 {
+        unsafe{ libc::sem_init(sem, pshared, value) }
     }
 
     /*
@@ -1032,7 +1034,7 @@ impl Cage {
     /*
     *   sem_getvalue() will return 0 when sucess, -1 when fail 
     */
-    pub fn sem_getvalue_syscall(&self, sem: *mut sem_t, sval: u64) -> i32 {
+    pub fn sem_getvalue_syscall(&self, sem: *mut sem_t, sval: i32) -> i32 {
         unsafe{ libc::sem_getvalue(sem, sval as i32) }
     }
 

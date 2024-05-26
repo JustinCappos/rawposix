@@ -2,8 +2,12 @@
 use crate::interface;
 //going to get the datatypes and errnos from the cage file from now on
 pub use crate::interface::errnos::{syscall_error, Errno};
+// pub use crate::interface::types::{
+//     Arg, EpollEvent, FSData, IoctlPtrUnion, PipeArray, PollStruct, Rlimit, ShmidsStruct, StatData,
+// };
+
 pub use crate::interface::types::{
-    Arg, EpollEvent, FSData, IoctlPtrUnion, PipeArray, PollStruct, Rlimit, ShmidsStruct, StatData,
+    Arg, EpollEvent, IoctlPtrUnion, PipeArray, PollStruct,
 };
 
 // use super::filesystem::normpath;

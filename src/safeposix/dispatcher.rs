@@ -120,7 +120,7 @@ use super::cage::*;
 // use super::syscalls::{fs_constants::IPC_STAT, sys_constants::*};
 use crate::interface;
 use crate::interface::errnos::*;
-use crate::lib_fs_utils::{lind_deltree, visit_children};
+// use crate::lib_fs_utils::{lind_deltree, visit_children};
 
 macro_rules! get_onearg {
     ($arg: expr) => {
@@ -143,13 +143,13 @@ macro_rules! check_and_dispatch {
     };
 }
 
-macro_rules! check_and_dispatch_socketpair {
-    ( $func:expr, $cage:ident, $($arg:expr),* ) => {
-        match (|| Ok($func( $cage, $($arg?),* )))() {
-            Ok(i) => i, Err(i) => i
-        }
-    };
-}
+// macro_rules! check_and_dispatch_socketpair {
+//     ( $func:expr, $cage:ident, $($arg:expr),* ) => {
+//         match (|| Ok($func( $cage, $($arg?),* )))() {
+//             Ok(i) => i, Err(i) => i
+//         }
+//     };
+// }
 
 // the following "quick" functions are implemented for research purposes
 // to increase I/O performance by bypassing the dispatcher and type checker
@@ -160,7 +160,7 @@ pub extern "C" fn quick_write(fd: i32, buf: *const u8, count: usize, cageid: u64
         CAGE_TABLE[cageid as usize]
             .as_ref()
             .unwrap()
-            .write_syscall(fd, buf, count as u64)
+            .write_syscall(fd, buf, count)
     }
 }
 
@@ -171,7 +171,7 @@ pub extern "C" fn quick_read(fd: i32, buf: *mut u8, size: usize, cageid: u64) ->
         CAGE_TABLE[cageid as usize]
             .as_ref()
             .unwrap()
-            .read_syscall(fd as u64, buf as u64, size)
+            .read_syscall(fd, buf, size)
     }
 }
 
@@ -274,7 +274,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.write_syscall,
                 interface::get_int(arg1),
-                interface::get_cbuf(arg2),
+                interface::get_mutcbuf(arg2),
                 interface::get_usize(arg3)
             )
         }
@@ -354,7 +354,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.ioctl_syscall,
                 interface::get_int(arg1),
-                interface::get_uint(arg2),
+                interface::get_ulong(arg2),
                 interface::get_ioctlptrunion(arg3)
             )
         }
@@ -467,7 +467,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.recvfrom_syscall,
                 interface::get_int(arg1),
-                interface::get_cbuf(arg2),
+                interface::get_mutcbuf(arg2),
                 interface::get_usize(arg3),
                 interface::get_int(arg4),
                 interface::get_sockaddr(arg5),
@@ -527,7 +527,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.accept_syscall,
                 interface::get_int(arg1),
-                interface::get_constsockaddr(arg2),
+                interface::get_sockaddr(arg2),
                 interface::get_uint(arg3)
             )
         }
@@ -583,14 +583,17 @@ pub extern "C" fn dispatcher(
                 interface::get_uint(arg3)
             )
         }
-        GETIFADDRS_SYSCALL => {
-            /* [TODO] */
-            check_and_dispatch!(
-                cage.getifaddrs_syscall,
-                interface::get_mutcbuf(arg1),
-                interface::get_usize(arg2)
-            )
-        }
+        // GETIFADDRS_SYSCALL => {
+        //     // check_and_dispatch!(
+        //     //     cage.getifaddrs_syscall,
+        //     //     interface::get_mutcbuf(arg1),
+        //     //     interface::get_usize(arg2)
+        //     // )
+        //     check_and_dispatch!(
+        //         cage.getifaddrs_syscall,
+        //         interface::get_ifaddrs(arg1)
+        //     )
+        // }
         GETSOCKOPT_SYSCALL => {
             // let mut sockval = 0;
             // if interface::arg_nullity(&arg4) || interface::arg_nullity(&arg5) {
@@ -647,7 +650,7 @@ pub extern "C" fn dispatcher(
                 interface::get_int(arg1),
                 interface::get_int(arg2),
                 interface::get_int(arg3),
-                interface::get_cbuf(arg4),
+                interface::get_mutcbuf(arg4),
                 interface::get_uint(arg5)
             )
         }
@@ -670,11 +673,11 @@ pub extern "C" fn dispatcher(
             }
             check_and_dispatch!(
                 cage.select_syscall,
-                Ok::<i32, i32>(nfds),
+                interface::get_int(arg1),
                 interface::get_fdset(arg2),
                 interface::get_fdset(arg3),
                 interface::get_fdset(arg4),
-                interface::duration_fromtimeval(arg5)
+                interface::get_timerval(arg5)
             )
         }
         POLL_SYSCALL => {
@@ -682,15 +685,23 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.poll_syscall,
                 interface::get_pollstruct_slice(arg1, nfds),
-                interface::get_int(arg2),
-                interface::get_duration_from_millis(arg3)
+                interface::get_uint(arg2),
+                // interface::get_duration_from_millis(arg3)
+                interface::get_int(arg3)
             )
         }
         SOCKETPAIR_SYSCALL => {
             /* [TODO] - WHY */
-            check_and_dispatch_socketpair!(
-                Cage::socketpair_syscall,
-                cage,
+            // check_and_dispatch_socketpair!(
+            //     Cage::socketpair_syscall,
+            //     cage,
+            //     interface::get_int(arg1),
+            //     interface::get_int(arg2),
+            //     interface::get_int(arg3),
+            //     interface::get_sockpair(arg4)
+            // )
+            check_and_dispatch!(
+                cage.socketpair_syscall,
                 interface::get_int(arg1),
                 interface::get_int(arg2),
                 interface::get_int(arg3),
@@ -731,7 +742,7 @@ pub extern "C" fn dispatcher(
                 interface::get_int(arg1),
                 interface::get_mutcbuf(arg2),
                 interface::get_usize(arg3),
-                interface::get_isize(arg4)
+                interface::get_long(arg4)
             )
         }
         PWRITE_SYSCALL => {
@@ -740,7 +751,7 @@ pub extern "C" fn dispatcher(
                 interface::get_int(arg1),
                 interface::get_mutcbuf(arg2),
                 interface::get_usize(arg3),
-                interface::get_isize(arg4)
+                interface::get_long(arg4)
             )
         }
         CHMOD_SYSCALL => {
@@ -967,31 +978,31 @@ pub extern "C" fn dispatcher(
         SEM_INIT_SYSCALL => {
             check_and_dispatch!(
                 cage.sem_init_syscall,
-                interface::get_uint(arg1),
+                interface::get_sem(arg1),
                 interface::get_int(arg2),
                 interface::get_uint(arg3)
             )
         }
         SEM_WAIT_SYSCALL => {
-            check_and_dispatch!(cage.sem_wait_syscall, interface::get_uint(arg1))
+            check_and_dispatch!(cage.sem_wait_syscall, interface::get_sem(arg1))
         }
         SEM_POST_SYSCALL => {
-            check_and_dispatch!(cage.sem_post_syscall, interface::get_uint(arg1))
+            check_and_dispatch!(cage.sem_post_syscall, interface::get_sem(arg1))
         }
         SEM_DESTROY_SYSCALL => {
-            check_and_dispatch!(cage.sem_destroy_syscall, interface::get_uint(arg1))
+            check_and_dispatch!(cage.sem_destroy_syscall, interface::get_sem(arg1))
         }
         SEM_GETVALUE_SYSCALL => {
-            check_and_dispatch!(cage.sem_getvalue_syscall, interface::get_uint(arg1))
+            check_and_dispatch!(cage.sem_getvalue_syscall, interface::get_sem(arg1), interface::get_int(arg2))
         }
         SEM_TRYWAIT_SYSCALL => {
-            check_and_dispatch!(cage.sem_trywait_syscall, interface::get_uint(arg1))
+            check_and_dispatch!(cage.sem_trywait_syscall, interface::get_sem(arg1))
         }
         SEM_TIMEDWAIT_SYSCALL => {
             check_and_dispatch!(
                 cage.sem_timedwait_syscall,
-                interface::get_uint(arg1),
-                interface::duration_fromtimespec(arg2)
+                interface::get_sem(arg1),
+                interface::get_timespec(arg2)
             )
         }
 
@@ -1139,7 +1150,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     };
     interface::cagetable_insert(1, initcage);
     // make sure /tmp is clean
-    cleartmp(true);
+    // cleartmp(true);
 }
 
 #[no_mangle]
@@ -1150,7 +1161,7 @@ pub extern "C" fn lindrustfinalize() {
     // }
 
     // clear /tmp folder
-    cleartmp(false);
+    // cleartmp(false);
     interface::cagetable_clear();
     // if we get here, persist and delete log
     // persist_metadata(&FS_METADATA);

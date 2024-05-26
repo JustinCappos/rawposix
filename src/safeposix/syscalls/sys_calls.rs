@@ -3,7 +3,7 @@
 // System related system calls
 use super::fs_constants::*;
 use super::net_constants::*;
-use super::sys_constants::*;
+// use super::sys_constants::*;
 use crate::interface;
 use crate::safeposix::cage::*;
 
@@ -236,37 +236,78 @@ impl Cage {
     }
 
     pub fn getpid_syscall(&self) -> i32 {
-        unsafe { libc::getpid() }
-        // self.cageid as i32 //not sure if this is quite what we want but it's easy enough to change later
+        self.cageid as i32 //not sure if this is quite what we want but it's easy enough to change later
     }
     pub fn getppid_syscall(&self) -> i32 {
-        unsafe { libc::getppid() }
-        // self.parent as i32 // mimicing the call above -- easy to change later if necessary
+        self.parent as i32 // mimicing the call above -- easy to change later if necessary
     }
 
     /*if its negative 1
     return -1, but also set the values in the cage struct to the DEFAULTs for future calls*/
-    pub fn getgid_syscall(&self) -> u32 {
-        unsafe { libc::getgid() }
+    pub fn getgid_syscall(&self) -> i32 {
+        if self.getgid.load(interface::RustAtomicOrdering::Relaxed) == -1 {
+            self.getgid
+                .store(DEFAULT_GID as i32, interface::RustAtomicOrdering::Relaxed);
+            return -1;
+        }
+        DEFAULT_GID as i32 //Lind is only run in one group so a default value is returned
     }
-    pub fn getegid_syscall(&self) -> u32 {
-        unsafe { libc::getegid() }
+    pub fn getegid_syscall(&self) -> i32 {
+        if self.getegid.load(interface::RustAtomicOrdering::Relaxed) == -1 {
+            self.getegid
+                .store(DEFAULT_GID as i32, interface::RustAtomicOrdering::Relaxed);
+            return -1;
+        }
+        DEFAULT_GID as i32 //Lind is only run in one group so a default value is returned
     }
 
-    pub fn getuid_syscall(&self) -> u32 {
-        unsafe { libc::getuid() }
+    pub fn getuid_syscall(&self) -> i32 {
+        if self.getuid.load(interface::RustAtomicOrdering::Relaxed) == -1 {
+            self.getuid
+                .store(DEFAULT_UID as i32, interface::RustAtomicOrdering::Relaxed);
+            return -1;
+        }
+        DEFAULT_UID as i32 //Lind is only run as one user so a default value is returned
     }
-    pub fn geteuid_syscall(&self) -> u32 {
-        unsafe { libc::geteuid() }
+    pub fn geteuid_syscall(&self) -> i32 {
+        if self.geteuid.load(interface::RustAtomicOrdering::Relaxed) == -1 {
+            self.geteuid
+                .store(DEFAULT_UID as i32, interface::RustAtomicOrdering::Relaxed);
+            return -1;
+        }
+        DEFAULT_UID as i32 //Lind is only run as one user so a default value is returned
     }
 
     pub fn sigaction_syscall(
         &self,
-        sig: u64,
-        act: *const sigaction,
-        oact: *mut sigaction
+        sig: i32,
+        act: Option<&interface::SigactionStruct>,
+        oact: Option<&mut interface::SigactionStruct>,
     ) -> i32 {
-        unsafe { libc::sigaction(sig as i32, act, oact) }
+        if let Some(some_oact) = oact {
+            let old_sigactionstruct = self.signalhandler.get(&sig);
+
+            if let Some(entry) = old_sigactionstruct {
+                some_oact.clone_from(entry.value());
+            } else {
+                some_oact.clone_from(&interface::SigactionStruct::default()); // leave handler field as NULL
+            }
+        }
+
+        if let Some(some_act) = act {
+            if sig == 9 || sig == 19 {
+                // Disallow changing the action for SIGKILL and SIGSTOP
+                return syscall_error(
+                    Errno::EINVAL,
+                    "sigaction",
+                    "Cannot modify the action of SIGKILL or SIGSTOP",
+                );
+            }
+
+            self.signalhandler.insert(sig, some_act.clone());
+        }
+
+        0
     }
 
     pub fn kill_syscall(&self, cage_id: i32, sig: i32) -> i32 {
@@ -288,14 +329,57 @@ impl Cage {
 
     pub fn sigprocmask_syscall(
         &self,
-        how: u64,
-        set: *const sigset_t,
-        oldset: *mut sigset_t,
+        how: i32,
+        set: Option<&interface::SigsetType>,
+        oldset: Option<&mut interface::SigsetType>,
     ) -> i32 {
-        unsafe { libc::sigprocmask(how as i32, set, oldset) }
+        let mut res = 0;
+        let pthreadid = interface::get_pthreadid();
+
+        let sigset = self.sigset.get(&pthreadid).unwrap();
+
+        if let Some(some_oldset) = oldset {
+            *some_oldset = sigset.load(interface::RustAtomicOrdering::Relaxed);
+        }
+
+        if let Some(some_set) = set {
+            let curr_sigset = sigset.load(interface::RustAtomicOrdering::Relaxed);
+            res = match how {
+                _SIG_BLOCK => {
+                    // Block signals in set
+                    sigset.store(
+                        curr_sigset | *some_set,
+                        interface::RustAtomicOrdering::Relaxed,
+                    );
+                    0
+                }
+                _SIG_UNBLOCK => {
+                    // Unblock signals in set
+                    let newset = curr_sigset & !*some_set;
+                    let pendingsignals = curr_sigset & some_set;
+                    sigset.store(newset, interface::RustAtomicOrdering::Relaxed);
+                    self.send_pending_signals(pendingsignals, pthreadid);
+                    0
+                }
+                _SIG_SETMASK => {
+                    // Set sigset to set
+                    sigset.store(*some_set, interface::RustAtomicOrdering::Relaxed);
+                    0
+                }
+                _ => syscall_error(Errno::EINVAL, "sigprocmask", "Invalid value for how"),
+            }
+        }
+        res
     }
 
-    /* NOT FOUND IN RUST LIBC */
+    pub fn setitimer_syscall(
+        &self,
+        which: i32,
+        new_value: &itimerval,
+        old_value: &mut itimerval,
+    ) -> i32 {
+        unsafe { libc::syscall(SYS_setitimer, which, new_value, old_value) }
+    }
     // pub fn setitimer_syscall(
     //     &self,
     //     which: i32,
