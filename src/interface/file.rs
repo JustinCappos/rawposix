@@ -4,7 +4,7 @@
 // #![allow(dead_code)]
 
 // use dashmap::DashSet;
-// use parking_lot::Mutex;
+use parking_lot::Mutex;
 // use std::env;
 // pub use std::ffi::CStr as RustCStr;
 // use std::fs::{self, canonicalize, File, OpenOptions};
@@ -12,7 +12,7 @@
 // pub use std::path::{Component as RustPathComponent, Path as RustPath, PathBuf as RustPathBuf};
 // use std::slice;
 // use std::sync::Arc;
-// pub use std::sync::LazyLock as RustLazyGlobal;
+pub use std::sync::LazyLock as RustLazyGlobal;
 
 // use crate::interface::errnos::{syscall_error, Errno};
 // use libc::{mmap, mremap, munmap, off64_t, MAP_SHARED, MREMAP_MAYMOVE, PROT_READ, PROT_WRITE};

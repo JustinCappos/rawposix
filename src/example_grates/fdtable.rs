@@ -88,11 +88,11 @@ use std::collections::HashMap;
 //       ENFILE The system-wide limit on the total number of open files
 //              has been reached.
 
-const FD_PER_PROCESS_MAX: u64 = 1024;
+const FD_PER_PROCESS_MAX: i32 = 1024;
 
 // BUG / TODO: Use this in some sane way...
 #[allow(dead_code)]
-const TOTAL_FD_MAX: u64 = 4096;
+const TOTAL_FD_MAX: i32 = 4096;
 
 // It's fairly easy to check the fd count on a per-process basis (I just check
 // when I would
@@ -126,7 +126,7 @@ lazy_static! {
 
   #[derive(Debug)]
   // GLOBALFDTABLE = <cageid, <virtualfd, FDTableEntry>> 
-  static ref GLOBALFDTABLE: Mutex<HashMap<u64, HashMap<u64,FDTableEntry>>> = {
+  static ref GLOBALFDTABLE: Mutex<HashMap<u64, HashMap<i32,FDTableEntry>>> = {
     let mut m = HashMap::new();
     // Insert a cage so that I have something to fork / test later, if need
     // be. Otherwise, I'm not sure how I get this started. I think this
@@ -140,13 +140,13 @@ lazy_static! {
 // These are the values we look up with at the end...
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FDTableEntry {
-    realfd: u64, // underlying fd (may be a virtual fd below us or
+    realfd: i32, // underlying fd (may be a virtual fd below us or
     // a kernel fd)
     should_cloexec: bool, // should I close this when exec is called?
     optionalinfo: u64,    // user specified / controlled data
 }
 
-pub fn translate_virtual_fd(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetVal> {
+pub fn translate_virtual_fd(cageid: u64, virtualfd: i32) -> Result<i32, threei::RetVal> {
     // Get the lock on the fdtable...  I'm not handling "poisoned locks" now
     // where a thread holding the lock died...
     let fdtable = GLOBALFDTABLE.lock().unwrap();
@@ -173,10 +173,10 @@ pub fn translate_virtual_fd(cageid: u64, virtualfd: u64) -> Result<u64, threei::
 // later, if needed.
 pub fn get_unused_virtual_fd(
     cageid: u64,
-    realfd: u64,
+    realfd: i32,
     should_cloexec: bool,
     optionalinfo: u64,
-) -> Result<u64, threei::RetVal> {
+) -> Result<i32, threei::RetVal> {
     let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
     if !fdtable.contains_key(&cageid) {
@@ -213,8 +213,8 @@ pub fn get_unused_virtual_fd(
 // virtual and realfds are different
 pub fn get_specific_virtual_fd(
     cageid: u64,
-    requested_virtualfd: u64,
-    realfd: u64,
+    requested_virtualfd: i32,
+    realfd: i32,
     should_cloexec: bool,
     optionalinfo: u64,
 ) -> Result<(), threei::RetVal> {
@@ -260,7 +260,7 @@ pub fn get_specific_virtual_fd(
 *   Remove virtual file descriptor mappings from fdtable. 
 *   Usage: close() 
 */
-pub fn rm_virtual_fd(cageid: u64, virtualfd: u64) -> Result<(), threei::RetVal> {
+pub fn rm_virtual_fd(cageid: u64, virtualfd: i32) -> Result<(), threei::RetVal> {
     let mut fdtable = GLOBALFDTABLE.lock().unwrap();
     if !fdtable.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
@@ -274,7 +274,7 @@ pub fn rm_virtual_fd(cageid: u64, virtualfd: u64) -> Result<(), threei::RetVal> 
 }
 
 // We're just setting a flag here, so this should be pretty straightforward.
-pub fn set_cloexec(cageid: u64, virtualfd: u64, is_cloexec: bool) -> Result<(), threei::RetVal> {
+pub fn set_cloexec(cageid: u64, virtualfd: i32, is_cloexec: bool) -> Result<(), threei::RetVal> {
     let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
     if !fdtable.contains_key(&cageid) {
@@ -292,7 +292,7 @@ pub fn set_cloexec(cageid: u64, virtualfd: u64, is_cloexec: bool) -> Result<(), 
 }
 
 // Super easy, just return the optionalinfo field...
-pub fn get_optionalinfo(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetVal> {
+pub fn get_optionalinfo(cageid: u64, virtualfd: i32) -> Result<u64, threei::RetVal> {
     let fdtable = GLOBALFDTABLE.lock().unwrap();
     if !fdtable.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
@@ -307,7 +307,7 @@ pub fn get_optionalinfo(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetV
 // We're setting an opaque value here. This should be pretty straightforward.
 pub fn set_optionalinfo(
     cageid: u64,
-    virtualfd: u64,
+    virtualfd: i32,
     optionalinfo: u64,
 ) -> Result<(), threei::RetVal> {
     let mut fdtable = GLOBALFDTABLE.lock().unwrap();
@@ -348,7 +348,7 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
 /* 
 *   Helper function for exec
 */
-pub fn add_cage_to_fdtable(cageid: u64, cage_fdtable: HashMap<u64, FDTableEntry>) -> Result<(), threei::Errno> {
+pub fn add_cage_to_fdtable(cageid: u64, cage_fdtable: HashMap<i32, FDTableEntry>) -> Result<(), threei::Errno> {
     let mut fdtable = GLOBALFDTABLE.lock().unwrap();
     if fdtable.contains_key(&cageid) {
         panic!("Cageid already in fdtable");
@@ -361,7 +361,7 @@ pub fn add_cage_to_fdtable(cageid: u64, cage_fdtable: HashMap<u64, FDTableEntry>
 }
 // This is mostly used in handling exit, etc.  Returns the HashMap
 // for the cage.
-pub fn remove_cage_from_fdtable(cageid: u64) -> HashMap<u64, FDTableEntry> {
+pub fn remove_cage_from_fdtable(cageid: u64) -> HashMap<i32, FDTableEntry> {
     let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
     if !fdtable.contains_key(&cageid) {
@@ -373,7 +373,7 @@ pub fn remove_cage_from_fdtable(cageid: u64) -> HashMap<u64, FDTableEntry> {
 
 // This removes all fds with the should_cloexec flag set.  They are returned
 // in a new hashmap...
-pub fn empty_fds_for_exec(cageid: u64) -> HashMap<u64, FDTableEntry> {
+pub fn empty_fds_for_exec(cageid: u64) -> HashMap<i32, FDTableEntry> {
     let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
     if !fdtable.contains_key(&cageid) {
@@ -393,7 +393,7 @@ pub fn empty_fds_for_exec(cageid: u64) -> HashMap<u64, FDTableEntry> {
 // returns a copy of the fdtable for a cage.  Useful helper function for a
 // caller that needs to examine the table.  Likely could be more efficient by
 // letting the caller borrow this...
-pub fn return_fdtable_copy(cageid: u64) -> HashMap<u64, FDTableEntry> {
+pub fn return_fdtable_copy(cageid: u64) -> HashMap<i32, FDTableEntry> {
     let fdtable = GLOBALFDTABLE.lock().unwrap();
 
     if !fdtable.contains_key(&cageid) {

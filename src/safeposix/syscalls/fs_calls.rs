@@ -32,13 +32,13 @@ impl Cage {
     *   Mapping a new virtual fd and kernel fd that libc::socket returned
     *   Then return virtual fd
     */
-    pub fn open_syscall(&self, path: &str, oflag: u64, mode: u64) -> u64 {
+    pub fn open_syscall(&self, path: &str, oflag: u64, mode: u64) -> i32 {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
 
         let kernel_fd = unsafe { libc::open(path_c as *const i8, oflag as i32) };
 
-        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         virtual_fd
     }
 
@@ -99,8 +99,8 @@ impl Cage {
         let kernel_fd = unsafe {
             libc::creat(path_c as *const i8, mode as u16)
         };
-        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
-        virtual_fd as i32
+        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
+        virtual_fd
     }
 
     //------------------------------------STAT SYSCALL------------------------------------
@@ -119,10 +119,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fstat() will return 0 when success and -1 when fail 
     */
-    pub fn fstat_syscall(&self, virtual_fd: u64, statbuf: &mut stat) -> i32 {
+    pub fn fstat_syscall(&self, virtual_fd: i32, statbuf: &mut stat) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fstat(kernel_fd as i32, statbuf)
+            libc::fstat(kernel_fd, statbuf)
         }
     }
 
@@ -142,10 +142,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fstatfs() will return 0 when success and -1 when fail 
     */
-    pub fn fstatfs_syscall(&self, virtual_fd: u64, databuf: &mut statfs) -> i32 {
+    pub fn fstatfs_syscall(&self, virtual_fd: i32, databuf: &mut statfs) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe{
-            libc::fstatfs(kernel_fd as i32, databuf)
+            libc::fstatfs(kernel_fd, databuf)
         }
     }
 
@@ -156,10 +156,10 @@ impl Cage {
     *   - the number of bytes read is returned, success
     *   - -1, fail 
     */
-    pub fn read_syscall(&self, virtual_fd: u64, readbuf: *mut u8, count: u64) -> i32 {
+    pub fn read_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::read(kernel_fd as i32, readbuf as *mut c_void, count as usize) as i32
+            libc::read(kernel_fd, readbuf as *mut c_void, count as usize) as i32
         }
     }
 
@@ -170,10 +170,10 @@ impl Cage {
     *   - the number of bytes read is returned, success
     *   - -1, fail 
     */
-    pub fn pread_syscall(&self, virtual_fd: u64, buf: *mut u8, count: u64, offset: u64) -> i32 {
+    pub fn pread_syscall(&self, virtual_fd: i32, buf: *mut u8, count: u64, offset: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::pread(kernel_fd as i32, buf as *mut c_void, count as usize, offset as i64) as i32
+            libc::pread(kernel_fd, buf as *mut c_void, count as usize, offset as i64) as i32
         }
     }
 
@@ -184,10 +184,10 @@ impl Cage {
     *   - the number of bytes writen is returned, success
     *   - -1, fail 
     */
-    pub fn write_syscall(&self, virtual_fd: u64, buf: *const u8, count: u64) -> i32 {
+    pub fn write_syscall(&self, virtual_fd: i32, buf: *const u8, count: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::write(kernel_fd as i32, buf as *const c_void, count as usize) as i32
+            libc::write(kernel_fd, buf as *const c_void, count as usize) as i32
         }
     }
 
@@ -198,10 +198,10 @@ impl Cage {
     *   - the number of bytes read is returned, success
     *   - -1, fail 
     */
-    pub fn pwrite_syscall(&self, virtual_fd: u64, buf: *const u8, count: u64, offset: u64) -> i32 {
+    pub fn pwrite_syscall(&self, virtual_fd: i32, buf: *const u8, count: u64, offset: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::pwrite(kernel_fd as i32, buf as *const c_void, count as usize, offset as i64) as i32
+            libc::pwrite(kernel_fd, buf as *const c_void, count as usize, offset as i64) as i32
         }
     }
 
@@ -212,10 +212,10 @@ impl Cage {
     *   -  the resulting offset location as measured in bytes from the beginning of the file
     *   - -1, fail 
     */
-    pub fn lseek_syscall(&self, virtual_fd: u64, offset: u64, whence: u64) -> i32 {
+    pub fn lseek_syscall(&self, virtual_fd: i32, offset: u64, whence: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::lseek(kernel_fd as i32, offset as i64, whence as i32) as i32
+            libc::lseek(kernel_fd, offset as i64, whence as i32) as i32
         }
     }
 
@@ -235,10 +235,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fchdir() will return 0 when sucess, -1 when fail 
     */
-    pub fn fchdir_syscall(&self, virtual_fd: u64) -> i32 {
+    pub fn fchdir_syscall(&self, virtual_fd: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fchdir(kernel_fd as i32)
+            libc::fchdir(kernel_fd)
         }
     }
 
@@ -259,24 +259,24 @@ impl Cage {
     *   Mapping a new virtual fd and kernel fd that libc::dup returned
     *   Then return virtual fd
     */
-    pub fn dup_syscall(&self, virtual_fd: u64, _start_desc: Option<i32>) -> u64 {
+    pub fn dup_syscall(&self, virtual_fd: i32, _start_desc: Option<i32>) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        let ret_kernelfd = unsafe{ libc::dup(kernel_fd as i32) };
-        let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
+        let ret_kernelfd = unsafe{ libc::dup(kernel_fd) };
+        let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd, false, 0).unwrap();
         ret_virtualfd
     }
 
     /* 
     */
-    pub fn dup2_syscall(&self, old_virtualfd: u64, new_virtualfd: u64) -> u64 {
+    pub fn dup2_syscall(&self, old_virtualfd: i32, new_virtualfd: i32) -> i32 {
         let old_kernelfd = translate_virtual_fd(self.cageid, old_virtualfd).unwrap();
         let new_kernelfd = unsafe {
             libc::dup(old_kernelfd as i32)
         };
         // Map new kernel fd with provided kernel fd
-        let _ret_kernelfd = unsafe{ libc::dup2(old_kernelfd as i32, new_kernelfd) };
+        let _ret_kernelfd = unsafe{ libc::dup2(old_kernelfd, new_kernelfd) };
         let optinfo = get_optionalinfo(self.cageid, old_virtualfd).unwrap();
-        let _ = get_specific_virtual_fd(self.cageid, new_virtualfd, new_kernelfd as u64, false, optinfo).unwrap();
+        let _ = get_specific_virtual_fd(self.cageid, new_virtualfd, new_kernelfd, false, optinfo).unwrap();
         new_virtualfd
     }
 
@@ -285,12 +285,12 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   close() will return 0 when sucess, -1 when fail 
     */
-    pub fn close_syscall(&self, virtual_fd: u64) -> i32 {
+    pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         // Remove file descriptor from virtual fdtable
         let _ = rm_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::close(kernel_fd as i32)
+            libc::close(kernel_fd)
         }
     }
 
@@ -329,15 +329,15 @@ impl Cage {
 
        On error, -1 is returned 
     */
-    pub fn fcntl_syscall(&self, virtual_fd: u64, cmd: u64, arg: u64) -> i32 {
+    pub fn fcntl_syscall(&self, virtual_fd: i32, cmd: u64, arg: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         if (cmd as i32) == libc::F_DUPFD {
-            let new_kernelfd = unsafe { libc::fcntl(kernel_fd as i32, cmd as i32, arg) };
+            let new_kernelfd = unsafe { libc::fcntl(kernel_fd, cmd as i32, arg) };
             // Get status
-            let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd as u64, false, 0).unwrap();
+            let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd, false, 0).unwrap();
             return new_virtualfd as i32;
         }
-        unsafe { libc::fcntl(kernel_fd as i32, cmd as i32, arg) }
+        unsafe { libc::fcntl(kernel_fd, cmd as i32, arg) }
     }
 
     //------------------------------------IOCTL SYSCALL------------------------------------
@@ -348,9 +348,9 @@ impl Cage {
     *   Note: A few ioctl() requests use the return value as an output parameter and return 
     *   a nonnegative value on success.
     */
-    pub fn ioctl_syscall(&self, virtual_fd: u64, request: u64, ptrunion: IoctlPtrUnion) -> i32 {
+    pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: IoctlPtrUnion) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::ioctl(kernel_fd as i32, request, ptrunion as *mut _ as *mut c_void) }
+        unsafe { libc::ioctl(kernel_fd, request, ptrunion as *mut _ as *mut c_void) }
     }
 
 
@@ -370,10 +370,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fchmod() will return 0 when sucess, -1 when fail 
     */
-    pub fn fchmod_syscall(&self, virtual_fd: u64, mode: u64) -> i32 {
+    pub fn fchmod_syscall(&self, virtual_fd: i32, mode: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fchmod(kernel_fd as i32, mode as u16)
+            libc::fchmod(kernel_fd, mode as u16)
         }
     }
 
@@ -390,13 +390,13 @@ impl Cage {
         len: u64,
         prot: u64,
         flags: u64,
-        virtual_fd: u64,
+        virtual_fd: i32,
         off: u64,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         // Do type conversion to translate from c_void into i32
         unsafe {
-            ((libc::mmap(addr as *mut c_void, len as usize, prot as i32, flags as i32, kernel_fd as i32, off as i64) as i64) 
+            ((libc::mmap(addr as *mut c_void, len as usize, prot as i32, flags as i32, kernel_fd, off as i64) as i64) 
                 & 0xffffffff) as i32
         }
     }
@@ -418,10 +418,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   flock() will return 0 when sucess, -1 when fail 
     */
-    pub fn flock_syscall(&self, virtual_fd: u64, operation: u64) -> i32 {
+    pub fn flock_syscall(&self, virtual_fd: i32, operation: u64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::flock(kernel_fd as i32, operation as i32)
+            libc::flock(kernel_fd, operation as i32)
         }
     }
 
@@ -453,10 +453,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fsync() will return 0 when sucess, -1 when fail 
     */
-    pub fn fsync_syscall(&self, virtual_fd: u64) -> i32 {
+    pub fn fsync_syscall(&self, virtual_fd: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fsync(kernel_fd as i32)
+            libc::fsync(kernel_fd)
         }
     }
 
@@ -465,10 +465,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fdatasync() will return 0 when sucess, -1 when fail 
     */
-    pub fn fdatasync_syscall(&self, virtual_fd: u64) -> i32 {
+    pub fn fdatasync_syscall(&self, virtual_fd: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fdatasync(kernel_fd as i32)
+            libc::fdatasync(kernel_fd)
         }
     }
 
@@ -479,7 +479,7 @@ impl Cage {
     */
     pub fn sync_file_range_syscall(
         &self,
-        virtual_fd: u64,
+        virtual_fd: i32,
         offset: u64,
         nbytes: u64,
         flags: u64,
@@ -495,10 +495,10 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   ftruncate() will return 0 when sucess, -1 when fail 
     */
-    pub fn ftruncate_syscall(&self, virtual_fd: u64, length: u64) -> i32 {
+    pub fn ftruncate_syscall(&self, virtual_fd: i32, length: i64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::ftruncate(kernel_fd as i32, length as i64)
+            libc::ftruncate(kernel_fd, length as i64)
         }
     }
 
@@ -521,7 +521,7 @@ impl Cage {
     *
     *   pipe() will return 0 when sucess, -1 when fail 
     */
-    pub fn pipe_syscall(&self, pipefd: &[u64]) -> i32 {
+    pub fn pipe_syscall(&self, pipefd: &[i32]) -> i32 {
         let mut kernel_fds = Vec::with_capacity(2);
         for index in 0..2 {
             let virtual_fd = pipefd[index];
@@ -531,7 +531,7 @@ impl Cage {
         unsafe { libc::pipe(kernel_fds.as_mut_ptr() as *mut i32) }
     }
 
-    pub fn pipe2_syscall(&self, pipefd: &[u64], flags: u64) -> i32 {
+    pub fn pipe2_syscall(&self, pipefd: &[i32], flags: u64) -> i32 {
         let mut kernel_fds = Vec::with_capacity(2);
         for index in 0..2 {
             let virtual_fd = pipefd[index];
@@ -596,88 +596,408 @@ impl Cage {
         unsafe { libc::shmdt(shmaddr as *const c_void) }
     }
 
+    pub fn shmctl_syscall(&self, shmid: i32, cmd: i32, buf: *mut shmid_ds) -> i32 {
+        unsafe { libc::shmctl(shmid, cmd, buf) }
+    }
+
     //------------------MUTEX SYSCALLS------------------
-    /* 
-    *   pthread_mutex_init() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_mutex_init_syscall(&self, lock: *mut pthread_mutex_t, attr: *const pthread_mutexattr_t) -> i32 {
-        unsafe { libc::pthread_mutex_init(lock, attr) }
+    pub fn mutex_create_syscall(&self) -> i32 {
+        let mut mutextable = self.mutex_table.write();
+        let mut index_option = None;
+        for i in 0..mutextable.len() {
+            if mutextable[i].is_none() {
+                index_option = Some(i);
+                break;
+            }
+        }
+
+        let index = if let Some(ind) = index_option {
+            ind
+        } else {
+            mutextable.push(None);
+            mutextable.len() - 1
+        };
+
+        let mutex_result = interface::RawMutex::create();
+        match mutex_result {
+            Ok(mutex) => {
+                mutextable[index] = Some(interface::RustRfc::new(mutex));
+                index as i32
+            }
+            Err(_) => match Errno::from_discriminant(interface::get_errno()) {
+                Ok(i) => syscall_error(
+                    i,
+                    "mutex_create",
+                    "The libc call to pthread_mutex_init failed!",
+                ),
+                Err(()) => panic!("Unknown errno value from pthread_mutex_init returned!"),
+            },
+        }
     }
 
-    /* 
-    *   pthread_mutex_destroy() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_mutex_destroy_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
-        unsafe { libc::pthread_mutex_destroy(lock) }
+    pub fn mutex_destroy_syscall(&self, mutex_handle: i32) -> i32 {
+        let mut mutextable = self.mutex_table.write();
+        if mutex_handle < mutextable.len() as i32
+            && mutex_handle >= 0
+            && mutextable[mutex_handle as usize].is_some()
+        {
+            mutextable[mutex_handle as usize] = None;
+            0
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "mutex_destroy",
+                "Mutex handle does not refer to a valid mutex!",
+            )
+        }
+        //the RawMutex is destroyed on Drop
+
+        //this is currently assumed to always succeed, as the man page does not list possible
+        //errors for pthread_mutex_destroy
     }
 
-    /* 
-    *   pthread_mutex_lock() will return 0 when sucess, -1 when fail 
-    */
-    pub fn pthread_mutex_lock_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
-        unsafe{ libc::pthread_mutex_lock(lock) }
+    pub fn mutex_lock_syscall(&self, mutex_handle: i32) -> i32 {
+        let mutextable = self.mutex_table.read();
+        if mutex_handle < mutextable.len() as i32
+            && mutex_handle >= 0
+            && mutextable[mutex_handle as usize].is_some()
+        {
+            let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
+            drop(mutextable);
+            let retval = clonedmutex.lock();
+
+            if retval < 0 {
+                match Errno::from_discriminant(interface::get_errno()) {
+                    Ok(i) => {
+                        return syscall_error(
+                            i,
+                            "mutex_lock",
+                            "The libc call to pthread_mutex_lock failed!",
+                        );
+                    }
+                    Err(()) => panic!("Unknown errno value from pthread_mutex_lock returned!"),
+                };
+            }
+
+            retval
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "mutex_lock",
+                "Mutex handle does not refer to a valid mutex!",
+            )
+        }
     }
 
-    /* 
-    *   pthread_mutex_trylock() will return 0 when acquire lock, -1 when fail 
-    */
-    pub fn pthread_mutex_trylock_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
-        unsafe{ libc::pthread_mutex_trylock(lock) }
+    pub fn mutex_trylock_syscall(&self, mutex_handle: i32) -> i32 {
+        let mutextable = self.mutex_table.read();
+        if mutex_handle < mutextable.len() as i32
+            && mutex_handle >= 0
+            && mutextable[mutex_handle as usize].is_some()
+        {
+            let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
+            drop(mutextable);
+            let retval = clonedmutex.trylock();
+
+            if retval < 0 {
+                match Errno::from_discriminant(interface::get_errno()) {
+                    Ok(i) => {
+                        return syscall_error(
+                            i,
+                            "mutex_trylock",
+                            "The libc call to pthread_mutex_trylock failed!",
+                        );
+                    }
+                    Err(()) => panic!("Unknown errno value from pthread_mutex_trylock returned!"),
+                };
+            }
+
+            retval
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "mutex_trylock",
+                "Mutex handle does not refer to a valid mutex!",
+            )
+        }
     }
 
-    /* 
-    *   pthread_mutex_unlock() will return 0 when sucess, -1 when fail 
-    */
-    pub fn pthread_mutex_unlock_syscall(&self, lock: *mut pthread_mutex_t) -> i32 {
-        unsafe{ libc::pthread_mutex_unlock(lock) }
+    pub fn mutex_unlock_syscall(&self, mutex_handle: i32) -> i32 {
+        let mutextable = self.mutex_table.read();
+        if mutex_handle < mutextable.len() as i32
+            && mutex_handle >= 0
+            && mutextable[mutex_handle as usize].is_some()
+        {
+            let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
+            drop(mutextable);
+            let retval = clonedmutex.unlock();
+
+            if retval < 0 {
+                match Errno::from_discriminant(interface::get_errno()) {
+                    Ok(i) => {
+                        return syscall_error(
+                            i,
+                            "mutex_unlock",
+                            "The libc call to pthread_mutex_unlock failed!",
+                        );
+                    }
+                    Err(()) => panic!("Unknown errno value from pthread_mutex_unlock returned!"),
+                };
+            }
+
+            retval
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "mutex_unlock",
+                "Mutex handle does not refer to a valid mutex!",
+            )
+        }
     }
 
     //------------------CONDVAR SYSCALLS------------------
-    /* 
-    *   pthread_cond_init() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_cond_init_syscall(&self, cond: *mut pthread_cond_t, attr: *const pthread_condattr_t) -> i32 {
-        unsafe{ libc::pthread_cond_init(cond, attr) }
+
+    pub fn cond_create_syscall(&self) -> i32 {
+        let mut cvtable = self.cv_table.write();
+        let mut index_option = None;
+        for i in 0..cvtable.len() {
+            if cvtable[i].is_none() {
+                index_option = Some(i);
+                break;
+            }
+        }
+
+        let index = if let Some(ind) = index_option {
+            ind
+        } else {
+            cvtable.push(None);
+            cvtable.len() - 1
+        };
+
+        let cv_result = interface::RawCondvar::create();
+        match cv_result {
+            Ok(cv) => {
+                cvtable[index] = Some(interface::RustRfc::new(cv));
+                index as i32
+            }
+            Err(_) => match Errno::from_discriminant(interface::get_errno()) {
+                Ok(i) => syscall_error(
+                    i,
+                    "cond_create",
+                    "The libc call to pthread_cond_init failed!",
+                ),
+                Err(()) => panic!("Unknown errno value from pthread_cond_init returned!"),
+            },
+        }
     }
 
-    /* 
-    *   pthread_cond_idestroy() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_cond_destroy_syscall(&self, cond: *mut pthread_cond_t) -> i32 {
-        unsafe{ libc::pthread_cond_destroy(cond) }
+    pub fn cond_destroy_syscall(&self, cv_handle: i32) -> i32 {
+        let mut cvtable = self.cv_table.write();
+        if cv_handle < cvtable.len() as i32
+            && cv_handle >= 0
+            && cvtable[cv_handle as usize].is_some()
+        {
+            cvtable[cv_handle as usize] = None;
+            0
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "cond_destroy",
+                "Condvar handle does not refer to a valid condvar!",
+            )
+        }
+        //the RawCondvar is destroyed on Drop
+
+        //this is currently assumed to always succeed, as the man page does not list possible
+        //errors for pthread_cv_destroy
     }
 
-    /* 
-    *   pthread_cond_signal() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_cond_signal_syscall(&self, cond: *mut pthread_cond_t) -> i32 {
-        unsafe{ libc::pthread_cond_signal(cond) }
+    pub fn cond_signal_syscall(&self, cv_handle: i32) -> i32 {
+        let cvtable = self.cv_table.read();
+        if cv_handle < cvtable.len() as i32
+            && cv_handle >= 0
+            && cvtable[cv_handle as usize].is_some()
+        {
+            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
+            drop(cvtable);
+            let retval = clonedcv.signal();
+
+            if retval < 0 {
+                match Errno::from_discriminant(interface::get_errno()) {
+                    Ok(i) => {
+                        return syscall_error(
+                            i,
+                            "cond_signal",
+                            "The libc call to pthread_cond_signal failed!",
+                        );
+                    }
+                    Err(()) => panic!("Unknown errno value from pthread_cond_signal returned!"),
+                };
+            }
+
+            retval
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "cond_signal",
+                "Condvar handle does not refer to a valid condvar!",
+            )
+        }
     }
 
-    /* 
-    *   pthread_cond_broadcast() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_cond_broadcast_syscall(&self, cond: *mut pthread_cond_t) -> i32 {
-        unsafe{ libc::pthread_cond_broadcast(cond) }
+    pub fn cond_broadcast_syscall(&self, cv_handle: i32) -> i32 {
+        let cvtable = self.cv_table.read();
+        if cv_handle < cvtable.len() as i32
+            && cv_handle >= 0
+            && cvtable[cv_handle as usize].is_some()
+        {
+            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
+            drop(cvtable);
+            let retval = clonedcv.broadcast();
+
+            if retval < 0 {
+                match Errno::from_discriminant(interface::get_errno()) {
+                    Ok(i) => {
+                        return syscall_error(
+                            i,
+                            "cond_broadcast",
+                            "The libc call to pthread_cond_broadcast failed!",
+                        );
+                    }
+                    Err(()) => panic!("Unknown errno value from pthread_cond_broadcast returned!"),
+                };
+            }
+
+            retval
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "cond_broadcast",
+                "Condvar handle does not refer to a valid condvar!",
+            )
+        }
     }
 
-    /* 
-    *   pthread_cond_wait() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_cond_wait_syscall(&self, cond: *mut pthread_cond_t, lock: *mut pthread_mutex_t) -> i32 {
-        unsafe{ libc::pthread_cond_wait(cond, lock) }
+    pub fn cond_wait_syscall(&self, cv_handle: i32, mutex_handle: i32) -> i32 {
+        let cvtable = self.cv_table.read();
+        if cv_handle < cvtable.len() as i32
+            && cv_handle >= 0
+            && cvtable[cv_handle as usize].is_some()
+        {
+            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
+            drop(cvtable);
+
+            let mutextable = self.mutex_table.read();
+            if mutex_handle < mutextable.len() as i32
+                && mutex_handle >= 0
+                && mutextable[mutex_handle as usize].is_some()
+            {
+                let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
+                drop(mutextable);
+                let retval = clonedcv.wait(&*clonedmutex);
+
+                // if the cancel status is set in the cage, we trap around a cancel point
+                // until the individual thread is signaled to cancel itself
+                if self
+                    .cancelstatus
+                    .load(interface::RustAtomicOrdering::Relaxed)
+                {
+                    loop {
+                        interface::cancelpoint(self.cageid);
+                    } // we check cancellation status here without letting the function return
+                }
+
+                if retval < 0 {
+                    match Errno::from_discriminant(interface::get_errno()) {
+                        Ok(i) => {
+                            return syscall_error(
+                                i,
+                                "cond_wait",
+                                "The libc call to pthread_cond_wait failed!",
+                            );
+                        }
+                        Err(()) => panic!("Unknown errno value from pthread_cond_wait returned!"),
+                    };
+                }
+
+                retval
+            } else {
+                //undefined behavior
+                syscall_error(
+                    Errno::EBADF,
+                    "cond_wait",
+                    "Mutex handle does not refer to a valid mutex!",
+                )
+            }
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "cond_wait",
+                "Condvar handle does not refer to a valid condvar!",
+            )
+        }
     }
 
-    /* 
-    *   pthread_cond_timedwait() will return 0 when sucess, errno when fail 
-    */
-    pub fn pthread_cond_timedwait_syscall(
+    pub fn cond_timedwait_syscall(
         &self,
-        cond: *mut pthread_cond_t,
-        lock: *mut pthread_mutex_t,
-        abstime: *const timespec
+        cv_handle: i32,
+        mutex_handle: i32,
+        time: interface::RustDuration,
     ) -> i32 {
-        unsafe{ libc::pthread_cond_timedwait(cond, lock, abstime) }
+        let cvtable = self.cv_table.read();
+        if cv_handle < cvtable.len() as i32
+            && cv_handle >= 0
+            && cvtable[cv_handle as usize].is_some()
+        {
+            let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
+            drop(cvtable);
+
+            let mutextable = self.mutex_table.read();
+            if mutex_handle < mutextable.len() as i32
+                && mutex_handle >= 0
+                && mutextable[mutex_handle as usize].is_some()
+            {
+                let clonedmutex = mutextable[mutex_handle as usize].as_ref().unwrap().clone();
+                drop(mutextable);
+                let retval = clonedcv.timedwait(&*clonedmutex, time);
+                if retval < 0 {
+                    match Errno::from_discriminant(interface::get_errno()) {
+                        Ok(i) => {
+                            return syscall_error(
+                                i,
+                                "cond_wait",
+                                "The libc call to pthread_cond_wait failed!",
+                            );
+                        }
+                        Err(()) => panic!("Unknown errno value from pthread_cond_wait returned!"),
+                    };
+                }
+
+                retval
+            } else {
+                //undefined behavior
+                syscall_error(
+                    Errno::EBADF,
+                    "cond_wait",
+                    "Mutex handle does not refer to a valid mutex!",
+                )
+            }
+        } else {
+            //undefined behavior
+            syscall_error(
+                Errno::EBADF,
+                "cond_wait",
+                "Condvar handle does not refer to a valid condvar!",
+            )
+        }
     }
 
     //------------------SEMAPHORE SYSCALLS------------------

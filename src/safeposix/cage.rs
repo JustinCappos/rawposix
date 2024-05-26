@@ -72,24 +72,24 @@ pub struct Cage {
     // pub cwd: interface::RustLock<interface::RustRfc<interface::RustPathBuf>>,
     pub parent: u64,
     // pub filedescriptortable: FdTable,
-    // pub cancelstatus: interface::RustAtomicBool,
+    pub cancelstatus: interface::RustAtomicBool,
     pub getgid: interface::RustAtomicI32,
     pub getuid: interface::RustAtomicI32,
     pub getegid: interface::RustAtomicI32,
     pub geteuid: interface::RustAtomicI32,
     // pub rev_shm: interface::Mutex<Vec<(u32, i32)>>, //maps addr within cage to shmid
-    // pub mutex_table: interface::RustLock<Vec<Option<interface::RustRfc<interface::RawMutex>>>>,
-    // pub cv_table: interface::RustLock<Vec<Option<interface::RustRfc<interface::RawCondvar>>>>,
+    pub mutex_table: interface::RustLock<Vec<Option<interface::RustRfc<interface::RawMutex>>>>,
+    pub cv_table: interface::RustLock<Vec<Option<interface::RustRfc<interface::RawCondvar>>>>,
     // pub sem_table: interface::RustHashMap<u32, interface::RustRfc<interface::RustSemaphore>>,
     pub thread_table: interface::RustHashMap<u64, bool>,
-    // pub signalhandler: interface::RustHashMap<i32, interface::SigactionStruct>,
-    // pub sigset: interface::RustHashMap<u64, interface::RustAtomicU64>,
-    // pub pendingsigset: interface::RustHashMap<u64, interface::RustAtomicU64>,
+    pub signalhandler: interface::RustHashMap<i32, interface::SigactionStruct>,
+    pub sigset: interface::RustHashMap<u64, interface::RustAtomicU64>,
+    pub pendingsigset: interface::RustHashMap<u64, interface::RustAtomicU64>,
     pub main_threadid: interface::RustAtomicU64,
-    // pub interval_timer: interface::IntervalTimer,
+    pub interval_timer: interface::IntervalTimer,
 }
 
-// impl Cage {
+impl Cage {
     // pub fn get_next_fd(
     //     &self,
     //     startfd: Option<i32>,
@@ -128,25 +128,25 @@ pub struct Cage {
     //     *cwdbox = newwd;
     // }
 
-    // // function to signal all cvs in a cage when forcing exit
-    // pub fn signalcvs(&self) {
-    //     let cvtable = self.cv_table.read();
+    // function to signal all cvs in a cage when forcing exit
+    pub fn signalcvs(&self) {
+        let cvtable = self.cv_table.read();
 
-    //     for cv_handle in 0..cvtable.len() {
-    //         if cvtable[cv_handle as usize].is_some() {
-    //             let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
-    //             clonedcv.broadcast();
-    //         }
-    //     }
-    // }
+        for cv_handle in 0..cvtable.len() {
+            if cvtable[cv_handle as usize].is_some() {
+                let clonedcv = cvtable[cv_handle as usize].as_ref().unwrap().clone();
+                clonedcv.broadcast();
+            }
+        }
+    }
 
-    // pub fn send_pending_signals(&self, sigset: interface::SigsetType, pthreadid: u64) {
-    //     for signo in 1..SIGNAL_MAX {
-    //         if interface::lind_sigismember(sigset, signo) {
-    //             interface::lind_threadkill(pthreadid, signo);
-    //         }
-    //     }
-    // }
+    pub fn send_pending_signals(&self, sigset: interface::SigsetType, pthreadid: u64) {
+        for signo in 1..SIGNAL_MAX {
+            if interface::lind_sigismember(sigset, signo) {
+                interface::lind_threadkill(pthreadid, signo);
+            }
+        }
+    }
 
     // pub fn get_filedescriptor(
     //     &self,
@@ -158,7 +158,7 @@ pub struct Cage {
     //         Ok(self.filedescriptortable[fd as usize].clone())
     //     }
     // }
-// }
+}
 
 // pub fn init_fdtable() -> FdTable {
 //     let mut fdtable = Vec::new();

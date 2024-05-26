@@ -2,6 +2,8 @@
 use crate::interface;
 use crate::interface::errnos::{syscall_error, Errno};
 
+use libc::*;
+
 const SIZEOF_SOCKADDR: u32 = 16;
 
 //redefining the FSData struct in this file so that we maintain flow of program
@@ -28,24 +30,24 @@ pub struct FSData {
 
 //redefining the StatData struct in this file so that we maintain flow of program
 //derive eq attributes for testing whether the structs equal other statdata structs from stat/fstat
-#[derive(Eq, PartialEq, Default)]
-#[repr(C)]
-pub struct StatData {
-    pub st_dev: u64,
-    pub st_ino: usize,
-    pub st_mode: u32,
-    pub st_nlink: u32,
-    pub st_uid: u32,
-    pub st_gid: u32,
-    pub st_rdev: u64,
-    pub st_size: usize,
-    pub st_blksize: i32,
-    pub st_blocks: u32,
-    //currently we don't populate or care about the time bits here
-    pub st_atim: (u64, u64),
-    pub st_mtim: (u64, u64),
-    pub st_ctim: (u64, u64),
-}
+// #[derive(Eq, PartialEq, Default)]
+// #[repr(C)]
+// pub struct StatData {
+//     pub st_dev: u64,
+//     pub st_ino: usize,
+//     pub st_mode: u32,
+//     pub st_nlink: u32,
+//     pub st_uid: u32,
+//     pub st_gid: u32,
+//     pub st_rdev: u64,
+//     pub st_size: usize,
+//     pub st_blksize: i32,
+//     pub st_blocks: u32,
+//     //currently we don't populate or care about the time bits here
+//     pub st_atim: (u64, u64),
+//     pub st_mtim: (u64, u64),
+//     pub st_ctim: (u64, u64),
+// }
 
 //R Limit for getrlimit system call
 #[repr(C)]
@@ -80,7 +82,7 @@ pub struct EpollEvent {
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct PollStruct {
-    pub fd: i32,
+    pub fd: u64,
     pub events: i16,
     pub revents: i16,
 }
@@ -170,11 +172,11 @@ pub union Arg {
     pub dispatch_cstr: *const i8, //Typically corresponds to a passed in string of type char*, as in open
     pub dispatch_cstrarr: *const *const i8, //Typically corresponds to a passed in string array of type char* const[] as in execve
     pub dispatch_rlimitstruct: *mut Rlimit,
-    pub dispatch_statdatastruct: *mut StatData,
-    pub dispatch_fsdatastruct: *mut FSData,
-    pub dispatch_shmidstruct: *mut ShmidsStruct,
-    pub dispatch_constsockaddrstruct: *const SockaddrDummy,
-    pub dispatch_sockaddrstruct: *mut SockaddrDummy,
+    pub dispatch_statdatastruct: *mut stat,
+    pub dispatch_fsdatastruct: *mut statfs,
+    pub dispatch_shmidstruct: *mut shmid_ds,
+    pub dispatch_constsockaddrstruct: *const sockaddr,
+    pub dispatch_sockaddrstruct: *mut sockaddr,
     pub dispatch_socklen_t_ptr: *mut u32,
     pub dispatch_intptr: *mut i32,
     pub dispatch_pollstructarray: *mut PollStruct,
@@ -350,7 +352,7 @@ pub fn get_cstrarr<'a>(union_argument: Arg) -> Result<Vec<&'a str>, i32> {
     ));
 }
 
-pub fn get_statdatastruct<'a>(union_argument: Arg) -> Result<&'a mut StatData, i32> {
+pub fn get_statdatastruct<'a>(union_argument: Arg) -> Result<&'a mut stat, i32> {
     let pointer = unsafe { union_argument.dispatch_statdatastruct };
     if !pointer.is_null() {
         return Ok(unsafe { &mut *pointer });
@@ -362,7 +364,7 @@ pub fn get_statdatastruct<'a>(union_argument: Arg) -> Result<&'a mut StatData, i
     ));
 }
 
-pub fn get_fsdatastruct<'a>(union_argument: Arg) -> Result<&'a mut FSData, i32> {
+pub fn get_fsdatastruct<'a>(union_argument: Arg) -> Result<&'a mut statfs, i32> {
     let pointer = unsafe { union_argument.dispatch_fsdatastruct };
     if !pointer.is_null() {
         return Ok(unsafe { &mut *pointer });
@@ -374,7 +376,7 @@ pub fn get_fsdatastruct<'a>(union_argument: Arg) -> Result<&'a mut FSData, i32> 
     ));
 }
 
-pub fn get_shmidstruct<'a>(union_argument: Arg) -> Result<&'a mut ShmidsStruct, i32> {
+pub fn get_shmidstruct<'a>(union_argument: Arg) -> Result<&'a mut shmid_ds, i32> {
     let pointer = unsafe { union_argument.dispatch_shmidstruct };
     if !pointer.is_null() {
         return Ok(unsafe { &mut *pointer });
@@ -385,11 +387,11 @@ pub fn get_shmidstruct<'a>(union_argument: Arg) -> Result<&'a mut ShmidsStruct, 
         "input data not valid",
     ));
 }
-
+/* [TODO] */
 pub fn get_ioctlptrunion(union_argument: Arg) -> Result<IoctlPtrUnion, i32> {
     return Ok(unsafe { union_argument.dispatch_ioctlptrunion });
 }
-
+/* [TODO] */
 pub fn get_ioctl_int<'a>(ptrunion: IoctlPtrUnion) -> Result<i32, i32> {
     let pointer = unsafe { ptrunion.int_ptr };
     if !pointer.is_null() {
@@ -397,7 +399,7 @@ pub fn get_ioctl_int<'a>(ptrunion: IoctlPtrUnion) -> Result<i32, i32> {
     }
     return Err(syscall_error(Errno::EFAULT, "ioctl", "argp is not valid"));
 }
-
+/* [TODO] */
 pub fn get_ioctl_char<'a>(ptrunion: IoctlPtrUnion) -> Result<u8, i32> {
     let pointer = unsafe { ptrunion.c_char_ptr };
     if !pointer.is_null() {
@@ -405,7 +407,7 @@ pub fn get_ioctl_char<'a>(ptrunion: IoctlPtrUnion) -> Result<u8, i32> {
     }
     return Err(syscall_error(Errno::EFAULT, "ioctl", "argp is not valid"));
 }
-
+/* [TODO] */
 /// Given the vector of tuples produced from getdents_syscall, each of which consists of
 /// a ClippedDirent struct and a u8 vector representing the name, and also given the
 /// pointer to the base of the buffer to which the getdents structs should be copied,
@@ -423,29 +425,29 @@ pub fn get_ioctl_char<'a>(ptrunion: IoctlPtrUnion) -> Result<u8, i32> {
 ///
 /// There is enough information to produce a tuple vector that can satisfy these assumptions well
 /// in getdents syscall, and thus all the work to satisfy these assumptions should be done there
-pub fn pack_dirents(dirtuplevec: Vec<(ClippedDirent, Vec<u8>)>, baseptr: *mut u8) {
-    let mut curptr = baseptr;
+// pub fn pack_dirents(dirtuplevec: Vec<(ClippedDirent, Vec<u8>)>, baseptr: *mut u8) {
+//     let mut curptr = baseptr;
 
-    //for each tuple we write in the ClippedDirent struct, and then the padded name vec
-    for dirtuple in dirtuplevec {
-        //get pointer to start of next dirent in the buffer as a ClippedDirent pointer
-        let curclippedptr = curptr as *mut ClippedDirent;
-        //turn that pointer into a rust reference
-        let curwrappedptr = unsafe { &mut *curclippedptr };
-        //assign to the data that reference points to with the value of the ClippedDirent from the tuple
-        *curwrappedptr = dirtuple.0;
+//     //for each tuple we write in the ClippedDirent struct, and then the padded name vec
+//     for dirtuple in dirtuplevec {
+//         //get pointer to start of next dirent in the buffer as a ClippedDirent pointer
+//         let curclippedptr = curptr as *mut ClippedDirent;
+//         //turn that pointer into a rust reference
+//         let curwrappedptr = unsafe { &mut *curclippedptr };
+//         //assign to the data that reference points to with the value of the ClippedDirent from the tuple
+//         *curwrappedptr = dirtuple.0;
 
-        //advance pointer by the size of one ClippedDirent, std::mem::size_of should be added into the interface
-        curptr = curptr.wrapping_offset(size_of::<ClippedDirent>() as isize);
+//         //advance pointer by the size of one ClippedDirent, std::mem::size_of should be added into the interface
+//         curptr = curptr.wrapping_offset(size_of::<ClippedDirent>() as isize);
 
-        //write, starting from this advanced location, the u8 vec representation of the name
-        unsafe { curptr.copy_from(dirtuple.1.as_slice().as_ptr(), dirtuple.1.len()) };
+//         //write, starting from this advanced location, the u8 vec representation of the name
+//         unsafe { curptr.copy_from(dirtuple.1.as_slice().as_ptr(), dirtuple.1.len()) };
 
-        //advance pointer by the size of name, which we assume to be null terminated and padded correctly
-        //and thus we are finished with this struct
-        curptr = curptr.wrapping_offset(dirtuple.1.len() as isize);
-    }
-}
+//         //advance pointer by the size of name, which we assume to be null terminated and padded correctly
+//         //and thus we are finished with this struct
+//         curptr = curptr.wrapping_offset(dirtuple.1.len() as isize);
+//     }
+// }
 
 pub fn get_pipearray<'a>(union_argument: Arg) -> Result<&'a mut PipeArray, i32> {
     let pointer = unsafe { union_argument.dispatch_pipearray };
@@ -471,57 +473,10 @@ pub fn get_sockpair<'a>(union_argument: Arg) -> Result<&'a mut SockPair, i32> {
     ));
 }
 
-pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenSockaddr, i32> {
-    let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
+pub fn get_sockaddr<'a>(union_argument: Arg) -> Result<&'a mut sockaddr, i32> {
+    let pointer = unsafe { union_argument.dispatch_sockaddrstruct };
     if !pointer.is_null() {
-        let tmpsock = unsafe { &*pointer };
-        match tmpsock.sa_family {
-            /*AF_UNIX*/
-            1 => {
-                if addrlen < SIZEOF_SOCKADDR
-                    || addrlen > size_of::<interface::SockaddrUnix>() as u32
-                {
-                    return Err(syscall_error(
-                        Errno::EINVAL,
-                        "dispatcher",
-                        "input length incorrect for family of sockaddr",
-                    ));
-                }
-                let unix_ptr = pointer as *const interface::SockaddrUnix;
-                return Ok(interface::GenSockaddr::Unix(unsafe { *unix_ptr }));
-            }
-            /*AF_INET*/
-            2 => {
-                if addrlen < size_of::<interface::SockaddrV4>() as u32 {
-                    return Err(syscall_error(
-                        Errno::EINVAL,
-                        "dispatcher",
-                        "input length too small for family of sockaddr",
-                    ));
-                }
-                let v4_ptr = pointer as *const interface::SockaddrV4;
-                return Ok(interface::GenSockaddr::V4(unsafe { *v4_ptr }));
-            }
-            /*AF_INET6*/
-            30 => {
-                if addrlen < size_of::<interface::SockaddrV6>() as u32 {
-                    return Err(syscall_error(
-                        Errno::EINVAL,
-                        "dispatcher",
-                        "input length too small for family of sockaddr",
-                    ));
-                }
-                let v6_ptr = pointer as *const interface::SockaddrV6;
-                return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
-            }
-            _ => {
-                return Err(syscall_error(
-                    Errno::EOPNOTSUPP,
-                    "dispatcher",
-                    "sockaddr family not supported",
-                ))
-            }
-        }
+        return Ok(unsafe { &mut *pointer });
     }
     return Err(syscall_error(
         Errno::EFAULT,
@@ -530,63 +485,134 @@ pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenS
     ));
 }
 
-pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interface::GenSockaddr) {
-    let copyoutaddr = unsafe { union_argument.dispatch_sockaddrstruct } as *mut u8;
-    let addrlen = unsafe { len_argument.dispatch_socklen_t_ptr };
-    assert!(!copyoutaddr.is_null());
-    assert!(!addrlen.is_null());
-    let initaddrlen = unsafe { *addrlen };
-    let mut mutgensock = gensock;
-    match mutgensock {
-        interface::GenSockaddr::Unix(ref mut unixa) => {
-            let unixlen = size_of::<interface::SockaddrUnix>() as u32;
-
-            let fullcopylen = interface::rust_min(initaddrlen, unixlen);
-            unsafe {
-                std::ptr::copy(
-                    (unixa) as *mut interface::SockaddrUnix as *mut u8,
-                    copyoutaddr,
-                    fullcopylen as usize,
-                )
-            };
-            unsafe {
-                *addrlen = interface::rust_max(unixlen, fullcopylen);
-            }
-        }
-
-        interface::GenSockaddr::V4(ref mut v4a) => {
-            let v4len = size_of::<interface::SockaddrV4>() as u32;
-
-            let fullcopylen = interface::rust_min(initaddrlen, v4len);
-            unsafe {
-                std::ptr::copy(
-                    (v4a) as *mut interface::SockaddrV4 as *mut u8,
-                    copyoutaddr,
-                    fullcopylen as usize,
-                )
-            };
-            unsafe {
-                *addrlen = interface::rust_max(v4len, fullcopylen);
-            }
-        }
-
-        interface::GenSockaddr::V6(ref mut v6a) => {
-            let v6len = size_of::<interface::SockaddrV6>() as u32;
-
-            let fullcopylen = interface::rust_min(initaddrlen, v6len);
-            unsafe {
-                std::ptr::copy(
-                    (v6a) as *mut interface::SockaddrV6 as *mut u8,
-                    copyoutaddr,
-                    fullcopylen as usize,
-                )
-            };
-            unsafe {
-                *addrlen = interface::rust_max(v6len, fullcopylen);
-            }
-        }
+pub fn get_constsockaddr<'a>(union_argument: Arg) -> Result<&'a sockaddr, i32> {
+    let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
+    if !pointer.is_null() {
+        return Ok(unsafe { & *pointer });
     }
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
+
+// pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenSockaddr, i32> {
+//     let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
+//     if !pointer.is_null() {
+//         let tmpsock = unsafe { &*pointer };
+//         match tmpsock.sa_family {
+//             /*AF_UNIX*/
+//             1 => {
+//                 if addrlen < SIZEOF_SOCKADDR
+//                     || addrlen > size_of::<interface::SockaddrUnix>() as u32
+//                 {
+//                     return Err(syscall_error(
+//                         Errno::EINVAL,
+//                         "dispatcher",
+//                         "input length incorrect for family of sockaddr",
+//                     ));
+//                 }
+//                 let unix_ptr = pointer as *const interface::SockaddrUnix;
+//                 return Ok(interface::GenSockaddr::Unix(unsafe { *unix_ptr }));
+//             }
+//             /*AF_INET*/
+//             2 => {
+//                 if addrlen < size_of::<interface::SockaddrV4>() as u32 {
+//                     return Err(syscall_error(
+//                         Errno::EINVAL,
+//                         "dispatcher",
+//                         "input length too small for family of sockaddr",
+//                     ));
+//                 }
+//                 let v4_ptr = pointer as *const interface::SockaddrV4;
+//                 return Ok(interface::GenSockaddr::V4(unsafe { *v4_ptr }));
+//             }
+//             /*AF_INET6*/
+//             30 => {
+//                 if addrlen < size_of::<interface::SockaddrV6>() as u32 {
+//                     return Err(syscall_error(
+//                         Errno::EINVAL,
+//                         "dispatcher",
+//                         "input length too small for family of sockaddr",
+//                     ));
+//                 }
+//                 let v6_ptr = pointer as *const interface::SockaddrV6;
+//                 return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
+//             }
+//             _ => {
+//                 return Err(syscall_error(
+//                     Errno::EOPNOTSUPP,
+//                     "dispatcher",
+//                     "sockaddr family not supported",
+//                 ))
+//             }
+//         }
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
+
+// pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interface::GenSockaddr) {
+//     let copyoutaddr = unsafe { union_argument.dispatch_sockaddrstruct } as *mut u8;
+//     let addrlen = unsafe { len_argument.dispatch_socklen_t_ptr };
+//     assert!(!copyoutaddr.is_null());
+//     assert!(!addrlen.is_null());
+//     let initaddrlen = unsafe { *addrlen };
+//     let mut mutgensock = gensock;
+//     match mutgensock {
+//         interface::GenSockaddr::Unix(ref mut unixa) => {
+//             let unixlen = size_of::<interface::SockaddrUnix>() as u32;
+
+//             let fullcopylen = interface::rust_min(initaddrlen, unixlen);
+//             unsafe {
+//                 std::ptr::copy(
+//                     (unixa) as *mut interface::SockaddrUnix as *mut u8,
+//                     copyoutaddr,
+//                     fullcopylen as usize,
+//                 )
+//             };
+//             unsafe {
+//                 *addrlen = interface::rust_max(unixlen, fullcopylen);
+//             }
+//         }
+
+//         interface::GenSockaddr::V4(ref mut v4a) => {
+//             let v4len = size_of::<interface::SockaddrV4>() as u32;
+
+//             let fullcopylen = interface::rust_min(initaddrlen, v4len);
+//             unsafe {
+//                 std::ptr::copy(
+//                     (v4a) as *mut interface::SockaddrV4 as *mut u8,
+//                     copyoutaddr,
+//                     fullcopylen as usize,
+//                 )
+//             };
+//             unsafe {
+//                 *addrlen = interface::rust_max(v4len, fullcopylen);
+//             }
+//         }
+
+//         interface::GenSockaddr::V6(ref mut v6a) => {
+//             let v6len = size_of::<interface::SockaddrV6>() as u32;
+
+//             let fullcopylen = interface::rust_min(initaddrlen, v6len);
+//             unsafe {
+//                 std::ptr::copy(
+//                     (v6a) as *mut interface::SockaddrV6 as *mut u8,
+//                     copyoutaddr,
+//                     fullcopylen as usize,
+//                 )
+//             };
+//             unsafe {
+//                 *addrlen = interface::rust_max(v6len, fullcopylen);
+//             }
+//         }
+//     }
+// }
 
 pub fn get_pollstruct_slice<'a>(
     union_argument: Arg,

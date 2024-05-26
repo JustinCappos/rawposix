@@ -405,144 +405,144 @@ pub struct AdvisoryLock {
 //     }
 // }
 
-// pub struct RawMutex {
-//     inner: libc::pthread_mutex_t,
-// }
+pub struct RawMutex {
+    inner: libc::pthread_mutex_t,
+}
 
-// impl RawMutex {
-//     pub fn create() -> Result<Self, i32> {
-//         let libcret;
-//         let mut retval = Self {
-//             inner: unsafe { std::mem::zeroed() },
-//         };
-//         unsafe {
-//             libcret = libc::pthread_mutex_init(
-//                 (&mut retval.inner) as *mut libc::pthread_mutex_t,
-//                 std::ptr::null(),
-//             );
-//         }
-//         if libcret < 0 {
-//             Err(libcret)
-//         } else {
-//             Ok(retval)
-//         }
-//     }
+impl RawMutex {
+    pub fn create() -> Result<Self, i32> {
+        let libcret;
+        let mut retval = Self {
+            inner: unsafe { std::mem::zeroed() },
+        };
+        unsafe {
+            libcret = libc::pthread_mutex_init(
+                (&mut retval.inner) as *mut libc::pthread_mutex_t,
+                std::ptr::null(),
+            );
+        }
+        if libcret < 0 {
+            Err(libcret)
+        } else {
+            Ok(retval)
+        }
+    }
 
-//     pub fn lock(&self) -> i32 {
-//         unsafe {
-//             libc::pthread_mutex_lock(
-//                 (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-//             )
-//         }
-//     }
+    pub fn lock(&self) -> i32 {
+        unsafe {
+            libc::pthread_mutex_lock(
+                (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+            )
+        }
+    }
 
-//     pub fn trylock(&self) -> i32 {
-//         unsafe {
-//             libc::pthread_mutex_trylock(
-//                 (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-//             )
-//         }
-//     }
+    pub fn trylock(&self) -> i32 {
+        unsafe {
+            libc::pthread_mutex_trylock(
+                (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+            )
+        }
+    }
 
-//     pub fn unlock(&self) -> i32 {
-//         unsafe {
-//             libc::pthread_mutex_unlock(
-//                 (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-//             )
-//         }
-//     }
-// }
+    pub fn unlock(&self) -> i32 {
+        unsafe {
+            libc::pthread_mutex_unlock(
+                (&self.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+            )
+        }
+    }
+}
 
-// impl std::fmt::Debug for RawMutex {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.write_str("<mutex>")
-//     }
-// }
+impl std::fmt::Debug for RawMutex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<mutex>")
+    }
+}
 
-// impl Drop for RawMutex {
-//     fn drop(&mut self) {
-//         unsafe {
-//             libc::pthread_mutex_destroy((&mut self.inner) as *mut libc::pthread_mutex_t);
-//         }
-//     }
-// }
+impl Drop for RawMutex {
+    fn drop(&mut self) {
+        unsafe {
+            libc::pthread_mutex_destroy((&mut self.inner) as *mut libc::pthread_mutex_t);
+        }
+    }
+}
 
-// pub struct RawCondvar {
-//     inner: libc::pthread_cond_t,
-// }
+pub struct RawCondvar {
+    inner: libc::pthread_cond_t,
+}
 
-// impl RawCondvar {
-//     pub fn create() -> Result<Self, i32> {
-//         let libcret;
-//         let mut retval = Self {
-//             inner: unsafe { std::mem::zeroed() },
-//         };
-//         unsafe {
-//             libcret = libc::pthread_cond_init(
-//                 (&mut retval.inner) as *mut libc::pthread_cond_t,
-//                 std::ptr::null(),
-//             );
-//         }
-//         if libcret < 0 {
-//             Err(libcret)
-//         } else {
-//             Ok(retval)
-//         }
-//     }
+impl RawCondvar {
+    pub fn create() -> Result<Self, i32> {
+        let libcret;
+        let mut retval = Self {
+            inner: unsafe { std::mem::zeroed() },
+        };
+        unsafe {
+            libcret = libc::pthread_cond_init(
+                (&mut retval.inner) as *mut libc::pthread_cond_t,
+                std::ptr::null(),
+            );
+        }
+        if libcret < 0 {
+            Err(libcret)
+        } else {
+            Ok(retval)
+        }
+    }
 
-//     pub fn signal(&self) -> i32 {
-//         unsafe {
-//             libc::pthread_cond_signal(
-//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-//             )
-//         }
-//     }
+    pub fn signal(&self) -> i32 {
+        unsafe {
+            libc::pthread_cond_signal(
+                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+            )
+        }
+    }
 
-//     pub fn broadcast(&self) -> i32 {
-//         unsafe {
-//             libc::pthread_cond_broadcast(
-//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-//             )
-//         }
-//     }
+    pub fn broadcast(&self) -> i32 {
+        unsafe {
+            libc::pthread_cond_broadcast(
+                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+            )
+        }
+    }
 
-//     pub fn wait(&self, mutex: &RawMutex) -> i32 {
-//         unsafe {
-//             libc::pthread_cond_wait(
-//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-//                 (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-//             )
-//         }
-//     }
+    pub fn wait(&self, mutex: &RawMutex) -> i32 {
+        unsafe {
+            libc::pthread_cond_wait(
+                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+                (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+            )
+        }
+    }
 
-//     pub fn timedwait(&self, mutex: &RawMutex, abs_duration: Duration) -> i32 {
-//         let abstime = libc::timespec {
-//             tv_sec: abs_duration.as_secs() as i64,
-//             tv_nsec: (abs_duration.as_nanos() % 1000000000) as i64,
-//         };
-//         unsafe {
-//             libc::pthread_cond_timedwait(
-//                 (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
-//                 (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
-//                 (&abstime) as *const libc::timespec,
-//             )
-//         }
-//     }
-// }
+    pub fn timedwait(&self, mutex: &RawMutex, abs_duration: Duration) -> i32 {
+        let abstime = libc::timespec {
+            tv_sec: abs_duration.as_secs() as i64,
+            tv_nsec: (abs_duration.as_nanos() % 1000000000) as i64,
+        };
+        unsafe {
+            libc::pthread_cond_timedwait(
+                (&self.inner) as *const libc::pthread_cond_t as *mut libc::pthread_cond_t,
+                (&mutex.inner) as *const libc::pthread_mutex_t as *mut libc::pthread_mutex_t,
+                (&abstime) as *const libc::timespec,
+            )
+        }
+    }
+}
 
-// impl Drop for RawCondvar {
-//     fn drop(&mut self) {
-//         unsafe {
-//             libc::pthread_cond_destroy((&mut self.inner) as *mut libc::pthread_cond_t);
-//         }
-//     }
-// }
+impl Drop for RawCondvar {
+    fn drop(&mut self) {
+        unsafe {
+            libc::pthread_cond_destroy((&mut self.inner) as *mut libc::pthread_cond_t);
+        }
+    }
+}
 
-// impl std::fmt::Debug for RawCondvar {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.write_str("<condvar>")
-//     }
-// }
+impl std::fmt::Debug for RawCondvar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<condvar>")
+    }
+}
 
 // /*
 // * RustSemaphore is the rust version of sem_t
