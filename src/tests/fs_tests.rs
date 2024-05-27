@@ -461,10 +461,10 @@ pub mod fs_tests {
         let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_CREAT | O_EXCL, S_IRWXA);
 
         //set the setfd flag
-        // assert_eq!(cage.fcntl_syscall(sockfd, F_SETFD, O_CLOEXEC), 0);
+        assert_eq!(cage.fcntl_syscall(sockfd, F_SETFD, libc::O_CLOEXEC), 0);
 
-        // //checking to see if the wrong flag was set or not
-        // assert_eq!(cage.fcntl_syscall(sockfd, F_GETFD, 0), O_CLOEXEC);
+        //checking to see if the wrong flag was set or not
+        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFD, 0), libc::O_CLOEXEC);
 
         //let's get some more flags on the filefd
         assert_eq!(
@@ -491,6 +491,7 @@ pub mod fs_tests {
             println!("O_NONBLOCK is set");
             io::stdout().flush().unwrap();
         }
+        assert_eq!(flags, O_NONBLOCK);
 
         assert_eq!(cage.close_syscall(filefd), 0);
         assert_eq!(cage.close_syscall(sockfd), 0);
