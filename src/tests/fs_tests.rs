@@ -1117,32 +1117,33 @@ pub mod fs_tests {
         let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
         assert_ne!(shmatret, -1);
         // Initialize the semaphore with shared between process
-        let ret_init = cage.sem_init_syscall(shmatret as *mut i32, 1, 1);
+        let mut sem: sem_t = unsafe { std::mem::zeroed() };
+        let ret_init = cage.sem_init_syscall(&mut sem, 1, 1);
         assert_eq!(ret_init, 0);
-        assert_eq!(cage.sem_getvalue_syscall(shmatret as *mut i32), 1);
+        assert_eq!(cage.sem_getvalue_syscall(&mut sem), 1);
         // Fork child process
         assert_eq!(cage.fork_syscall(2), 0);
         // Child process
         let thread_child = interface::helper_thread(move || {
             let cage1 = interface::cagetable_getref(2);
             // Child waits for the semaphore
-            assert_eq!(cage1.sem_wait_syscall(shmatret as *mut i32), 0);
+            assert_eq!(cage1.sem_wait_syscall(&mut sem), 0);
             interface::sleep(interface::RustDuration::from_millis(40));
             // Release the semaphore
-            assert_eq!(cage1.sem_post_syscall(shmatret as *mut i32), 0);
+            assert_eq!(cage1.sem_post_syscall(&mut sem), 0);
             cage1.exit_syscall(libc::EXIT_SUCCESS);
         });
         //Parent processes
         let thread_parent = interface::helper_thread(move || {
             // Parents waits for the semaphore
-            assert_eq!(cage.sem_wait_syscall(shmatret as *mut i32), 0);
-            assert_eq!(cage.sem_getvalue_syscall(shmatret as *mut i32), 0);
+            assert_eq!(cage.sem_wait_syscall(&mut sem), 0);
+            assert_eq!(cage.sem_getvalue_syscall(&mut sem), 0);
             interface::sleep(interface::RustDuration::from_millis(100));
             // Parents release the semaphore
-            assert_eq!(cage.sem_post_syscall(shmatret as *mut i32), 0);
-            assert_eq!(cage.sem_getvalue_syscall(shmatret as *mut i32), 1);
+            assert_eq!(cage.sem_post_syscall(&mut sem), 0);
+            assert_eq!(cage.sem_getvalue_syscall(&mut sem), 1);
             // Destroy the semaphore
-            assert_eq!(cage.sem_destroy_syscall(shmatret as *mut i32), 0);
+            assert_eq!(cage.sem_destroy_syscall(&mut sem), 0);
             // mark the shared memory to be rmoved
             let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, ptr::null_mut());
             assert_eq!(shmctlret2, 0);

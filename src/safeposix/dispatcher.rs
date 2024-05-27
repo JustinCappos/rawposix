@@ -1003,7 +1003,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(cage.sem_destroy_syscall, interface::get_sem(arg1))
         }
         SEM_GETVALUE_SYSCALL => {
-            check_and_dispatch!(cage.sem_getvalue_syscall, interface::get_sem(arg1), interface::get_int(arg2))
+            check_and_dispatch!(cage.sem_getvalue_syscall, interface::get_sem(arg1))
         }
         SEM_TRYWAIT_SYSCALL => {
             check_and_dispatch!(cage.sem_trywait_syscall, interface::get_sem(arg1))
