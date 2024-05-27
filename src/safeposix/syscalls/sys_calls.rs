@@ -220,7 +220,7 @@ impl Cage {
     pub fn exit_syscall(&self, status: i32) -> i32 {
         //flush anything left in stdout
         interface::flush_stdout();
-
+        let _ = remove_cage_from_fdtable(self.cageid);
         //may not be removable in case of lindrustfinalize, we don't unwrap the remove result
         interface::cagetable_remove(self.cageid);
 
