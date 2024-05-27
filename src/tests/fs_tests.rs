@@ -1114,7 +1114,8 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
         let key = 1234;
         // Create a shared memory region
-        let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
+        // let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
+        let shmid = cage.shmget_syscall(key, 1024, 0);
         println!("shmid: {:?}", shmid);
         io::stdout().flush().unwrap();
         // Attach the shared memory region
