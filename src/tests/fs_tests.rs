@@ -273,9 +273,9 @@ pub mod fs_tests {
 
         //testing the ability to make and change to directories
 
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", S_IRWXA), 0);
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2", S_IRWXA), 0);
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2/subdir3", S_IRWXA), 0);
+        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", S_LIND), 0);
+        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2", S_LIND), 0);
+        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2/subdir3", S_LIND), 0);
 
         assert_eq!(cage.access_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", F_OK), 0);
         assert_eq!(cage.chdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1"), 0);
@@ -284,7 +284,7 @@ pub mod fs_tests {
         let mut buf = [0u8; 1024];
         let _ptr = cage.getcwd_syscall(buf.as_mut_ptr(), buf.len() as u32);
         let cwd = String::from_utf8_lossy(&buf).into_owned();
-        println!("After chdir to '..', current directory: {}", cwd);
+        println!("Before chdir to '..', current directory: {}", cwd);
         io::stdout().flush().unwrap();
         assert_eq!(cage.chdir_syscall(".."), 0);
 
