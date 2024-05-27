@@ -169,7 +169,7 @@ impl Cage {
         // Delete the original one
         let _ = remove_cage_from_fdtable(self.cageid);
         // Add the new one to fdtable
-        add_cage_to_fdtable(self.cageid, newfdtable);
+        let _ = add_cage_to_fdtable(self.cageid, newfdtable);
 
         // we grab the parent cages main threads sigset and store it at 0
         // this way the child can initialize the sigset properly when it establishes its own mainthreadid
