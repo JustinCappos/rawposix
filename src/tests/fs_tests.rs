@@ -475,22 +475,7 @@ pub mod fs_tests {
         //checking if the flags are updated...
         // assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), 2048);
         let flags = cage.fcntl_syscall(filefd, F_GETFL, 0);
-        // if flags & libc::O_RDONLY != 0 {
-        //     println!("O_RDONLY is set");
-        //     io::stdout().flush().unwrap();
-        // }
-        // if flags & libc::O_WRONLY != 0 {
-        //     println!("O_WRONLY is set");
-        //     io::stdout().flush().unwrap();
-        // }
-        // if flags & libc::O_RDWR != 0 {
-        //     println!("O_RDWR is set");
-        //     io::stdout().flush().unwrap();
-        // }
-        // if flags & libc::O_NONBLOCK != 0 {
-        //     println!("O_NONBLOCK is set");
-        //     io::stdout().flush().unwrap();
-        // }
+        
         assert_ne!(flags & libc::O_NONBLOCK, 0);
 
         assert_eq!(cage.close_syscall(filefd), 0);
@@ -505,7 +490,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         // let mut arg0: i32 = 0;
-        // let mut arg1: i32 = 1;
+        let mut arg1: i32 = 1;
 
         let mut union0: winsize = unsafe { mem::zeroed() };
         let mut union1: winsize = unsafe { mem::zeroed() };
@@ -526,7 +511,7 @@ pub mod fs_tests {
         assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
 
         //set the O_NONBLOCK flag
-        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, &mut union1), 0);
+        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, &mut arg1), 0);
 
         //checking to see if the flag was updated
         assert_eq!(
