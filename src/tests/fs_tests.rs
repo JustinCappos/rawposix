@@ -16,12 +16,11 @@ pub mod fs_tests {
     use libc::*;
     use std::ffi::CStr;
 
-    static PATH: &str = "/home/lind/lind_project/src/rawposix/tmp";
     static S_IRWXA: u32 = 0o777;
     static S_LIND: u32 = 0o755;
 
     pub fn test_fs() {
-        ut_lind_fs_fork();
+        // ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
         // rdwrtest();
 
@@ -60,7 +59,7 @@ pub mod fs_tests {
         // ut_lind_fs_exec_cloexec();
         // ut_lind_fs_shm();
         // ut_lind_fs_getpid_getppid();
-        // ut_lind_fs_sem_fork();
+        ut_lind_fs_sem_fork();
         // ut_lind_fs_sem_trytimed();
         // ut_lind_fs_sem_test();
         // ut_lind_fs_tmp_file_test();
@@ -1158,8 +1157,10 @@ pub mod fs_tests {
         // io::stdout().flush().unwrap();
         // cage.shmctl_syscall(shmid1, IPC_RMID, ptr::null_mut());
         let shmid = cage.shmget_syscall(key, 1024, 0o666 | IPC_CREAT);
+        println!("shmid: {:?}", shmid);
+        io::stdout().flush().unwrap();
         // Attach the shared memory region
-        let shmatret = cage.shmat_syscall(shmid, ptr::null_mut(), 0);
+        let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
 
         let err = unsafe {
             libc::__errno_location()
