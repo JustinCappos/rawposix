@@ -1121,7 +1121,7 @@ pub mod fs_tests {
         let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
 
         let err = unsafe {
-            *libc::__errno_location()
+            libc::__errno_location()
         };
         let err_str = libc::strerror(err);
         let err_msg = unsafe {
