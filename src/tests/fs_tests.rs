@@ -10,12 +10,15 @@ pub mod fs_tests {
     use std::os::unix::fs::PermissionsExt;
     use libc::*;
 
+    static PATH: &str = "/home/lind/lind_project/src/rawposix/tmp";
+    static S_IRWXA: u32 = 0o777;
+
     pub fn test_fs() {
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
         rdwrtest();
 
-        // ut_lind_fs_broken_close();
-        // ut_lind_fs_chmod();
+        ut_lind_fs_broken_close();
+        ut_lind_fs_chmod();
         // ut_lind_fs_fchmod();
         // ut_lind_fs_dir_chdir();
         // ut_lind_fs_dir_mode();
@@ -42,7 +45,7 @@ pub mod fs_tests {
         // ut_lind_fs_truncate();
         // ut_lind_fs_getdents();
         // ut_lind_fs_dir_chdir_getcwd();
-        // prdwrtest();
+        prdwrtest();
         // chardevtest();
         // ut_lind_fs_exec_cloexec();
         // ut_lind_fs_shm();
@@ -69,7 +72,7 @@ pub mod fs_tests {
 
     //     //ensure that there is no associated size
     //     assert_eq!(statdata2.st_size, 0);
-    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     assert_eq!(cage.exit_syscall(libc::libc::EXIT_SUCCESS), libc::libc::EXIT_SUCCESS);
     //     lindrustfinalize();
     // }
 
@@ -77,7 +80,10 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/foobar", O_CREAT | O_TRUNC | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+        let fd = cage.open_syscall(
+            "/home/lind/lind_project/src/rawposix/tmp/foobar", 
+            O_CREAT | O_TRUNC | O_RDWR, 
+            (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
         assert!(fd >= 0);
 
         assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
@@ -99,27 +105,28 @@ pub mod fs_tests {
         lindrustfinalize();
     }
 
-//     pub fn prdwrtest() {
-//         lindrustinit(0);
-//         let cage = interface::cagetable_getref(1);
+    pub fn prdwrtest() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-//         let fd = cage.open_syscall("/foobar2", O_CREAT | O_TRUNC | O_RDWR, S_IRWXA);
-//         assert!(fd >= 0);
+        let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/foobar2", O_CREAT | O_TRUNC | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+        assert!(fd >= 0);
 
-//         assert_eq!(cage.pwrite_syscall(fd, str2cbuf("hello there!"), 12, 0), 12);
+        assert_eq!(cage.pwrite_syscall(fd, str2cbuf("hello there!"), 12, 0), 12);
 
-//         let mut read_buf1 = sizecbuf(5);
-//         assert_eq!(cage.pread_syscall(fd, read_buf1.as_mut_ptr(), 5, 0), 5);
-//         assert_eq!(cbuf2str(&read_buf1), "hello");
+        let mut read_buf1 = sizecbuf(5);
+        assert_eq!(cage.pread_syscall(fd, read_buf1.as_mut_ptr(), 5, 0), 5);
+        assert_eq!(cbuf2str(&read_buf1), "hello");
 
-//         assert_eq!(cage.pwrite_syscall(fd, str2cbuf(" world"), 6, 5), 6);
+        assert_eq!(cage.pwrite_syscall(fd, str2cbuf(" world"), 6, 5), 6);
 
-//         let mut read_buf2 = sizecbuf(12);
-//         assert_eq!(cage.pread_syscall(fd, read_buf2.as_mut_ptr(), 12, 0), 12);
-//         assert_eq!(cbuf2str(&read_buf2), "hello world!");
+        let mut read_buf2 = sizecbuf(12);
+        assert_eq!(cage.pread_syscall(fd, read_buf2.as_mut_ptr(), 12, 0), 12);
+        assert_eq!(cbuf2str(&read_buf2), "hello world!");
 
-//         lindrustfinalize();
-//     }
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
 
 //     pub fn chardevtest() {
 //         lindrustinit(0);
@@ -162,69 +169,73 @@ pub mod fs_tests {
 //             1000
 //         );
 //         assert_eq!(cage.close_syscall(fd2), 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
-//     pub fn ut_lind_fs_broken_close() {
-//         //testing a muck up with the inode table where the regular close does not work as intended
+    pub fn ut_lind_fs_broken_close() {
+        //testing a muck up with the inode table where the regular close does not work as intended
 
-//         lindrustinit(0);
-//         let cage = interface::cagetable_getref(1);
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-//         //write should work
-//         let mut fd = cage.open_syscall("/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
-//         assert_eq!(cage.write_syscall(fd, str2cbuf("Hello There!"), 12), 12);
-//         assert_eq!(cage.close_syscall(fd), 0);
+        //write should work
+        let mut fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
+        assert_eq!(cage.write_syscall(fd, str2cbuf("Hello There!"), 12), 12);
+        assert_eq!(cage.close_syscall(fd), 0);
 
-//         //close the file and then open it again... and then close it again
-//         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
-//         assert_eq!(cage.close_syscall(fd), 0);
+        //close the file and then open it again... and then close it again
+        fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/broken_close_file", O_RDWR, S_IRWXA);
+        assert_eq!(cage.close_syscall(fd), 0);
 
-//         //let's try some things with connect
-//         //we are going to open a socket with a UDP specification...
-//         let sockfd = cage.socket_syscall(AF_INET, SOCK_STREAM, 0);
+        //let's try some things with connect
+        //we are going to open a socket with a UDP specification...
+        // let sockfd = cage.socket_syscall(AF_INET, SOCK_STREAM, 0);
 
-//         //bind should not be interesting
-//         let mut sockad = interface::GenSockaddr::V4(interface::SockaddrV4::default());
-//         sockad.set_family(AF_INET as u16);
-//         assert_eq!(cage.bind_syscall(sockfd, &sockad), 0);
+        // //bind should not be interesting
+        // let mut sockad = interface::GenSockaddr::V4(interface::SockaddrV4::default());
+        // sockad.set_family(AF_INET as u16);
+        // assert_eq!(cage.bind_syscall(sockfd, &sockad), 0);
 
-//         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
-//         assert_eq!(cage.close_syscall(fd), 0);
+        fd = cage.open_syscall(
+            "/home/lind/lind_project/src/rawposix/tmp/broken_close_file", 
+            O_RDWR, 
+            (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+        assert_eq!(cage.close_syscall(fd), 0);
 
-//         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
-//         assert_eq!(cage.close_syscall(fd), 0);
+        fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/broken_close_file", O_RDWR, S_IRWXA);
+        assert_eq!(cage.close_syscall(fd), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
-//         lindrustfinalize();
-//     }
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
 
-//     pub fn ut_lind_fs_chmod() {
-//         lindrustinit(0);
-//         let cage = interface::cagetable_getref(1);
+    pub fn ut_lind_fs_chmod() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-//         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-//         let filepath = "/chmodTestFile";
+        let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
+        let filepath = "/home/lind/lind_project/src/rawposix/tmp/chmodTestFile";
 
-//         let mut statdata = StatData::default();
+        let mut statdata: stat = unsafe { std::mem::zeroed() };
 
-//         let fd = cage.open_syscall(filepath, flags, S_IRWXA);
-//         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
-//         assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG as u32);
+        let fd = cage.open_syscall(filepath, flags, S_IRWXA);
+        assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
+        assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG);
+        // assert_eq!(statdata.st_mode & !S_IFMT, S_IRWXA);
 
-//         assert_eq!(cage.chmod_syscall(filepath, S_IRUSR | S_IRGRP), 0);
-//         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
-//         assert_eq!(statdata.st_mode, S_IRUSR | S_IRGRP | S_IFREG as u32);
+        assert_eq!(cage.chmod_syscall(filepath, S_IRUSR | S_IRGRP), 0);
+        assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
+        assert_eq!(statdata.st_mode, S_IRUSR | S_IRGRP | S_IFREG);
 
-//         assert_eq!(cage.chmod_syscall(filepath, S_IRWXA), 0);
-//         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
-//         assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG as u32);
+        assert_eq!(cage.chmod_syscall(filepath, S_IRWXA), 0);
+        assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
+        assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG as u32);
 
-//         assert_eq!(cage.close_syscall(fd), 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
-//         lindrustfinalize();
-//     }
+        assert_eq!(cage.close_syscall(fd), 0);
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
 
 //     pub fn ut_lind_fs_fchmod() {
 //         lindrustinit(0);
@@ -248,7 +259,7 @@ pub mod fs_tests {
 //         assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG as u32);
 
 //         assert_eq!(cage.close_syscall(fd), 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -272,7 +283,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.chdir_syscall("/subdir1/subdir2/subdir3"), 0);
 //         assert_eq!(cage.access_syscall("../../../subdir1", F_OK), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -293,7 +304,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.stat_syscall(filepath2, &mut statdata), 0);
 //         assert_eq!(statdata.st_mode, S_IFDIR as u32);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -329,7 +340,7 @@ pub mod fs_tests {
 //         );
 //         assert_eq!(statdata.st_mode, S_IFDIR as u32);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -386,7 +397,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.close_syscall(fd2), 0);
 //         assert_eq!(cbuf2str(&buffer2), "12345678");
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -434,7 +445,7 @@ pub mod fs_tests {
 //         assert_eq!(cbuf2str(&buffer2), "12345678");
 
 //         assert_eq!(cage.close_syscall(fd2), 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -463,7 +474,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.close_syscall(filefd), 0);
 //         assert_eq!(cage.close_syscall(sockfd), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -510,7 +521,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.close_syscall(filefd), 0);
 //         assert_eq!(cage.close_syscall(sockfd), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -552,7 +563,7 @@ pub mod fs_tests {
 //         );
 //         assert_eq!(cage.close_syscall(write_fd), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -592,7 +603,7 @@ pub mod fs_tests {
 //         assert_ne!(cage.stat_syscall(path, &mut statdata), 0);
 //         assert_eq!(cage.unlink_syscall(path2), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -615,7 +626,7 @@ pub mod fs_tests {
 //         assert_eq!(cbuf2str(&buf), "hello\0\0\0\0\0123456");
 
 //         assert_eq!(cage.close_syscall(fd), 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -635,7 +646,7 @@ pub mod fs_tests {
 //         assert_eq!(statdata.st_nlink, 1);
 
 //         assert_eq!(cage.close_syscall(fd), 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -655,7 +666,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.getuid_syscall() as u32, DEFAULT_UID);
 //         assert_eq!(cage.geteuid_syscall() as u32, DEFAULT_UID);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -677,7 +688,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.stat_syscall("/dev/urandom", &mut statdata), 0);
 //         assert_eq!(statdata.st_rdev, makedev(&DevNo { major: 1, minor: 9 }));
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -724,7 +735,7 @@ pub mod fs_tests {
 //         assert_ne!(cage.read_syscall(fd2, buf2.as_mut_ptr(), 7), 0);
 //         assert_eq!(cage.close_syscall(fd2), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -756,7 +767,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.read_syscall(fd3, buf.as_mut_ptr(), 5), 5);
 //         assert_eq!(cbuf2str(&buf), "\0\0boo");
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -769,7 +780,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.mkdir_syscall(path, S_IRWXA), 0);
 //         assert_eq!(cage.rmdir_syscall(path), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -795,7 +806,7 @@ pub mod fs_tests {
 //         assert!(statdata == statdata2);
 //         assert_eq!(statdata.st_nlink, 2);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -818,7 +829,7 @@ pub mod fs_tests {
 //         //check that stat can be done on the current (root) dir
 //         assert_eq!(cage.stat_syscall(".", &mut statdata), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -831,7 +842,7 @@ pub mod fs_tests {
 //         assert_eq!(fsdata.f_type, 0xBEEFC0DE);
 //         assert_eq!(fsdata.f_bsize, 4096);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -851,7 +862,7 @@ pub mod fs_tests {
 //         // Close the file
 //         assert_eq!(cage.close_syscall(fd), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -863,7 +874,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.mkdir_syscall(old_path, S_IRWXA), 0);
 //         assert_eq!(cage.rename_syscall(old_path, "/test_dir_renamed"), 0);
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -889,7 +900,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.read_syscall(fd, buf1.as_mut_ptr(), 7), 5);
 //         assert_eq!(cbuf2str(&buf1), "Hello\0\0");
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -916,7 +927,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.read_syscall(fd, buf1.as_mut_ptr(), 7), 5);
 //         assert_eq!(cbuf2str(&buf1), "Hello\0\0");
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -956,7 +967,7 @@ pub mod fs_tests {
 //         }
 
 //         assert_eq!(cage.close_syscall(fd), 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -988,7 +999,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.getcwd_syscall(bufptr, needed_u32), 0);
 //         assert_eq!(std::str::from_utf8(&buf).unwrap(), "/subdir1\0");
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -1021,7 +1032,7 @@ pub mod fs_tests {
 //         assert_eq!(cage.unlink_syscall("/cloexecuted"), 0);
 //         assert_eq!(cage.unlink_syscall("/cloexekept"), 0);
 
-//         assert_eq!(execcage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(execcage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -1076,11 +1087,11 @@ pub mod fs_tests {
 //             assert_ne!(pid2, pid1); // make sure the child and the parent have different pids
 //             assert_eq!(ppid2, pid1); // make sure the child's getppid is correct
 
-//             assert_eq!(cage2.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         });
 
 //         child.join().unwrap();
-//         assert_eq!(cage1.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+//         assert_eq!(cage1.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 //         lindrustfinalize();
 //     }
 
@@ -1107,7 +1118,7 @@ pub mod fs_tests {
 //             interface::sleep(interface::RustDuration::from_millis(40));
 //             // Release the semaphore
 //             assert_eq!(cage1.sem_post_syscall(shmatret as u32), 0);
-//             cage1.exit_syscall(EXIT_SUCCESS);
+//             cage1.exit_syscall(libc::EXIT_SUCCESS);
 //         });
 //         //Parent processes
 //         let thread_parent = interface::helper_thread(move || {
@@ -1126,7 +1137,7 @@ pub mod fs_tests {
 //             //detach from shared memory
 //             let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
 //             assert_eq!(shmdtret, shmid);
-//             cage.exit_syscall(EXIT_SUCCESS);
+//             cage.exit_syscall(libc::EXIT_SUCCESS);
 //         });
 //         thread_child.join().unwrap();
 //         thread_parent.join().unwrap();
@@ -1158,7 +1169,7 @@ pub mod fs_tests {
 //             interface::sleep(interface::RustDuration::from_millis(20));
 //             // Release the semaphore
 //             assert_eq!(cage1.sem_post_syscall(shmatret as u32), 0);
-//             cage1.exit_syscall(EXIT_SUCCESS);
+//             cage1.exit_syscall(libc::EXIT_SUCCESS);
 //         });
 //         //Parent processes
 //         let thread_parent = interface::helper_thread(move || {
@@ -1183,7 +1194,7 @@ pub mod fs_tests {
 //             //detach from shared memory
 //             let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
 //             assert_eq!(shmdtret, shmid);
-//             cage.exit_syscall(EXIT_SUCCESS);
+//             cage.exit_syscall(libc::EXIT_SUCCESS);
 //         });
 //         thread_child.join().unwrap();
 //         thread_parent.join().unwrap();
