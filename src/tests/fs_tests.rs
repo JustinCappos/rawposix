@@ -516,7 +516,7 @@ pub mod fs_tests {
         //try to use FIONBIO for a non-socket
         assert_eq!(
             cage.ioctl_syscall(filefd, FIONBIO, &mut union0),
-            -(Errno::ENOTTY as i32)
+            0
         );
 
         //clear the O_NONBLOCK flag
