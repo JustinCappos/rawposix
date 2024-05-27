@@ -9,8 +9,6 @@ use crate::interface;
 use crate::example_grates::fdtable::*;
 
 use libc::*;
-use core::panic;
-use std::simd::i32x32;
 use std::{os::fd::RawFd, ptr};
 use bit_set::BitSet;
 
