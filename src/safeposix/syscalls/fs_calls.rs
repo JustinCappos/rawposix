@@ -36,7 +36,7 @@ impl Cage {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
 
-        let kernel_fd = unsafe { libc::open(path_c as *const i8, oflag) };
+        let kernel_fd = unsafe { libc::open(path_c as *const i8, oflag, mode) };
 
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         virtual_fd

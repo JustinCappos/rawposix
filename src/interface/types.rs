@@ -665,20 +665,20 @@ pub fn get_pollstruct_slice<'a>(
     ));
 }
 
-pub fn get_epollevent_slice<'a>(
-    union_argument: Arg,
-    nfds: i32,
-) -> Result<&'a mut [EpollEvent], i32> {
-    let epolleventptr = unsafe { union_argument.dispatch_epollevent };
-    if !epolleventptr.is_null() {
-        return Ok(unsafe { std::slice::from_raw_parts_mut(epolleventptr, nfds as usize) });
-    }
-    return Err(syscall_error(
-        Errno::EFAULT,
-        "dispatcher",
-        "input data not valid",
-    ));
-}
+// pub fn get_epollevent_slice<'a>(
+//     union_argument: Arg,
+//     nfds: i32,
+// ) -> Result<&'a mut [EpollEvent], i32> {
+//     let epolleventptr = unsafe { union_argument.dispatch_epollevent };
+//     if !epolleventptr.is_null() {
+//         return Ok(unsafe { std::slice::from_raw_parts_mut(epolleventptr, nfds as usize) });
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
 
 pub fn get_slice_from_string<'a>(union_argument: Arg, len: usize) -> Result<&'a mut [u8], i32> {
     let bufptr = unsafe { union_argument.dispatch_mutcbuf };
