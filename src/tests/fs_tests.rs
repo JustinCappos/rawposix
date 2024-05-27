@@ -1110,7 +1110,7 @@ pub mod fs_tests {
     pub fn ut_lind_fs_sem_fork() {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
-        let key = 31337;
+        let key = 1234;
         // Create a shared memory region
         let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
         println!("shmid: {:?}", shmid);
