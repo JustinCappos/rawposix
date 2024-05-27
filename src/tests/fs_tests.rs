@@ -1123,7 +1123,9 @@ pub mod fs_tests {
         let err = unsafe {
             libc::__errno_location()
         };
-        let err_str = libc::strerror(err);
+        let err_str = unsafe {
+            libc::strerror(*err)
+        };
         let err_msg = unsafe {
             CStr::from_ptr(err_str).to_string_lossy().into_owned()
         };
