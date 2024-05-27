@@ -10,6 +10,7 @@ use crate::example_grates::fdtable::*;
 
 use libc::*;
 use core::panic;
+use std::simd::i32x32;
 use std::{os::fd::RawFd, ptr};
 use bit_set::BitSet;
 
@@ -351,11 +352,11 @@ impl Cage {
         &self,
         virtual_epfd: i32,
         events: *mut epoll_event,
-        maxevents: u64,
-        timeout: u64,
+        maxevents: i32,
+        timeout: i32,
     ) -> i32 {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd).unwrap();
-        unsafe { libc::epoll_wait(kernel_epfd as i32, events, maxevents as i32, timeout as i32) }
+        unsafe { libc::epoll_wait(kernel_epfd, events, maxevents, timeout as i32) }
     }
 
     /*   [TODO]
