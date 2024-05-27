@@ -213,7 +213,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.access_syscall,
                 interface::get_cstr(arg1),
-                interface::get_uint(arg2)
+                interface::get_int(arg2)
             )
         }
         UNLINK_SYSCALL => {

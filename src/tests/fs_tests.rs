@@ -1,101 +1,103 @@
-// #[allow(unused_parens)]
-// #[cfg(test)]
-// pub mod fs_tests {
-//     use super::super::*;
-//     use crate::interface;
-//     use crate::safeposix::syscalls::fs_calls::*;
-//     use crate::safeposix::{cage::*, dispatcher::*, filesystem};
-//     use std::fs::OpenOptions;
-//     use std::os::unix::fs::PermissionsExt;
+#[allow(unused_parens)]
+#[cfg(test)]
+pub mod fs_tests {
+    use super::super::*;
+    use crate::{interface, safeposix};
+    use crate::safeposix::syscalls::fs_calls::*;
+    // use crate::safeposix::{cage::*, dispatcher::*, filesystem};
+    use crate::safeposix::{cage::*, dispatcher::*};
+    use std::fs::OpenOptions;
+    use std::os::unix::fs::PermissionsExt;
+    use libc::*;
 
-//     pub fn test_fs() {
-//         ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
+    pub fn test_fs() {
+        // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
+        rdwrtest();
 
-//         ut_lind_fs_broken_close();
-//         ut_lind_fs_chmod();
-//         ut_lind_fs_fchmod();
-//         ut_lind_fs_dir_chdir();
-//         ut_lind_fs_dir_mode();
-//         ut_lind_fs_dir_multiple();
-//         ut_lind_fs_dup();
-//         ut_lind_fs_dup2();
-//         ut_lind_fs_fcntl();
-//         ut_lind_fs_ioctl();
-//         ut_lind_fs_fdflags();
-//         ut_lind_fs_file_link_unlink();
-//         ut_lind_fs_file_lseek_past_end();
-//         ut_lind_fs_fstat_complex();
-//         ut_lind_fs_getuid();
-//         ut_lind_fs_load_fs();
-//         ut_lind_fs_mknod();
-//         ut_lind_fs_multiple_open();
-//         ut_lind_fs_rename();
-//         ut_lind_fs_rmdir();
-//         ut_lind_fs_stat_file_complex();
-//         ut_lind_fs_stat_file_mode();
-//         ut_lind_fs_statfs();
-//         ut_lind_fs_fstatfs();
-//         ut_lind_fs_ftruncate();
-//         ut_lind_fs_truncate();
-//         ut_lind_fs_getdents();
-//         ut_lind_fs_dir_chdir_getcwd();
-//         rdwrtest();
-//         prdwrtest();
-//         chardevtest();
-//         ut_lind_fs_exec_cloexec();
-//         ut_lind_fs_shm();
-//         ut_lind_fs_getpid_getppid();
-//         ut_lind_fs_sem_fork();
-//         ut_lind_fs_sem_trytimed();
-//         ut_lind_fs_sem_test();
-//         ut_lind_fs_tmp_file_test();
-//     }
+        // ut_lind_fs_broken_close();
+        // ut_lind_fs_chmod();
+        // ut_lind_fs_fchmod();
+        // ut_lind_fs_dir_chdir();
+        // ut_lind_fs_dir_mode();
+        // ut_lind_fs_dir_multiple();
+        // ut_lind_fs_dup();
+        // ut_lind_fs_dup2();
+        // ut_lind_fs_fcntl();
+        // ut_lind_fs_ioctl();
+        // ut_lind_fs_fdflags();
+        // ut_lind_fs_file_link_unlink();
+        // ut_lind_fs_file_lseek_past_end();
+        // ut_lind_fs_fstat_complex();
+        // ut_lind_fs_getuid();
+        // ut_lind_fs_load_fs();
+        // ut_lind_fs_mknod();
+        // ut_lind_fs_multiple_open();
+        // ut_lind_fs_rename();
+        // ut_lind_fs_rmdir();
+        // ut_lind_fs_stat_file_complex();
+        // ut_lind_fs_stat_file_mode();
+        // ut_lind_fs_statfs();
+        // ut_lind_fs_fstatfs();
+        // ut_lind_fs_ftruncate();
+        // ut_lind_fs_truncate();
+        // ut_lind_fs_getdents();
+        // ut_lind_fs_dir_chdir_getcwd();
+        // prdwrtest();
+        // chardevtest();
+        // ut_lind_fs_exec_cloexec();
+        // ut_lind_fs_shm();
+        // ut_lind_fs_getpid_getppid();
+        // ut_lind_fs_sem_fork();
+        // ut_lind_fs_sem_trytimed();
+        // ut_lind_fs_sem_test();
+        // ut_lind_fs_tmp_file_test();
+    }
 
-//     pub fn ut_lind_fs_simple() {
-//         lindrustinit(0);
-//         let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_simple() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-//         assert_eq!(cage.access_syscall("/", F_OK), 0);
-//         assert_eq!(cage.access_syscall("/", X_OK | R_OK), 0);
+    //     assert_eq!(cage.access_syscall("/", F_OK), 0);
+    //     assert_eq!(cage.access_syscall("/", X_OK | R_OK), 0);
 
-//         let mut statdata2 = StatData::default();
+    //     let mut statdata2 = StatData::default();
 
-//         assert_eq!(cage.stat_syscall("/", &mut statdata2), 0);
-//         //ensure that there are two hard links
+    //     assert_eq!(cage.stat_syscall("/", &mut statdata2), 0);
+    //     //ensure that there are two hard links
 
-//         assert_eq!(statdata2.st_nlink, 5); //2 for . and .., one for dev, and one so that it can never be removed
+    //     assert_eq!(statdata2.st_nlink, 5); //2 for . and .., one for dev, and one so that it can never be removed
 
-//         //ensure that there is no associated size
-//         assert_eq!(statdata2.st_size, 0);
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
-//         lindrustfinalize();
-//     }
+    //     //ensure that there is no associated size
+    //     assert_eq!(statdata2.st_size, 0);
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
-//     pub fn rdwrtest() {
-//         lindrustinit(0);
-//         let cage = interface::cagetable_getref(1);
+    pub fn rdwrtest() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-//         let fd = cage.open_syscall("/foobar", O_CREAT | O_TRUNC | O_RDWR, S_IRWXA);
-//         assert!(fd >= 0);
+        let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/foobar", O_CREAT | O_TRUNC | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+        assert!(fd >= 0);
 
-//         assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
+        assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
 
-//         assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
-//         let mut read_buf1 = sizecbuf(5);
-//         assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
-//         assert_eq!(cbuf2str(&read_buf1), "hello");
+        assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
+        let mut read_buf1 = sizecbuf(5);
+        assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
+        assert_eq!(cbuf2str(&read_buf1), "hello");
 
-//         assert_eq!(cage.write_syscall(fd, str2cbuf(" world"), 6), 6);
+        assert_eq!(cage.write_syscall(fd, str2cbuf(" world"), 6), 6);
 
-//         assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
-//         let mut read_buf2 = sizecbuf(12);
-//         assert_eq!(cage.read_syscall(fd, read_buf2.as_mut_ptr(), 12), 12);
-//         assert_eq!(cbuf2str(&read_buf2), "hello world!");
+        assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
+        let mut read_buf2 = sizecbuf(12);
+        assert_eq!(cage.read_syscall(fd, read_buf2.as_mut_ptr(), 12), 12);
+        assert_eq!(cbuf2str(&read_buf2), "hello world!");
 
-//         assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 
-//         lindrustfinalize();
-//     }
+        lindrustfinalize();
+    }
 
 //     pub fn prdwrtest() {
 //         lindrustinit(0);
@@ -1239,4 +1241,4 @@
 
 //         lindrustfinalize();
 //     }
-// }
+}

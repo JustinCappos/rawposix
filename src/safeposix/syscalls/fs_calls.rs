@@ -223,10 +223,10 @@ impl Cage {
     /*
     *   access() will return 0 when sucess, -1 when fail 
     */
-    pub fn access_syscall(&self, path: &str, amode: u32) -> i32 {
+    pub fn access_syscall(&self, path: &str, amode: i32) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
-            libc::access(path_c as *const i8, amode as i32)
+            libc::access(path_c as *const i8, amode)
         }
     }
 
