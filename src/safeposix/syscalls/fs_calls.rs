@@ -356,7 +356,7 @@ impl Cage {
     *   Note: A few ioctl() requests use the return value as an output parameter and return 
     *   a nonnegative value on success.
     */
-    pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: *mut winsize) -> i32 {
+    pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: *mut u8) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe { libc::ioctl(kernel_fd, request, ptrunion as *mut c_void) }
     }

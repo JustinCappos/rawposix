@@ -190,7 +190,7 @@ pub union Arg {
     pub dispatch_pipearray: *mut PipeArray,
     pub dispatch_sockpair: *mut SockPair,
     // pub dispatch_ioctlptrunion: IoctlPtrUnion,
-    pub dispatch_ioctlptrunion: *mut winsize,
+    pub dispatch_ioctlptrunion: *mut u8,
     pub dispatch_sigactionstruct: *mut SigactionStruct,
     pub dispatch_constsigactionstruct: *const SigactionStruct,
     pub dispatch_sigsett: *mut SigsetType,
@@ -409,7 +409,7 @@ pub fn get_shmidstruct<'a>(union_argument: Arg) -> Result<&'a mut shmid_ds, i32>
     ));
 }
 
-pub fn get_ioctlptrunion<'a>(union_argument: Arg) -> Result<&'a mut winsize, i32> {
+pub fn get_ioctlptrunion<'a>(union_argument: Arg) -> Result<&'a mut u8, i32> {
     let pointer = unsafe { union_argument.dispatch_ioctlptrunion };
     if !pointer.is_null() {
         return Ok(unsafe {
