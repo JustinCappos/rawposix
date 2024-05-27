@@ -1129,9 +1129,8 @@ pub mod fs_tests {
         let err_msg = unsafe {
             CStr::from_ptr(err_str).to_string_lossy().into_owned()
         };
-
-        println!("errno: {}", err);
-        println!("Error message: {}", err_msg);
+        println!("errno: {:?}", err);
+        println!("Error message: {:?}", err_msg);
         io::stdout().flush().unwrap();
 
         assert_ne!(shmatret, -1);
