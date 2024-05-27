@@ -1042,8 +1042,10 @@ impl Cage {
     /*
     *   sem_getvalue() will return 0 when sucess, -1 when fail 
     */
-    pub fn sem_getvalue_syscall(&self, sem: *mut sem_t, sval: i32) -> i32 {
-        unsafe{ libc::sem_getvalue(sem, sval as *mut i32) }
+    pub fn sem_getvalue_syscall(&self, sem: *mut sem_t) -> i32 {
+        let mut sval = 0;
+        unsafe{ libc::sem_getvalue(sem, sval as *mut i32) };
+        return sval;
     }
 
     /*
