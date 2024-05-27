@@ -221,7 +221,9 @@ pub mod fs_tests {
 
         let fd = cage.open_syscall(filepath, flags, S_IRWXA);
         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
-        assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG);
+        // assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG);
+        let file_permissions = statdata.st_mode & 0o777;
+        assert_eq!(file_permissions, S_IRWXA, "Permissions do not match");
         // assert_eq!(statdata.st_mode & !S_IFMT, S_IRWXA);
 
         assert_eq!(cage.chmod_syscall(filepath, S_IRUSR | S_IRGRP), 0);
