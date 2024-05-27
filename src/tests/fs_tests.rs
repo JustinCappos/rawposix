@@ -1118,20 +1118,20 @@ pub mod fs_tests {
         println!("shmid: {:?}", shmid);
         io::stdout().flush().unwrap();
         // Attach the shared memory region
-        let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
+        let shmatret = cage.shmat_syscall(shmid, ptr::null_mut(), 0);
 
-        let err = unsafe {
-            libc::__errno_location()
-        };
-        let err_str = unsafe {
-            libc::strerror(*err)
-        };
-        let err_msg = unsafe {
-            CStr::from_ptr(err_str).to_string_lossy().into_owned()
-        };
-        println!("errno: {:?}", err);
-        println!("Error message: {:?}", err_msg);
-        io::stdout().flush().unwrap();
+        // let err = unsafe {
+        //     libc::__errno_location()
+        // };
+        // let err_str = unsafe {
+        //     libc::strerror(*err)
+        // };
+        // let err_msg = unsafe {
+        //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+        // };
+        // println!("errno: {:?}", err);
+        // println!("Error message: {:?}", err_msg);
+        // io::stdout().flush().unwrap();
 
         assert_ne!(shmatret, -1);
         // Initialize the semaphore with shared between process
