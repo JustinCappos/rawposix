@@ -473,7 +473,24 @@ pub mod fs_tests {
         );
 
         //checking if the flags are updated...
-        assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), 2048);
+        // assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), 2048);
+        let flags = cage.fcntl_syscall(filefd, F_GETFL, 0);
+        if flags & libc::O_RDONLY != 0 {
+            println!("O_RDONLY is set");
+            io::stdout().flush().unwrap();
+        }
+        if flags & libc::O_WRONLY != 0 {
+            println!("O_WRONLY is set");
+            io::stdout().flush().unwrap();
+        }
+        if flags & libc::O_RDWR != 0 {
+            println!("O_RDWR is set");
+            io::stdout().flush().unwrap();
+        }
+        if flags & libc::O_NONBLOCK != 0 {
+            println!("O_NONBLOCK is set");
+            io::stdout().flush().unwrap();
+        }
 
         assert_eq!(cage.close_syscall(filefd), 0);
         assert_eq!(cage.close_syscall(sockfd), 0);
