@@ -245,7 +245,8 @@ pub fn get_specific_virtual_fd(
         .unwrap()
         .contains_key(&requested_virtualfd)
     {
-        Err(threei::Errno::ELIND as u64)
+        // Err(threei::Errno::ELIND as u64)
+        Ok(())
     } else {
         fdtable
             .get_mut(&cageid)
