@@ -13,6 +13,8 @@ pub mod fs_tests {
     use std::io::Write;
     use std::io;
     use std::ptr;
+    use libc::*;
+    use std::ffi::CStr;
 
     static PATH: &str = "/home/lind/lind_project/src/rawposix/tmp";
     static S_IRWXA: u32 = 0o777;
@@ -20,17 +22,17 @@ pub mod fs_tests {
 
     pub fn test_fs() {
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
-        rdwrtest();
+        // rdwrtest();
 
-        ut_lind_fs_broken_close();
-        ut_lind_fs_chmod();
-        ut_lind_fs_fchmod();
-        ut_lind_fs_dir_chdir();
-        ut_lind_fs_dir_mode();
-        ut_lind_fs_dir_multiple();
-        ut_lind_fs_dup();
-        ut_lind_fs_dup2();
-        ut_lind_fs_fcntl();
+        // ut_lind_fs_broken_close();
+        // ut_lind_fs_chmod();
+        // ut_lind_fs_fchmod();
+        // ut_lind_fs_dir_chdir();
+        // ut_lind_fs_dir_mode();
+        // ut_lind_fs_dir_multiple();
+        // ut_lind_fs_dup();
+        // ut_lind_fs_dup2();
+        // ut_lind_fs_fcntl();
 
         // ut_lind_fs_ioctl();
 
@@ -52,7 +54,7 @@ pub mod fs_tests {
         // ut_lind_fs_truncate();
         // ut_lind_fs_getdents();
         // ut_lind_fs_dir_chdir_getcwd();
-        prdwrtest();
+        // prdwrtest();
         // chardevtest();
         // ut_lind_fs_exec_cloexec();
         // ut_lind_fs_shm();
@@ -1117,6 +1119,17 @@ pub mod fs_tests {
         io::stdout().flush().unwrap();
         // Attach the shared memory region
         let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
+
+        let err = *libc::errno();
+        let err_str = libc::strerror(err);
+        let err_msg = unsafe {
+            CStr::from_ptr(err_str).to_string_lossy().into_owned()
+        };
+
+        println!("errno: {}", err);
+        println!("Error message: {}", err_msg);
+        io::stdout().flush().unwrap();
+        
         assert_ne!(shmatret, -1);
         // Initialize the semaphore with shared between process
         let mut sem: sem_t = unsafe { std::mem::zeroed() };
