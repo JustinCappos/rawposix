@@ -109,6 +109,19 @@ impl Cage {
             newsigset.insert(0, mainsigset);
         }
 
+        /*
+         *  Construct a new semaphore table in child cage which equals to the one in the parent cage
+         */
+        let semtable = &self.sem_table;
+        let new_semtable: interface::RustHashMap<
+            u32,
+            interface::RustRfc<interface::RustSemaphore>,
+        > = interface::RustHashMap::new();
+        // Loop all pairs
+        for pair in semtable.iter() {
+            new_semtable.insert((*pair.key()).clone(), pair.value().clone());
+        }
+
         let cageobj = Cage {
             cageid: child_cageid,
             // cwd: interface::RustLock::new(self.cwd.read().clone()),
@@ -128,10 +141,10 @@ impl Cage {
             geteuid: interface::RustAtomicI32::new(
                 self.geteuid.load(interface::RustAtomicOrdering::Relaxed),
             ),
-            // rev_shm: interface::Mutex::new((*self.rev_shm.lock()).clone()),
+            rev_shm: interface::Mutex::new((*self.rev_shm.lock()).clone()),
             mutex_table: interface::RustLock::new(new_mutex_table),
             cv_table: interface::RustLock::new(new_cv_table),
-            // sem_table: new_semtable,
+            sem_table: new_semtable,
             thread_table: interface::RustHashMap::new(),
             signalhandler: self.signalhandler.clone(),
             sigset: newsigset,
@@ -140,16 +153,6 @@ impl Cage {
             interval_timer: interface::IntervalTimer::new(child_cageid),
         };
 
-        // let shmtable = &SHM_METADATA.shmtable;
-        // //update fields for shared mappings in cage
-        // for rev_mapping in cageobj.rev_shm.lock().iter() {
-        //     let mut shment = shmtable.get_mut(&rev_mapping.1).unwrap();
-        //     shment.shminfo.shm_nattch += 1;
-        //     let refs = shment.attached_cages.get(&self.cageid).unwrap();
-        //     let childrefs = refs.clone();
-        //     drop(refs);
-        //     shment.attached_cages.insert(child_cageid, childrefs);
-        // }
         interface::cagetable_insert(child_cageid, cageobj);
 
         0
@@ -162,6 +165,8 @@ impl Cage {
     */
     pub fn exec_syscall(&self, child_cageid: u64) -> i32 {
         interface::cagetable_remove(self.cageid);
+
+        self.unmap_shm_mappings();
 
         // Delete all fd marked with FD_CLOEXEC
         let newfdtable = empty_fds_for_exec(self.cageid);
@@ -200,10 +205,10 @@ impl Cage {
             getuid: interface::RustAtomicI32::new(-1),
             getegid: interface::RustAtomicI32::new(-1),
             geteuid: interface::RustAtomicI32::new(-1),
-            // rev_shm: interface::Mutex::new(vec![]),
+            rev_shm: interface::Mutex::new(vec![]),
             mutex_table: interface::RustLock::new(vec![]),
             cv_table: interface::RustLock::new(vec![]),
-            // sem_table: interface::RustHashMap::new(),
+            sem_table: interface::RustHashMap::new(),
             thread_table: interface::RustHashMap::new(),
             signalhandler: interface::RustHashMap::new(),
             sigset: newsigset,
@@ -220,6 +225,8 @@ impl Cage {
     pub fn exit_syscall(&self, status: i32) -> i32 {
         //flush anything left in stdout
         interface::flush_stdout();
+        self.unmap_shm_mappings();
+        
         let _ = remove_cage_from_fdtable(self.cageid);
         //may not be removable in case of lindrustfinalize, we don't unwrap the remove result
         interface::cagetable_remove(self.cageid);

@@ -879,23 +879,17 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(cage.shmdt_syscall, interface::get_mutcbuf(arg1))
         }
         SHMCTL_SYSCALL => {
-            // let cmd = get_onearg!(interface::get_int(arg2));
-            // let buf = if cmd == IPC_STAT {
-            //     Some(get_onearg!(interface::get_shmidstruct(arg3)))
-            // } else {
-            //     None
-            // };
-            // check_and_dispatch!(
-            //     cage.shmctl_syscall,
-            //     interface::get_int(arg1),
-            //     Ok::<i32, i32>(cmd),
-            //     Ok::<Option<&mut interface::ShmidsStruct>, i32>(buf)
-            // )
+            let cmd = get_onearg!(interface::get_int(arg2));
+            let buf = if cmd == IPC_STAT {
+                Some(get_onearg!(interface::get_shmidstruct(arg3)))
+            } else {
+                None
+            };
             check_and_dispatch!(
                 cage.shmctl_syscall,
                 interface::get_int(arg1),
-                interface::get_int(arg2),
-                interface::get_shmidstruct(arg3)
+                Ok::<i32, i32>(cmd),
+                Ok::<Option<&mut interface::ShmidsStruct>, i32>(buf)
             )
         }
         MUTEX_CREATE_SYSCALL => {
@@ -985,34 +979,26 @@ pub extern "C" fn dispatcher(
                 interface::get_itimerval(arg3)
             )
         }
-        SEM_INIT_SYSCALL => {
-            check_and_dispatch!(
-                cage.sem_init_syscall,
-                interface::get_sem(arg1),
-                interface::get_int(arg2),
-                interface::get_uint(arg3)
-            )
-        }
         SEM_WAIT_SYSCALL => {
-            check_and_dispatch!(cage.sem_wait_syscall, interface::get_sem(arg1))
+            check_and_dispatch!(cage.sem_wait_syscall, interface::get_uint(arg1))
         }
         SEM_POST_SYSCALL => {
-            check_and_dispatch!(cage.sem_post_syscall, interface::get_sem(arg1))
+            check_and_dispatch!(cage.sem_post_syscall, interface::get_uint(arg1))
         }
         SEM_DESTROY_SYSCALL => {
-            check_and_dispatch!(cage.sem_destroy_syscall, interface::get_sem(arg1))
+            check_and_dispatch!(cage.sem_destroy_syscall, interface::get_uint(arg1))
         }
         SEM_GETVALUE_SYSCALL => {
-            check_and_dispatch!(cage.sem_getvalue_syscall, interface::get_sem(arg1))
+            check_and_dispatch!(cage.sem_getvalue_syscall, interface::get_uint(arg1))
         }
         SEM_TRYWAIT_SYSCALL => {
-            check_and_dispatch!(cage.sem_trywait_syscall, interface::get_sem(arg1))
+            check_and_dispatch!(cage.sem_trywait_syscall, interface::get_uint(arg1))
         }
         SEM_TIMEDWAIT_SYSCALL => {
             check_and_dispatch!(
                 cage.sem_timedwait_syscall,
-                interface::get_sem(arg1),
-                interface::get_timespec(arg2)
+                interface::get_uint(arg1),
+                interface::duration_fromtimespec(arg2)
             )
         }
 

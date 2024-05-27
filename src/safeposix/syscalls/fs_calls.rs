@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use super::fs_constants;
 // File system related system calls
 use super::fs_constants::*;
 use super::sys_constants::*;
@@ -8,7 +9,8 @@ use crate::safeposix::cage::Errno::EINVAL;
 use crate::safeposix::cage::*;
 // use crate::safeposix::filesystem::*;
 // use crate::safeposix::net::NET_METADATA;
-// use crate::safeposix::shm::*;
+use crate::safeposix::shm::*;
+use crate::interface::ShmidsStruct;
 
 use libc::*;
 use std::io::stdout;
@@ -575,38 +577,222 @@ impl Cage {
         }
     }
 
+    //------------------SHMHELPERS----------------------
+
+    pub fn rev_shm_find_index_by_addr(rev_shm: &Vec<(u32, i32)>, shmaddr: u32) -> Option<usize> {
+        for (index, val) in rev_shm.iter().enumerate() {
+            if val.0 == shmaddr as u32 {
+                return Some(index);
+            }
+        }
+        None
+    }
+
+    pub fn rev_shm_find_addrs_by_shmid(rev_shm: &Vec<(u32, i32)>, shmid: i32) -> Vec<u32> {
+        let mut addrvec = Vec::new();
+        for val in rev_shm.iter() {
+            if val.1 == shmid as i32 {
+                addrvec.push(val.0);
+            }
+        }
+
+        return addrvec;
+    }
+
+    pub fn search_for_addr_in_region(
+        rev_shm: &Vec<(u32, i32)>,
+        search_addr: u32,
+    ) -> Option<(u32, i32)> {
+        let metadata = &SHM_METADATA;
+        for val in rev_shm.iter() {
+            let addr = val.0;
+            let shmid = val.1;
+            if let Some(segment) = metadata.shmtable.get_mut(&shmid) {
+                let range = addr..(addr + segment.size as u32);
+                if range.contains(&search_addr) {
+                    return Some((addr, shmid));
+                }
+            }
+        }
+        None
+    }
+
     //------------------SHMGET SYSCALL------------------
-    /* 
-    *   shmget() will return:
-    *   - a valid shared memory identifier, success
-    *   - -1, fail
-    */
+
     pub fn shmget_syscall(&self, key: i32, size: usize, shmflg: i32) -> i32 {
-        unsafe { libc::shmget(key, size, shmflg) as i32 }
+        if key == IPC_PRIVATE {
+            return syscall_error(Errno::ENOENT, "shmget", "IPC_PRIVATE not implemented");
+        }
+        let shmid: i32;
+        let metadata = &SHM_METADATA;
+
+        match metadata.shmkeyidtable.entry(key) {
+            interface::RustHashEntry::Occupied(occupied) => {
+                if (IPC_CREAT | IPC_EXCL) == (shmflg & (IPC_CREAT | IPC_EXCL)) {
+                    return syscall_error(
+                        Errno::EEXIST,
+                        "shmget",
+                        "key already exists and IPC_CREAT and IPC_EXCL were used",
+                    );
+                }
+                shmid = *occupied.get();
+            }
+            interface::RustHashEntry::Vacant(vacant) => {
+                if 0 == (shmflg & IPC_CREAT) {
+                    return syscall_error(
+                        Errno::ENOENT,
+                        "shmget",
+                        "tried to use a key that did not exist, and IPC_CREAT was not specified",
+                    );
+                }
+
+                if (size as u32) < SHMMIN || (size as u32) > SHMMAX {
+                    return syscall_error(
+                        Errno::EINVAL,
+                        "shmget",
+                        "Size is less than SHMMIN or more than SHMMAX",
+                    );
+                }
+
+                shmid = metadata.new_keyid();
+                vacant.insert(shmid);
+                let mode = (shmflg & 0x1FF) as u16; // mode is 9 least signficant bits of shmflag, even if we dont really do anything with them
+
+                let segment = new_shm_segment(
+                    key,
+                    size,
+                    self.cageid as u32,
+                    DEFAULT_UID,
+                    DEFAULT_GID,
+                    mode,
+                );
+                metadata.shmtable.insert(shmid, segment);
+            }
+        };
+        shmid // return the shmid
     }
 
     //------------------SHMAT SYSCALL------------------
-    /* 
-    *   shmat() will return:
-    *   - the segment's start address, success
-    *   - -1, fail    
-    */
+
     pub fn shmat_syscall(&self, shmid: i32, shmaddr: *mut u8, shmflg: i32) -> i32 {
-        // Convert address to adapt to NaCl
-        ((unsafe { libc::shmat(shmid, shmaddr as *const c_void, shmflg)} as i64 ) & 0xffffffff) as i32
-        // (unsafe { libc::shmat(shmid, shmaddr as *const c_void, shmflg)} as i64) as i32
+        let metadata = &SHM_METADATA;
+        let prot: i32;
+        if let Some(mut segment) = metadata.shmtable.get_mut(&shmid) {
+            if 0 != (shmflg & fs_constants::SHM_RDONLY) {
+                prot = PROT_READ;
+            } else {
+                prot = PROT_READ | PROT_WRITE;
+            }
+            let mut rev_shm = self.rev_shm.lock();
+            rev_shm.push((shmaddr as u32, shmid));
+            drop(rev_shm);
+
+            // update semaphores
+            if !segment.semaphor_offsets.is_empty() {
+                // lets just look at the first cage in the set, since we only need to grab the ref from one
+                if let Some(cageid) = segment
+                    .attached_cages
+                    .clone()
+                    .into_read_only()
+                    .keys()
+                    .next()
+                {
+                    let cage2 = interface::cagetable_getref(*cageid);
+                    let cage2_rev_shm = cage2.rev_shm.lock();
+                    let addrs = Self::rev_shm_find_addrs_by_shmid(&cage2_rev_shm, shmid); // find all the addresses assoc. with shmid
+                    for offset in segment.semaphor_offsets.iter() {
+                        let sementry = cage2.sem_table.get(&(addrs[0] + *offset)).unwrap().clone(); //add  semaphors into semtable at addr + offsets
+                        self.sem_table.insert(shmaddr as u32 + *offset, sementry);
+                    }
+                }
+            }
+
+            segment.map_shm(shmaddr, prot, self.cageid)
+        } else {
+            syscall_error(Errno::EINVAL, "shmat", "Invalid shmid value")
+        }
     }
 
     //------------------SHMDT SYSCALL------------------
-    /* 
-    *   shmdt() will return 0 when sucess, -1 when fail 
-    */
+
     pub fn shmdt_syscall(&self, shmaddr: *mut u8) -> i32 {
-        unsafe { libc::shmdt(shmaddr as *const c_void) }
+        let metadata = &SHM_METADATA;
+        let mut rm = false;
+        let mut rev_shm = self.rev_shm.lock();
+        let rev_shm_index = Self::rev_shm_find_index_by_addr(&rev_shm, shmaddr as u32);
+
+        if let Some(index) = rev_shm_index {
+            let shmid = rev_shm[index].1;
+            match metadata.shmtable.entry(shmid) {
+                interface::RustHashEntry::Occupied(mut occupied) => {
+                    let segment = occupied.get_mut();
+
+                    // update semaphores
+                    for offset in segment.semaphor_offsets.iter() {
+                        self.sem_table.remove(&(shmaddr as u32 + *offset));
+                    }
+
+                    segment.unmap_shm(shmaddr, self.cageid);
+
+                    if segment.rmid && segment.shminfo.shm_nattch == 0 {
+                        rm = true;
+                    }
+                    rev_shm.swap_remove(index);
+
+                    if rm {
+                        let key = segment.key;
+                        occupied.remove_entry();
+                        metadata.shmkeyidtable.remove(&key);
+                    }
+
+                    return shmid; //NaCl relies on this non-posix behavior of returning the shmid on success
+                }
+                interface::RustHashEntry::Vacant(_) => {
+                    panic!("Inode not created for some reason");
+                }
+            };
+        } else {
+            return syscall_error(
+                Errno::EINVAL,
+                "shmdt",
+                "No shared memory segment at shmaddr",
+            );
+        }
     }
 
-    pub fn shmctl_syscall(&self, shmid: i32, cmd: i32, buf: *mut shmid_ds) -> i32 {
-        unsafe { libc::shmctl(shmid, cmd, buf) }
+    //------------------SHMCTL SYSCALL------------------
+
+    pub fn shmctl_syscall(&self, shmid: i32, cmd: i32, buf: Option<&mut ShmidsStruct>) -> i32 {
+        let metadata = &SHM_METADATA;
+
+        if let Some(mut segment) = metadata.shmtable.get_mut(&shmid) {
+            match cmd {
+                IPC_STAT => {
+                    *buf.unwrap() = segment.shminfo;
+                }
+                IPC_RMID => {
+                    segment.rmid = true;
+                    segment.shminfo.shm_perm.mode |= SHM_DEST as u16;
+                    if segment.shminfo.shm_nattch == 0 {
+                        let key = segment.key;
+                        drop(segment);
+                        metadata.shmtable.remove(&shmid);
+                        metadata.shmkeyidtable.remove(&key);
+                    }
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EINVAL,
+                        "shmctl",
+                        "Arguments provided do not match implemented parameters",
+                    );
+                }
+            }
+        } else {
+            return syscall_error(Errno::EINVAL, "shmctl", "Invalid identifier");
+        }
+
+        0 //shmctl has succeeded!
     }
 
     //------------------MUTEX SYSCALLS------------------
@@ -1011,53 +1197,185 @@ impl Cage {
 
     //------------------SEMAPHORE SYSCALLS------------------
     /*
-    *   sem_init() will return 0 when sucess, -1 when fail 
-    */
-    pub fn sem_init_syscall(&self, sem: *mut sem_t, pshared: i32, value: u32) -> i32 {
-        unsafe{ libc::sem_init(sem, pshared, value) }
+     *  Initialize semaphore object SEM to value
+     *  pshared used to indicate whether the semaphore is shared in threads (when equals to 0)
+     *  or shared between processes (when nonzero)
+     */
+    pub fn sem_init_syscall(&self, sem_handle: u32, pshared: i32, value: u32) -> i32 {
+        // Boundary check
+        if value > SEM_VALUE_MAX {
+            return syscall_error(Errno::EINVAL, "sem_init", "value exceeds SEM_VALUE_MAX");
+        }
+
+        let metadata = &SHM_METADATA;
+        let is_shared = pshared != 0;
+
+        // Iterate semaphore table, if semaphore is already initialzed return error
+        let semtable = &self.sem_table;
+
+        // Will initialize only it's new
+        if !semtable.contains_key(&sem_handle) {
+            let new_semaphore =
+                interface::RustRfc::new(interface::RustSemaphore::new(value, is_shared));
+            semtable.insert(sem_handle, new_semaphore.clone());
+
+            if is_shared {
+                let rev_shm = self.rev_shm.lock();
+                // if its shared and exists in an existing mapping we need to add it to other cages
+                if let Some((mapaddr, shmid)) =
+                    Self::search_for_addr_in_region(&rev_shm, sem_handle)
+                {
+                    let offset = mapaddr - sem_handle;
+                    if let Some(segment) = metadata.shmtable.get_mut(&shmid) {
+                        for cageid in segment.attached_cages.clone().into_read_only().keys() {
+                            // iterate through all cages with segment attached and add semaphor in segments at attached addr + offset
+                            let cage = interface::cagetable_getref(*cageid);
+                            let addrs = Self::rev_shm_find_addrs_by_shmid(&rev_shm, shmid);
+                            for addr in addrs.iter() {
+                                cage.sem_table.insert(addr + offset, new_semaphore.clone());
+                            }
+                        }
+                        segment.semaphor_offsets.insert(offset);
+                    }
+                }
+            }
+            return 0;
+        }
+
+        return syscall_error(Errno::EBADF, "sem_init", "semaphore already initialized");
+    }
+
+    pub fn sem_wait_syscall(&self, sem_handle: u32) -> i32 {
+        let semtable = &self.sem_table;
+        // Check whether semaphore exists
+        if let Some(sementry) = semtable.get_mut(&sem_handle) {
+            let semaphore = sementry.clone();
+            drop(sementry);
+            semaphore.lock();
+        } else {
+            return syscall_error(Errno::EINVAL, "sem_wait", "sem is not a valid semaphore");
+        }
+        return 0;
+    }
+
+    pub fn sem_post_syscall(&self, sem_handle: u32) -> i32 {
+        let semtable = &self.sem_table;
+        if let Some(sementry) = semtable.get_mut(&sem_handle) {
+            let semaphore = sementry.clone();
+            drop(sementry);
+            if !semaphore.unlock() {
+                return syscall_error(
+                    Errno::EOVERFLOW,
+                    "sem_post",
+                    "The maximum allowable value for a semaphore would be exceeded",
+                );
+            }
+        } else {
+            return syscall_error(Errno::EINVAL, "sem_wait", "sem is not a valid semaphore");
+        }
+        return 0;
+    }
+
+    pub fn sem_destroy_syscall(&self, sem_handle: u32) -> i32 {
+        let metadata = &SHM_METADATA;
+
+        let semtable = &self.sem_table;
+        // remove entry from semaphore table
+        if let Some(sementry) = semtable.remove(&sem_handle) {
+            if sementry
+                .1
+                .is_shared
+                .load(interface::RustAtomicOrdering::Relaxed)
+            {
+                // if its shared we'll need to remove it from other attachments
+                let rev_shm = self.rev_shm.lock();
+                if let Some((mapaddr, shmid)) =
+                    Self::search_for_addr_in_region(&rev_shm, sem_handle)
+                {
+                    // find all segments that contain semaphore
+                    let offset = mapaddr - sem_handle;
+                    if let Some(segment) = metadata.shmtable.get_mut(&shmid) {
+                        for cageid in segment.attached_cages.clone().into_read_only().keys() {
+                            // iterate through all cages containing segment
+                            let cage = interface::cagetable_getref(*cageid);
+                            let addrs = Self::rev_shm_find_addrs_by_shmid(&rev_shm, shmid);
+                            for addr in addrs.iter() {
+                                cage.sem_table.remove(&(addr + offset)); //remove semapoores at attached addresses + the offset
+                            }
+                        }
+                    }
+                }
+            }
+            return 0;
+        } else {
+            return syscall_error(Errno::EINVAL, "sem_destroy", "sem is not a valid semaphore");
+        }
     }
 
     /*
-    *   sem_wait() will return 0 when sucess, -1 when fail 
-    */
-    pub fn sem_wait_syscall(&self, sem: *mut sem_t) -> i32 {
-        unsafe{ libc::sem_wait(sem) }
+     * Take only sem_t *sem as argument, and return int *sval
+     */
+    pub fn sem_getvalue_syscall(&self, sem_handle: u32) -> i32 {
+        let semtable = &self.sem_table;
+        if let Some(sementry) = semtable.get_mut(&sem_handle) {
+            let semaphore = sementry.clone();
+            drop(sementry);
+            return semaphore.get_value();
+        }
+        return syscall_error(
+            Errno::EINVAL,
+            "sem_getvalue",
+            "sem is not a valid semaphore",
+        );
     }
 
-    /*
-    *   sem_post() will return 0 when sucess, -1 when fail 
-    */
-    pub fn sem_post_syscall(&self, sem: *mut sem_t) -> i32 {
-        unsafe{ libc::sem_post(sem) }
+    pub fn sem_trywait_syscall(&self, sem_handle: u32) -> i32 {
+        let semtable = &self.sem_table;
+        // Check whether semaphore exists
+        if let Some(sementry) = semtable.get_mut(&sem_handle) {
+            let semaphore = sementry.clone();
+            drop(sementry);
+            if !semaphore.trylock() {
+                return syscall_error(
+                    Errno::EAGAIN,
+                    "sem_trywait",
+                    "The operation could not be performed without blocking",
+                );
+            }
+        } else {
+            return syscall_error(Errno::EINVAL, "sem_trywait", "sem is not a valid semaphore");
+        }
+        return 0;
     }
 
-    /*
-    *   sem_destroy() will return 0 when sucess, -1 when fail 
-    */
-    pub fn sem_destroy_syscall(&self, sem: *mut sem_t) -> i32 {
-        unsafe{ libc::sem_destroy(sem) }
+    pub fn sem_timedwait_syscall(&self, sem_handle: u32, time: interface::RustDuration) -> i32 {
+        let abstime = libc::timespec {
+            tv_sec: time.as_secs() as i64,
+            tv_nsec: (time.as_nanos() % 1000000000) as i64,
+        };
+        if abstime.tv_nsec < 0 {
+            return syscall_error(Errno::EINVAL, "sem_timedwait", "Invalid timedout");
+        }
+        let semtable = &self.sem_table;
+        // Check whether semaphore exists
+        if let Some(sementry) = semtable.get_mut(&sem_handle) {
+            let semaphore = sementry.clone();
+            drop(sementry);
+            if !semaphore.timedlock(time) {
+                return syscall_error(
+                    Errno::ETIMEDOUT,
+                    "sem_timedwait",
+                    "The call timed out before the semaphore could be locked",
+                );
+            }
+        } else {
+            return syscall_error(
+                Errno::EINVAL,
+                "sem_timedwait",
+                "sem is not a valid semaphore",
+            );
+        }
+        return 0;
     }
-
-    /*
-    *   sem_getvalue() will return 0 when sucess, -1 when fail 
-    */
-    pub fn sem_getvalue_syscall(&self, sem: *mut sem_t) -> i32 {
-        let sval = 0;
-        unsafe{ libc::sem_getvalue(sem, sval as *mut i32) };
-        return sval;
-    }
-
-    /*
-    *   sem_trywait() will return 0 when sucess, -1 when fail 
-    */
-    pub fn sem_trywait_syscall(&self, sem: *mut sem_t) -> i32 {
-       unsafe{ libc::sem_trywait(sem) }
-    }
-
-    /*
-    *   sem_timedwait() will return 0 when sucess, -1 when fail 
-    */
-    pub fn sem_timedwait_syscall(&self, sem: *mut sem_t, abstime: *const timespec) -> i32 {
-        unsafe{ libc::sem_timedwait(sem, abstime) }
-    }
+}
 }

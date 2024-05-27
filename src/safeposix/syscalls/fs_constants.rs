@@ -1,11 +1,11 @@
-// // File system related constants
-// #![allow(dead_code)]
-// #![allow(unused_variables)]
+// File system related constants
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
-// use crate::interface;
+use crate::interface;
 
-// // Define constants using static or const
-// // Imported into fs_calls file
+// Define constants using static or const
+// Imported into fs_calls file
 // pub const DT_UNKNOWN: u8 = 0;
 
 // pub const STARTINGFD: i32 = 0;
@@ -121,24 +121,24 @@
 // pub const IPC_SET: i32 = 1;
 // pub const IPC_STAT: i32 = 2;
 
-// pub const SHM_DEST: i32 = 0o1000;
-// pub const SHM_LOCKED: i32 = 0o2000;
-// pub const SHM_HUGETLB: i32 = 0o4000;
+pub const SHM_DEST: i32 = 0o1000;
+pub const SHM_LOCKED: i32 = 0o2000;
+pub const SHM_HUGETLB: i32 = 0o4000;
 
-// pub const SHM_R: i32 = 0o400;
-// pub const SHM_W: i32 = 0o200;
-// pub const SHM_RDONLY: i32 = 0o10000;
-// pub const SHM_RND: i32 = 0o20000;
-// pub const SHM_REMAP: i32 = 0o40000;
-// pub const SHM_EXEC: i32 = 0o100000;
+pub const SHM_R: i32 = 0o400;
+pub const SHM_W: i32 = 0o200;
+pub const SHM_RDONLY: i32 = 0o10000;
+pub const SHM_RND: i32 = 0o20000;
+pub const SHM_REMAP: i32 = 0o40000;
+pub const SHM_EXEC: i32 = 0o100000;
 
-// pub const SHMMIN: u32 = 1;
-// pub const SHMMNI: u32 = 4096;
-// pub const SHMMAX: u32 = 4278190079; // (ULONG_MAX - (1UL << 24))
-// pub const SHMALL: u32 = 4278190079; // (ULONG_MAX - (1UL << 24));
-// pub const SHMSEG: u32 = SHMMNI;
+pub const SHMMIN: u32 = 1;
+pub const SHMMNI: u32 = 4096;
+pub const SHMMAX: u32 = 4278190079; // (ULONG_MAX - (1UL << 24))
+pub const SHMALL: u32 = 4278190079; // (ULONG_MAX - (1UL << 24));
+pub const SHMSEG: u32 = SHMMNI;
 
-// pub const SEM_VALUE_MAX: u32 = 2147483647;
+pub const SEM_VALUE_MAX: u32 = 2147483647;
 
 // //device info for char files
 // #[derive(interface::SerdeSerialize, interface::SerdeDeserialize, PartialEq, Eq, Debug)]

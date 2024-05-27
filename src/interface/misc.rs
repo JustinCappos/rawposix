@@ -36,7 +36,7 @@ pub use serde_cbor::{
 use crate::interface;
 use crate::interface::errnos::VERBOSE;
 use crate::interface::types::SigsetType;
-// use crate::safeposix::syscalls::fs_constants::SEM_VALUE_MAX;
+use crate::safeposix::syscalls::fs_constants::SEM_VALUE_MAX;
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -544,90 +544,90 @@ impl std::fmt::Debug for RawCondvar {
     }
 }
 
-// /*
-// * RustSemaphore is the rust version of sem_t
-// */
-// #[derive(Debug)]
-// pub struct RustSemaphore {
-//     pub value: Mutex<u32>,
-//     pub is_shared: RustAtomicBool,
-// }
+/*
+* RustSemaphore is the rust version of sem_t
+*/
+#[derive(Debug)]
+pub struct RustSemaphore {
+    pub value: Mutex<u32>,
+    pub is_shared: RustAtomicBool,
+}
 
-// // Semaphore implementation
-// // we busy wait on lock if value is 0, otherwise we decrease the value
-// // unlock will increase value up to SEM_VALUE_MAX
-// impl RustSemaphore {
-//     pub fn new(value_handle: u32, is_shared: bool) -> Self {
-//         Self {
-//             value: Mutex::new(value_handle),
-//             is_shared: RustAtomicBool::new(is_shared),
-//         }
-//     }
+// Semaphore implementation
+// we busy wait on lock if value is 0, otherwise we decrease the value
+// unlock will increase value up to SEM_VALUE_MAX
+impl RustSemaphore {
+    pub fn new(value_handle: u32, is_shared: bool) -> Self {
+        Self {
+            value: Mutex::new(value_handle),
+            is_shared: RustAtomicBool::new(is_shared),
+        }
+    }
 
-//     pub fn lock(&self) {
-//         loop {
-//             // acquire the mutex lock
-//             let mut value = self.value.lock();
-//             if *value == 0 {
-//                 // wait for semaphore to be unlocked by another process/thread
-//                 interface::lind_yield();
-//             } else {
-//                 // decrement the value
-//                 *value = if *value > 0 { *value - 1 } else { 0 };
-//                 break;
-//             }
-//         }
-//     }
+    pub fn lock(&self) {
+        loop {
+            // acquire the mutex lock
+            let mut value = self.value.lock();
+            if *value == 0 {
+                // wait for semaphore to be unlocked by another process/thread
+                interface::lind_yield();
+            } else {
+                // decrement the value
+                *value = if *value > 0 { *value - 1 } else { 0 };
+                break;
+            }
+        }
+    }
 
-//     pub fn unlock(&self) -> bool {
-//         // acquire the mutex lock
-//         let mut value = self.value.lock();
-//         // check if the maximum allowable value for a semaphore has been reached
-//         if *value < SEM_VALUE_MAX {
-//             // increment the value
-//             *value = *value + 1;
-//             return true;
-//         } else {
-//             return false;
-//         }
-//     }
+    pub fn unlock(&self) -> bool {
+        // acquire the mutex lock
+        let mut value = self.value.lock();
+        // check if the maximum allowable value for a semaphore has been reached
+        if *value < SEM_VALUE_MAX {
+            // increment the value
+            *value = *value + 1;
+            return true;
+        } else {
+            return false;
+        }
+    }
 
-//     pub fn get_value(&self) -> i32 {
-//         // returns the value of the semaphore
-//         *self.value.lock() as i32
-//     }
+    pub fn get_value(&self) -> i32 {
+        // returns the value of the semaphore
+        *self.value.lock() as i32
+    }
 
-//     pub fn trylock(&self) -> bool {
-//         // acquire the mutex lock
-//         let mut value = self.value.lock();
-//         if *value == 0 {
-//             // semaphore is locked by another process/thread
-//             return false;
-//         } else {
-//             // decrement the value
-//             *value = if *value > 0 { *value - 1 } else { 0 };
-//             return true;
-//         }
-//     }
+    pub fn trylock(&self) -> bool {
+        // acquire the mutex lock
+        let mut value = self.value.lock();
+        if *value == 0 {
+            // semaphore is locked by another process/thread
+            return false;
+        } else {
+            // decrement the value
+            *value = if *value > 0 { *value - 1 } else { 0 };
+            return true;
+        }
+    }
 
-//     pub fn timedlock(&self, timeout: Duration) -> bool {
-//         // start the timer to check for timeout
-//         let start_time = interface::starttimer();
-//         loop {
-//             // acquire the mutex lock
-//             let mut value = self.value.lock();
-//             if *value == 0 {
-//                 // check if we have timed out
-//                 let elapsed_time = interface::readtimer(start_time);
-//                 if elapsed_time > timeout {
-//                     return false;
-//                 }
-//                 // if not timed out wait for semaphore to be unlocked by another process/thread
-//                 interface::lind_yield();
-//             } else {
-//                 *value = if *value > 0 { *value - 1 } else { 0 };
-//                 return true;
-//             }
-//         }
-//     }
-// }
+    pub fn timedlock(&self, timeout: Duration) -> bool {
+        // start the timer to check for timeout
+        let start_time = interface::starttimer();
+        loop {
+            // acquire the mutex lock
+            let mut value = self.value.lock();
+            if *value == 0 {
+                // check if we have timed out
+                let elapsed_time = interface::readtimer(start_time);
+                if elapsed_time > timeout {
+                    return false;
+                }
+                // if not timed out wait for semaphore to be unlocked by another process/thread
+                interface::lind_yield();
+            } else {
+                *value = if *value > 0 { *value - 1 } else { 0 };
+                return true;
+            }
+        }
+    }
+}

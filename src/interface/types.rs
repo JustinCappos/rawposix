@@ -51,11 +51,11 @@ const SIZEOF_SOCKADDR: u32 = 16;
 // }
 
 //R Limit for getrlimit system call
-#[repr(C)]
-pub struct Rlimit {
-    pub rlim_cur: u64,
-    pub rlim_max: u64,
-}
+// #[repr(C)]
+// pub struct Rlimit {
+//     pub rlim_cur: u64,
+//     pub rlim_max: u64,
+// }
 
 #[derive(Eq, PartialEq, Default, Copy, Clone)]
 #[repr(C)]
@@ -88,11 +88,11 @@ pub struct PollStruct {
     pub revents: i16,
 }
 
-#[repr(C)]
-pub struct SockaddrDummy {
-    pub sa_family: u16,
-    pub _sa_data: [u16; 14],
-}
+// #[repr(C)]
+// pub struct SockaddrDummy {
+//     pub sa_family: u16,
+//     pub _sa_data: [u16; 14],
+// }
 
 #[repr(C)]
 pub struct TimeVal {
@@ -135,18 +135,18 @@ pub struct IpcPermStruct {
     pub __unused2: u32,
 }
 
-// #[derive(Copy, Clone, Default)]
-// #[repr(C)]
-// pub struct ShmidsStruct {
-//     pub shm_perm: IpcPermStruct,
-//     pub shm_segsz: u32,
-//     pub shm_atime: isize,
-//     pub shm_dtime: isize,
-//     pub shm_ctime: isize,
-//     pub shm_cpid: u32,
-//     pub shm_lpid: u32,
-//     pub shm_nattch: u32,
-// }
+#[derive(Copy, Clone, Default)]
+#[repr(C)]
+pub struct ShmidsStruct {
+    pub shm_perm: IpcPermStruct,
+    pub shm_segsz: u32,
+    pub shm_atime: isize,
+    pub shm_dtime: isize,
+    pub shm_ctime: isize,
+    pub shm_cpid: u32,
+    pub shm_lpid: u32,
+    pub shm_nattch: u32,
+}
 
 pub type SigsetType = u64;
 
@@ -172,7 +172,7 @@ pub union Arg {
     pub dispatch_mutcbuf: *mut u8, //Typically corresponds to a mutable void* pointer as in read
     pub dispatch_cstr: *const i8, //Typically corresponds to a passed in string of type char*, as in open
     pub dispatch_cstrarr: *const *const i8, //Typically corresponds to a passed in string array of type char* const[] as in execve
-    pub dispatch_rlimitstruct: *mut Rlimit,
+    // pub dispatch_rlimitstruct: *mut Rlimit,
     pub dispatch_statdatastruct: *mut stat,
     pub dispatch_fsdatastruct: *mut statfs,
     pub dispatch_shmidstruct: *mut shmid_ds,
@@ -200,7 +200,7 @@ pub union Arg {
     // pub dispatch_conststructitimerval: *const ITimerVal,
     pub dispatch_conststructitimerval: *const itimerval,
     pub dispatch_fdset: *mut BitSet,
-    pub dispatch_structsem: *mut sem_t,
+    // pub dispatch_structsem: *mut sem_t,
     // pub dispatch_ifaddrs: *mut ifaddrs,
 }
 
@@ -397,7 +397,7 @@ pub fn get_fsdatastruct<'a>(union_argument: Arg) -> Result<&'a mut statfs, i32> 
     ));
 }
 
-pub fn get_shmidstruct<'a>(union_argument: Arg) -> Result<&'a mut shmid_ds, i32> {
+pub fn get_shmidstruct<'a>(union_argument: Arg) -> Result<&'a mut ShmidsStruct, i32> {
     let pointer = unsafe { union_argument.dispatch_shmidstruct };
     if !pointer.is_null() {
         return Ok(unsafe { &mut *pointer });
@@ -443,7 +443,7 @@ pub fn get_ioctlptrunion<'a>(union_argument: Arg) -> Result<&'a mut u8, i32> {
 //     }
 //     return Err(syscall_error(Errno::EFAULT, "ioctl", "argp is not valid"));
 // }
-/* [TODO] */
+
 /// Given the vector of tuples produced from getdents_syscall, each of which consists of
 /// a ClippedDirent struct and a u8 vector representing the name, and also given the
 /// pointer to the base of the buffer to which the getdents structs should be copied,
