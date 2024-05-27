@@ -10,6 +10,8 @@ pub mod fs_tests {
     use std::os::unix::fs::PermissionsExt;
     use libc::*;
     use std::mem;
+    use std::io::Write;
+    use std::io;
 
     static PATH: &str = "/home/lind/lind_project/src/rawposix/tmp";
     static S_IRWXA: u32 = 0o777;
@@ -279,6 +281,11 @@ pub mod fs_tests {
         assert_eq!(cage.chdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1"), 0);
 
         assert_eq!(cage.access_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2", F_OK), 0);
+        let mut buf = [0u8; 1024];
+        let _ptr = cage.getcwd_syscall(buf.as_mut_ptr(), buf.len() as u32);
+        let cwd = String::from_utf8_lossy(&buf).into_owned();
+        println!("After chdir to '..', current directory: {}", cwd);
+        io::stdout().flush().unwrap();
         assert_eq!(cage.chdir_syscall(".."), 0);
 
         assert_eq!(cage.access_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", F_OK), 0);
