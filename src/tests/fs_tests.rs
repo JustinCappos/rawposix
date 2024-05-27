@@ -1166,7 +1166,8 @@ pub mod fs_tests {
             let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, ptr::null_mut());
             assert_eq!(shmctlret2, 0);
             //detach from shared memory
-            let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
+            // let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
+            let shmdtret = cage.shmdt_syscall(shmatret as *mut u8);
             assert_eq!(shmdtret, shmid);
             cage.exit_syscall(libc::EXIT_SUCCESS);
         });

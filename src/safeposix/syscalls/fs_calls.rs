@@ -593,7 +593,8 @@ impl Cage {
     */
     pub fn shmat_syscall(&self, shmid: i32, shmaddr: *mut u8, shmflg: i32) -> i32 {
         // Convert address to adapt to NaCl
-        ((unsafe { libc::shmat(shmid, shmaddr as *const c_void, shmflg)} as i64 ) & 0xffffffff) as i32
+        // ((unsafe { libc::shmat(shmid, shmaddr as *const c_void, shmflg)} as i64 ) & 0xffffffff) as i32
+        (unsafe { libc::shmat(shmid, shmaddr as *const c_void, shmflg)} as i64) as i32
     }
 
     //------------------SHMDT SYSCALL------------------
