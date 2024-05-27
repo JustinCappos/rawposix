@@ -12,6 +12,7 @@ use crate::safeposix::cage::*;
 
 use libc::*;
 use std::os::unix::io::RawFd;
+use std::io::{self, Write};
 
 use crate::example_grates::fdtable::*;
 
@@ -49,6 +50,8 @@ impl Cage {
     pub fn mkdir_syscall(&self, path: &str, mode: u32) -> i32 {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
+        println!("path_c: {:?}", path_c);
+        io::stdout().flush().unwrap();
         unsafe {
             libc::mkdir(path_c as *const i8, mode)
         }
