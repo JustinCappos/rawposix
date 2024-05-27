@@ -685,7 +685,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.poll_syscall,
                 interface::get_pollstruct_slice(arg1, nfds),
-                interface::get_uint(arg2),
+                interface::get_ulong(arg2),
                 // interface::get_duration_from_millis(arg3)
                 interface::get_int(arg3)
             )

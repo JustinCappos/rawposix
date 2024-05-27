@@ -345,7 +345,7 @@ impl Cage {
         if let Some(some_set) = set {
             let curr_sigset = sigset.load(interface::RustAtomicOrdering::Relaxed);
             res = match how {
-                _SIG_BLOCK => {
+                SIG_BLOCK => {
                     // Block signals in set
                     sigset.store(
                         curr_sigset | *some_set,
@@ -353,7 +353,7 @@ impl Cage {
                     );
                     0
                 }
-                _SIG_UNBLOCK => {
+                SIG_UNBLOCK => {
                     // Unblock signals in set
                     let newset = curr_sigset & !*some_set;
                     let pendingsignals = curr_sigset & some_set;
@@ -361,7 +361,7 @@ impl Cage {
                     self.send_pending_signals(pendingsignals, pthreadid);
                     0
                 }
-                _SIG_SETMASK => {
+                SIG_SETMASK => {
                     // Set sigset to set
                     sigset.store(*some_set, interface::RustAtomicOrdering::Relaxed);
                     0
@@ -378,7 +378,7 @@ impl Cage {
         new_value: &itimerval,
         old_value: &mut itimerval,
     ) -> i32 {
-        unsafe { libc::syscall(SYS_setitimer, which, new_value, old_value) }
+        unsafe { libc::syscall(SYS_setitimer, which, new_value, old_value) as i32 }
     }
     // pub fn setitimer_syscall(
     //     &self,
@@ -416,10 +416,10 @@ impl Cage {
     // }
 
     pub fn getrlimit(&self, res_type: u64, rlimit: *mut rlimit) -> i32 {
-       unsafe { libc::getrlimit(res_type as i32, rlimit as *mut rlimit)}
+       unsafe { libc::getrlimit(res_type as u32, rlimit as *mut rlimit)}
     }
 
     pub fn setrlimit(&self, res_type: u64, limit_value: *const rlimit) -> i32 {
-        unsafe { libc::setrlimit(res_type as i32, limit_value) }
+        unsafe { libc::setrlimit(res_type as u32, limit_value) }
     }
 }

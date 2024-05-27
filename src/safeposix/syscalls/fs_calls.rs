@@ -50,7 +50,7 @@ impl Cage {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
-            libc::mkdir(path_c as *const u8, mode as u16)
+            libc::mkdir(path_c as *const i8, mode)
         }
     }
 
@@ -58,11 +58,11 @@ impl Cage {
     /*
     *   mknod() will return 0 when success and -1 when fail 
     */
-    pub fn mknod_syscall(&self, path: &str, mode: u64, dev: u64) -> i32 {
+    pub fn mknod_syscall(&self, path: &str, mode: u32, dev: u64) -> i32 {
         // Convert data type from &str into *const i8
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
-            libc::mknod(path_c as *const i8, mode as u16, dev as i32)
+            libc::mknod(path_c as *const i8, mode, dev)
         }
     }
 
@@ -94,10 +94,10 @@ impl Cage {
     /*
     *   creat() will return fd when success and -1 when fail 
     */
-    pub fn creat_syscall(&self, path: &str, mode: u64) -> i32 {
+    pub fn creat_syscall(&self, path: &str, mode: u32) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
         let kernel_fd = unsafe {
-            libc::creat(path_c as *const i8, mode as u16)
+            libc::creat(path_c as *const i8, mode)
         };
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         virtual_fd
@@ -361,7 +361,7 @@ impl Cage {
     pub fn chmod_syscall(&self, path: &str, mode: u32) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
-            libc::chmod(path_c as *const i8, mode as u16)
+            libc::chmod(path_c as *const i8, mode)
         }
     }
 
@@ -373,7 +373,7 @@ impl Cage {
     pub fn fchmod_syscall(&self, virtual_fd: i32, mode: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::fchmod(kernel_fd, mode as u16)
+            libc::fchmod(kernel_fd, mode)
         }
     }
 
@@ -498,7 +498,7 @@ impl Cage {
     pub fn ftruncate_syscall(&self, virtual_fd: i32, length: isize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe {
-            libc::ftruncate(kernel_fd, length)
+            libc::ftruncate(kernel_fd, length as i64)
         }
     }
 
@@ -509,7 +509,7 @@ impl Cage {
     pub fn truncate_syscall(&self, path: &str, length: isize) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
         unsafe {
-            libc::truncate(path_c as *const u8, length as i64)
+            libc::truncate(path_c as *const i8, length as i64)
         }
     }
 
@@ -565,7 +565,7 @@ impl Cage {
     */
     pub fn getcwd_syscall(&self, buf: *mut u8, bufsize: u32) -> i32 {
         unsafe {
-            libc::getcwd(buf, bufsize as usize) as i32
+            libc::getcwd(buf as *mut i8, bufsize as usize) as i32
         }
     }
 
@@ -1035,7 +1035,7 @@ impl Cage {
     *   sem_getvalue() will return 0 when sucess, -1 when fail 
     */
     pub fn sem_getvalue_syscall(&self, sem: *mut sem_t, sval: i32) -> i32 {
-        unsafe{ libc::sem_getvalue(sem, sval as i32) }
+        unsafe{ libc::sem_getvalue(sem, sval as *mut i32) }
     }
 
     /*

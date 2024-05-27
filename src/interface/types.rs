@@ -691,10 +691,10 @@ pub fn get_slice_from_string<'a>(union_argument: Arg, len: usize) -> Result<&'a 
     ));
 }
 
-pub fn get_epollevent<'a>(union_argument: Arg) -> Result<&'a EpollEvent, i32> {
+pub fn get_epollevent<'a>(union_argument: Arg) -> Result<&'a mut EpollEvent, i32> {
     let epolleventptr = unsafe { union_argument.dispatch_epollevent };
     if !epolleventptr.is_null() {
-        return Ok(unsafe { &*epolleventptr });
+        return Ok(unsafe { &mut *epolleventptr });
     }
     return Err(syscall_error(
         Errno::EFAULT,
