@@ -12,6 +12,7 @@ pub mod fs_tests {
 
     static PATH: &str = "/home/lind/lind_project/src/rawposix/tmp";
     static S_IRWXA: u32 = 0o777;
+    static S_LIND: u32 = 0o755;
 
     pub fn test_fs() {
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
@@ -219,20 +220,18 @@ pub mod fs_tests {
 
         let mut statdata: stat = unsafe { std::mem::zeroed() };
 
-        let fd = cage.open_syscall(filepath, flags, S_IRWXA);
+        let fd = cage.open_syscall(filepath, flags, S_LIND);
         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
-        // assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG);
-        let file_permissions = statdata.st_mode & 0o777;
-        assert_eq!(file_permissions, S_IRWXA, "Permissions do not match");
+        assert_eq!(statdata.st_mode, S_LIND | S_IFREG);
         // assert_eq!(statdata.st_mode & !S_IFMT, S_IRWXA);
 
         assert_eq!(cage.chmod_syscall(filepath, S_IRUSR | S_IRGRP), 0);
         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
         assert_eq!(statdata.st_mode, S_IRUSR | S_IRGRP | S_IFREG);
 
-        assert_eq!(cage.chmod_syscall(filepath, S_IRWXA), 0);
+        assert_eq!(cage.chmod_syscall(filepath, S_LIND), 0);
         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
-        assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG as u32);
+        assert_eq!(statdata.st_mode, S_LIND | S_IFREG as u32);
 
         assert_eq!(cage.close_syscall(fd), 0);
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
