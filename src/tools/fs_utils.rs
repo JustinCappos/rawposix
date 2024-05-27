@@ -245,3 +245,6 @@
 //     }
 //     lindrustfinalize();
 // }
+fn main() {
+    
+}
