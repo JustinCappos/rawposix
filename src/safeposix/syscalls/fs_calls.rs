@@ -343,8 +343,6 @@ impl Cage {
             let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd, false, 0).unwrap();
             return new_virtualfd;
         }
-        println!("virtual_fd: {:?}\ncmd: {:?}", virtual_fd, cmd);
-        io::stdout().flush().unwrap();
         unsafe { libc::fcntl(kernel_fd, cmd, arg) }
     }
 

@@ -5,7 +5,7 @@ pub mod fs_tests {
     use crate::{interface, safeposix};
     use crate::safeposix::syscalls::fs_calls::*;
     // use crate::safeposix::{cage::*, dispatcher::*, filesystem};
-    use crate::safeposix::{cage::*, dispatcher::*};
+    use crate::safeposix::{cage::*, dispatcher::*, shm};
     use std::fs::OpenOptions;
     use std::os::unix::fs::PermissionsExt;
     use libc::*;
@@ -1113,6 +1113,8 @@ pub mod fs_tests {
         let key = 31337;
         // Create a shared memory region
         let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
+        println!("shmid: {:?}", shmid);
+        io::stdout().flush().unwrap();
         // Attach the shared memory region
         let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
         assert_ne!(shmatret, -1);
