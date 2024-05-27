@@ -1378,4 +1378,3 @@ impl Cage {
         return 0;
     }
 }
-}
