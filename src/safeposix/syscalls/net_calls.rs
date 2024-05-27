@@ -333,7 +333,7 @@ impl Cage {
         virtual_epfd: i32,
         op: i32,
         virtual_fd: i32,
-        event: *mut EpollEvent,
+        event: *mut epoll_event,
     ) -> i32 {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd).unwrap();
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();

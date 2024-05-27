@@ -181,7 +181,8 @@ pub union Arg {
     pub dispatch_socklen_t_ptr: *mut u32,
     pub dispatch_intptr: *mut i32,
     pub dispatch_pollstructarray: *mut PollStruct,
-    pub dispatch_epollevent: *mut EpollEvent,
+    // pub dispatch_epollevent: *mut EpollEvent,
+    pub dispatch_epollevent: *mut epoll_event,
     // pub dispatch_structtimeval: *mut TimeVal,
     pub dispatch_structtimeval: *mut timeval,
     pub dispatch_structtimespec_lind: *mut TimeSpec,
@@ -691,7 +692,18 @@ pub fn get_slice_from_string<'a>(union_argument: Arg, len: usize) -> Result<&'a 
     ));
 }
 
-pub fn get_epollevent<'a>(union_argument: Arg) -> Result<&'a mut EpollEvent, i32> {
+// pub fn get_epollevent<'a>(union_argument: Arg) -> Result<&'a mut EpollEvent, i32> {
+//     let epolleventptr = unsafe { union_argument.dispatch_epollevent };
+//     if !epolleventptr.is_null() {
+//         return Ok(unsafe { &mut *epolleventptr });
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
+pub fn get_epollevent<'a>(union_argument: Arg) -> Result<&'a mut epoll_event, i32> {
     let epolleventptr = unsafe { union_argument.dispatch_epollevent };
     if !epolleventptr.is_null() {
         return Ok(unsafe { &mut *epolleventptr });

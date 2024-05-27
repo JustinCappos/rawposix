@@ -5,6 +5,7 @@ use super::fs_constants::*;
 use super::net_constants::*;
 // use super::sys_constants::*;
 use crate::interface;
+use crate::safeposix::cage;
 use crate::safeposix::cage::*;
 
 use crate::example_grates::fdtable::*;
@@ -345,7 +346,7 @@ impl Cage {
         if let Some(some_set) = set {
             let curr_sigset = sigset.load(interface::RustAtomicOrdering::Relaxed);
             res = match how {
-                SIG_BLOCK => {
+                cage::SIG_BLOCK => {
                     // Block signals in set
                     sigset.store(
                         curr_sigset | *some_set,
@@ -353,7 +354,7 @@ impl Cage {
                     );
                     0
                 }
-                SIG_UNBLOCK => {
+                cage::SIG_UNBLOCK => {
                     // Unblock signals in set
                     let newset = curr_sigset & !*some_set;
                     let pendingsignals = curr_sigset & some_set;
@@ -361,7 +362,7 @@ impl Cage {
                     self.send_pending_signals(pendingsignals, pthreadid);
                     0
                 }
-                SIG_SETMASK => {
+                cage::SIG_SETMASK => {
                     // Set sigset to set
                     sigset.store(*some_set, interface::RustAtomicOrdering::Relaxed);
                     0

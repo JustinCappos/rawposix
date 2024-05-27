@@ -802,12 +802,19 @@ pub extern "C" fn dispatcher(
                 );
             }
 
+            // check_and_dispatch!(
+            //     cage.epoll_wait_syscall,
+            //     interface::get_int(arg1),
+            //     interface::get_epollevent_slice(arg2, nfds),
+            //     Ok::<i32, i32>(nfds),
+            //     interface::get_duration_from_millis(arg4)
+            // )
             check_and_dispatch!(
                 cage.epoll_wait_syscall,
                 interface::get_int(arg1),
-                interface::get_epollevent_slice(arg2, nfds),
-                Ok::<i32, i32>(nfds),
-                interface::get_duration_from_millis(arg4)
+                interface::get_epollevent(arg2),
+                interface::get_int(arg3),
+                interface::get_int(arg4)
             )
         }
         GETDENTS_SYSCALL => {
