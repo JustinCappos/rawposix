@@ -36,9 +36,9 @@ impl Cage {
     */
     pub fn open_syscall(&self, path: &str, oflag: i32, mode: u32) -> i32 {
         // Convert data type from &str into *const i8
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
 
-        let kernel_fd = unsafe { libc::open(path_c as *const i8, oflag, mode) };
+        let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         virtual_fd
@@ -63,9 +63,9 @@ impl Cage {
     */
     pub fn mknod_syscall(&self, path: &str, mode: u32, dev: u64) -> i32 {
         // Convert data type from &str into *const i8
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::mknod(path_c as *const i8, mode, dev)
+            libc::mknod(c_path.as_ptr(), mode, dev)
         }
     }
 
@@ -75,10 +75,10 @@ impl Cage {
     */
     pub fn link_syscall(&self, oldpath: &str, newpath: &str) -> i32 {
         // Convert data type from &str into *const i8
-        let (oldpath_c, _, _) = oldpath.to_string().into_raw_parts();
-        let (newpath_c, _, _) = newpath.to_string().into_raw_parts();
+        let old_cpath = CString::new(oldpath).expect("CString::new failed");
+        let new_cpath = CString::new(newpath).expect("CString::new failed");
         unsafe {
-            libc::link(oldpath_c as *const i8, newpath_c as *const i8)
+            libc::link(old_cpath.as_ptr(), new_cpath.as_ptr())
         }
     }
 
@@ -98,9 +98,9 @@ impl Cage {
     *   creat() will return fd when success and -1 when fail 
     */
     pub fn creat_syscall(&self, path: &str, mode: u32) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         let kernel_fd = unsafe {
-            libc::creat(path_c as *const i8, mode)
+            libc::creat(c_path.as_ptr(), mode)
         };
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         virtual_fd
@@ -111,9 +111,9 @@ impl Cage {
     *   stat() will return 0 when success and -1 when fail 
     */
     pub fn stat_syscall(&self, path: &str, statbuf: &mut stat) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::stat(path_c as *const i8, statbuf)
+            libc::stat(c_path.as_ptr(), statbuf)
         }
     }
 
@@ -134,9 +134,9 @@ impl Cage {
     *   statfs() will return 0 when success and -1 when fail 
     */
     pub fn statfs_syscall(&self, path: &str, databuf: &mut statfs) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::statfs(path_c as *const i8, databuf)
+            libc::statfs(c_path.as_ptr(), databuf)
         }
     }
 
@@ -227,9 +227,9 @@ impl Cage {
     *   access() will return 0 when sucess, -1 when fail 
     */
     pub fn access_syscall(&self, path: &str, amode: i32) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::access(path_c as *const i8, amode)
+            libc::access(c_path.as_ptr(), amode)
         }
     }
 
@@ -250,9 +250,9 @@ impl Cage {
     *   chdir() will return 0 when sucess, -1 when fail 
     */
     pub fn chdir_syscall(&self, path: &str) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::chdir(path_c as *const i8)
+            libc::chdir(c_path.as_ptr())
         }
     }
 
@@ -362,9 +362,9 @@ impl Cage {
     *   chmod() will return 0 when success and -1 when fail 
     */
     pub fn chmod_syscall(&self, path: &str, mode: u32) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::chmod(path_c as *const i8, mode)
+            libc::chmod(c_path.as_ptr(), mode)
         }
     }
 
@@ -433,9 +433,9 @@ impl Cage {
     *   rmdir() will return 0 when sucess, -1 when fail 
     */
     pub fn rmdir_syscall(&self, path: &str) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::rmdir(path_c as *const i8)
+            libc::rmdir(c_path.as_ptr())
         }
     }
 
@@ -444,10 +444,10 @@ impl Cage {
     *   rename() will return 0 when sucess, -1 when fail 
     */
     pub fn rename_syscall(&self, oldpath: &str, newpath: &str) -> i32 {
-        let (oldpath_c, _, _) = oldpath.to_string().into_raw_parts();
-        let (newpath_c, _, _) = newpath.to_string().into_raw_parts();
+        let old_cpath = CString::new(oldpath).expect("CString::new failed");
+        let new_cpath = CString::new(newpath).expect("CString::new failed");
         unsafe {
-            libc::rename(oldpath_c as *const i8, newpath_c as *const i8)
+            libc::rename(old_cpath.as_ptr(), new_cpath.as_ptr())
         }
     }
 
@@ -510,9 +510,9 @@ impl Cage {
     *   truncate() will return 0 when sucess, -1 when fail 
     */
     pub fn truncate_syscall(&self, path: &str, length: isize) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        let c_path = CString::new(path).expect("CString::new failed");
         unsafe {
-            libc::truncate(path_c as *const i8, length as i64)
+            libc::truncate(c_path.as_ptr(), length as i64)
         }
     }
 
