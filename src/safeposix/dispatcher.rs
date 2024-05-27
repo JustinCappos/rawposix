@@ -110,7 +110,10 @@ const FSYNC_SYSCALL: i32 = 162;
 const FDATASYNC_SYSCALL: i32 = 163;
 const SYNC_FILE_RANGE: i32 = 164;
 
+use std::collections::HashMap;
+
 use super::cage::*;
+use crate::example_grates::fdtable::*;
 // use super::filesystem::{
 //     incref_root, load_fs, persist_metadata, remove_domain_sock, FilesystemMetadata, FS_METADATA,
 //     LOGFILENAME, LOGMAP,
@@ -118,7 +121,7 @@ use super::cage::*;
 // use super::net::NET_METADATA;
 // use super::shm::SHM_METADATA;
 // use super::syscalls::{fs_constants::IPC_STAT, sys_constants::*};
-use crate::interface;
+use crate::{example_grates, interface};
 use crate::interface::errnos::*;
 // use crate::lib_fs_utils::{lind_deltree, visit_children};
 
@@ -1132,6 +1135,8 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     };
 
     interface::cagetable_insert(0, utilcage);
+    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
+    fdtable.insert(0, HashMap::new());
 
     //init cage is its own parent
     let initcage = Cage {
@@ -1156,6 +1161,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
         interval_timer: interface::IntervalTimer::new(1),
     };
     interface::cagetable_insert(1, initcage);
+    fdtable.insert(1, HashMap::new());
     // make sure /tmp is clean
     // cleartmp(true);
 }

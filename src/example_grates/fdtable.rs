@@ -123,16 +123,15 @@ const TOTAL_FD_MAX: i32 = 4096;
 // This lets me initialize the code as a global.
 // BUG / TODO: Use a DashMap instead of a Mutex for this?
 lazy_static! {
-
   #[derive(Debug)]
   // GLOBALFDTABLE = <cageid, <virtualfd, FDTableEntry>> 
-  static ref GLOBALFDTABLE: Mutex<HashMap<u64, HashMap<i32,FDTableEntry>>> = {
-    let mut m = HashMap::new();
+  pub static ref GLOBALFDTABLE: Mutex<HashMap<u64, HashMap<i32,FDTableEntry>>> = {
+    let m = HashMap::new();
     // Insert a cage so that I have something to fork / test later, if need
     // be. Otherwise, I'm not sure how I get this started. I think this
     // should be invalid from a 3i standpoint, etc. Could this mask an
     // error in the future?
-    m.insert(threei::TESTING_CAGEID,HashMap::new());
+    // m.insert(threei::TESTING_CAGEID,HashMap::new());
     Mutex::new(m)
   };
 }
