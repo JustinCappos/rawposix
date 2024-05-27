@@ -273,7 +273,7 @@ pub mod fs_tests {
 
         assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", S_IRWXA), 0);
         assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2", S_IRWXA), 0);
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2/subdir3", 0), 0);
+        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2/subdir3", S_IRWXA), 0);
 
         assert_eq!(cage.access_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", F_OK), 0);
         assert_eq!(cage.chdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1"), 0);
