@@ -1115,9 +1115,11 @@ pub mod fs_tests {
         let key = 1234;
         // Create a shared memory region
         // let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
-        let shmid = cage.shmget_syscall(key, 1024, 0);
-        println!("shmid: {:?}", shmid);
+        let shmid1 = cage.shmget_syscall(key, 1024, 0);
+        println!("shmid: {:?}", shmid1);
         io::stdout().flush().unwrap();
+        cage.shmctl_syscall(shmid1, IPC_RMID, ptr::null_mut());
+        let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
         // Attach the shared memory region
         let shmatret = cage.shmat_syscall(shmid, ptr::null_mut(), 0);
 
