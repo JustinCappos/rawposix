@@ -244,7 +244,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-        let filepath = "/fchmodTestFile";
+        let filepath = "/home/lind/lind_project/src/rawposix/tmp/fchmodTestFile";
 
         let mut statdata: stat = unsafe { std::mem::zeroed() };
 
