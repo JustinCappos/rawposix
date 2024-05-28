@@ -2108,10 +2108,6 @@ pub mod net_tests {
         let cage = interface::cagetable_getref(1);
 
         let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, 0o755);
-        if filefd < 0 {
-            let err = std::io::Error::last_os_error();
-            eprintln!("Failed to open file: {:?}", err);
-        }
         assert!(filefd > 0);
         // assert_eq!(filefd, 0);
 
@@ -2203,6 +2199,7 @@ pub mod net_tests {
                 };
                 println!("errno: {:?}", err);
                 println!("Error message: {:?}", err_msg);
+                println!("filefd: {:?}", filefd);
                 io::stdout().flush().unwrap();
                 panic!("2207");
             }
