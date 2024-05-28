@@ -1,8 +1,8 @@
 #![allow(dead_code)] //suppress warning for these functions not being used in targets other than the tests
 
-mod fs_tests;
+// mod fs_tests;
 // mod ipc_tests;
-// mod networking_tests;
+mod networking_tests;
 
 use crate::interface;
 // use crate::safeposix::{cage::*, filesystem::*};
@@ -10,9 +10,9 @@ use crate::safeposix::cage::*;
 
 #[cfg(test)]
 mod main_tests {
-    use crate::tests::fs_tests::fs_tests::test_fs;
+    // use crate::tests::fs_tests::fs_tests::test_fs;
     // use crate::tests::ipc_tests::ipc_tests::test_ipc;
-    // use crate::tests::networking_tests::net_tests::net_tests;
+    use crate::tests::networking_tests::net_tests::net_tests;
 
     use crate::interface;
     // use crate::safeposix::{cage::*, dispatcher::*, filesystem::*};
@@ -64,11 +64,11 @@ mod main_tests {
         // }
         // lindrustfinalize();
 
-        println!("FS TESTS");
-        test_fs();
+        // println!("FS TESTS");
+        // test_fs();
 
-        // println!("NET TESTS");
-        // net_tests();
+        println!("NET TESTS");
+        net_tests();
 
         // println!("IPC TESTS");
         // test_ipc();
