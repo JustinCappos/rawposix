@@ -191,7 +191,7 @@ pub fn get_unused_virtual_fd(
     };
 
     // Check the fds in order.
-    for fdcandidate in 0..FD_PER_PROCESS_MAX {
+    for fdcandidate in 1..FD_PER_PROCESS_MAX {
         if !fdtable.get(&cageid).unwrap().contains_key(&fdcandidate) {
             // I just checked.  Should not be there...
             fdtable
