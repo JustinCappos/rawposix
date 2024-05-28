@@ -2109,7 +2109,7 @@ pub mod net_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, 0o755);
+        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
         assert!(filefd > 0);
         // assert_eq!(filefd, 0);
 
