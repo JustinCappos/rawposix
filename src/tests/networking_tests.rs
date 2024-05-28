@@ -2190,8 +2190,6 @@ pub mod net_tests {
                 };
                 println!("errno: {:?}", err);
                 println!("Error message: {:?}", err_msg);
-                println!("filefd: {:?}", filefd);
-                println!("FDtable: {:?}", GLOBALFDTABLE);
                 io::stdout().flush().unwrap();
                 panic!("2207");
             }
