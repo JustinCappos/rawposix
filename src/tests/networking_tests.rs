@@ -20,7 +20,7 @@ pub mod net_tests {
         // ut_lind_net_recvfrom();
         // ut_lind_net_select();
         // ut_lind_net_shutdown();
-        // ut_lind_net_socket();
+        ut_lind_net_socket();
         // ut_lind_net_socketoptions();
         // ut_lind_net_socketpair();
         // ut_lind_net_udp_bad_bind();
@@ -1289,33 +1289,33 @@ pub mod net_tests {
     //     lindrustfinalize();
     // }
 
-    // pub fn ut_lind_net_socket() {
-    //     lindrustinit(0);
-    //     let cage = interface::cagetable_getref(1);
+    pub fn ut_lind_net_socket() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-    //     let mut sockfd = cage.socket_syscall(AF_INET, SOCK_STREAM, 0);
-    //     let sockfd2 = cage.socket_syscall(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        let mut sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        let sockfd2 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, libc::IPPROTO_TCP);
 
-    //     let sockfd3 = cage.socket_syscall(AF_INET, SOCK_DGRAM, 0);
-    //     let sockfd4 = cage.socket_syscall(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        let sockfd3 = cage.socket_syscall(libc::AF_INET, libc::SOCK_DGRAM, 0);
+        let sockfd4 = cage.socket_syscall(libc::AF_INET, libc::SOCK_DGRAM, libc::IPPROTO_UDP);
 
-    //     //checking that the fd's are correct
-    //     assert!(sockfd > 0);
-    //     assert!(sockfd2 > 0);
-    //     assert!(sockfd3 > 0);
-    //     assert!(sockfd4 > 0);
+        //checking that the fd's are correct
+        assert!(sockfd > 0);
+        assert!(sockfd2 > 0);
+        assert!(sockfd3 > 0);
+        assert!(sockfd4 > 0);
 
-    //     //let's check an illegal operation...
-    //     let sockfddomain = cage.socket_syscall(AF_UNIX, SOCK_DGRAM, 0);
-    //     assert!(sockfddomain > 0);
+        //let's check an illegal operation...
+        let sockfddomain = cage.socket_syscall(libc::AF_UNIX, libc::SOCK_DGRAM, 0);
+        assert!(sockfddomain > 0);
 
-    //     sockfd = cage.socket_syscall(AF_INET, SOCK_STREAM, 0);
-    //     assert!(sockfd > 0);
+        sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        assert!(sockfd > 0);
 
-    //     assert_eq!(cage.close_syscall(sockfd), 0);
-    //     assert_eq!(cage.exit_syscall(EXIT_SUCCESS), EXIT_SUCCESS);
-    //     lindrustfinalize();
-    // }
+        assert_eq!(cage.close_syscall(sockfd), 0);
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
 
     // pub fn ut_lind_net_socketoptions() {
     //     lindrustinit(0);
