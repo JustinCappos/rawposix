@@ -118,7 +118,9 @@ pub mod net_tests {
         }
 
         let listen_result = cage.listen_syscall(server_fd, 128);
-        assert!(listen_result > 0);
+        if listen_result < 0 {
+            panic!("listen_result");
+        }
 
         cage.fork_syscall(2);
         let thread = interface::helper_thread(move || {
@@ -132,7 +134,9 @@ pub mod net_tests {
                 &mut client_addr as *mut libc::sockaddr_in as *mut libc::sockaddr,
                 addr_len,
             );
-            assert!(client_fd > 0);
+            if client_fd < 0 {
+                panic!("client_fd");
+            }
 
             let mut buffer = [0u8; 512];
             let read_size = cage2.read_syscall(client_fd, buffer.as_mut_ptr(), 512);
