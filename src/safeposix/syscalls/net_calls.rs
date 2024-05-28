@@ -332,11 +332,18 @@ impl Cage {
         virtual_epfd: i32,
         op: i32,
         virtual_fd: i32,
-        event: *mut epoll_event,
+        epollevent: &EpollEvent,
     ) -> i32 {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd).unwrap();
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::epoll_ctl(kernel_epfd, op, kernel_fd, event) }
+        // EpollEvent conversion
+        let event = epollevent.events;
+        let mut epoll_event = epoll_event {
+            events: event,
+            u64: kernel_fd as u64,
+        };
+
+        unsafe { libc::epoll_ctl(kernel_epfd, op, kernel_fd, &mut epoll_event) }
     }
 
     /*  
@@ -349,15 +356,26 @@ impl Cage {
     pub fn epoll_wait_syscall(
         &self,
         virtual_epfd: i32,
-        events: *mut epoll_event,
+        events: &[EpollEvent],
         maxevents: i32,
         timeout: i32,
     ) -> i32 {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd).unwrap();
-        unsafe { libc::epoll_wait(kernel_epfd, events, maxevents, timeout as i32) }
+        let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
+        for epollevent in events.iter() {
+            let virtual_fd = epollevent.fd;
+            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+            kernel_events.push(
+                epoll_event {
+                    events: epollevent.events,
+                    u64: kernel_fd as u64,
+                }
+            );
+        }
+        unsafe { libc::epoll_wait(kernel_epfd, kernel_events.as_mut_ptr(), maxevents, timeout) }
     }
 
-    /*   [TODO]
+    /*  
      *   socketpair() will return 0 when success and -1 when fail
      */
     pub fn socketpair_syscall(

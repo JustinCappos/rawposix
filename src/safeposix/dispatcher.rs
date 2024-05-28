@@ -486,7 +486,7 @@ pub extern "C" fn dispatcher(
             //     Ok::<&interface::GenSockaddr, i32>(&addr)
             // )
             check_and_dispatch!(
-                cage.connet_syscall,
+                cage.connect_syscall,
                 interface::get_int(arg1),
                 interface::get_constsockaddr(arg2),
                 interface::get_uint(arg3)
@@ -815,7 +815,7 @@ pub extern "C" fn dispatcher(
             check_and_dispatch!(
                 cage.epoll_wait_syscall,
                 interface::get_int(arg1),
-                interface::get_epollevent(arg2),
+                interface::get_epollevent_slice(arg2, nfds),
                 interface::get_int(arg3),
                 interface::get_int(arg4)
             )
