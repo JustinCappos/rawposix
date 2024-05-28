@@ -57,7 +57,7 @@ impl Cage {
      *   Get the kernel fd with provided virtual fd first
      *   connect() will return 0 when success and -1 when fail
      */
-    pub fn connet_syscall(&self, virtual_fd: i32, addr: *const sockaddr, len: u32) -> i32 {
+    pub fn connect_syscall(&self, virtual_fd: i32, addr: *const sockaddr, len: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         unsafe { libc::connect(kernel_fd, addr, len) }
     }
