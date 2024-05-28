@@ -98,10 +98,24 @@ pub mod net_tests {
 
         let bind_result = cage.bind_syscall(
             server_fd,
-            &server_addr as *const libc::sockaddr_in as *const libc::sockaddr,
+            &server_addr as *const _ as *const _,
             std::mem::size_of::<libc::sockaddr_in>() as u32,
         );
         assert!(bind_result > 0);
+        if bind_result < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+        }
 
         let listen_result = cage.listen_syscall(server_fd, 128);
         assert!(listen_result > 0);
