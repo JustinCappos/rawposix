@@ -275,10 +275,21 @@ pub mod net_tests {
                 println!("Error message: {:?}", err_msg);
                 io::stdout().flush().unwrap();
             }
-            assert_eq!(
-                cage2.send_syscall(clientsockfd1, str2cbuf(&"test"), 4, 0),
-                4
-            );
+            if cage2.send_syscall(clientsockfd1, str2cbuf(&"test"), 4, 0) != 4 {
+                let err = unsafe {
+                    libc::__errno_location()
+                };
+                let err_str = unsafe {
+                    libc::strerror(*err)
+                };
+                let err_msg = unsafe {
+                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                };
+                println!("errno: {:?}", err);
+                println!("Error message: {:?}", err_msg);
+                io::stdout().flush().unwrap();
+                panic!("");
+            }
             // Wait for data processing, give it a longer pause time so that it can process all of the data received
             interface::sleep(interface::RustDuration::from_millis(100));
             // Close the server socket and exit the thread
