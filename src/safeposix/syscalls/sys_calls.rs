@@ -7,6 +7,7 @@ use super::net_constants::*;
 use crate::interface;
 use crate::safeposix::cage;
 use crate::safeposix::cage::*;
+use crate::safeposix::shm::*;
 
 use crate::example_grates::fdtable::*;
 use libc::*;
@@ -14,6 +15,30 @@ use libc::*;
 use std::sync::Arc as RustRfc;
 
 impl Cage {
+    fn unmap_shm_mappings(&self) {
+        //unmap shm mappings on exit or exec
+        for rev_mapping in self.rev_shm.lock().iter() {
+            let shmid = rev_mapping.1;
+            let metadata = &SHM_METADATA;
+            match metadata.shmtable.entry(shmid) {
+                interface::RustHashEntry::Occupied(mut occupied) => {
+                    let segment = occupied.get_mut();
+                    segment.shminfo.shm_nattch -= 1;
+                    segment.shminfo.shm_dtime = interface::timestamp() as isize;
+                    segment.attached_cages.remove(&self.cageid);
+
+                    if segment.rmid && segment.shminfo.shm_nattch == 0 {
+                        let key = segment.key;
+                        occupied.remove_entry();
+                        metadata.shmkeyidtable.remove(&key);
+                    }
+                }
+                interface::RustHashEntry::Vacant(_) => {
+                    panic!("Shm entry not created for some reason");
+                }
+            };
+        }
+    }
 
     pub fn fork_syscall(&self, child_cageid: u64) -> i32 {
         // Modify the fdtable manually 
@@ -226,7 +251,7 @@ impl Cage {
         //flush anything left in stdout
         interface::flush_stdout();
         self.unmap_shm_mappings();
-        
+
         let _ = remove_cage_from_fdtable(self.cageid);
         //may not be removable in case of lindrustfinalize, we don't unwrap the remove result
         interface::cagetable_remove(self.cageid);
