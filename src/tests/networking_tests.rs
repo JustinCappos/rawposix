@@ -12,6 +12,8 @@ pub mod net_tests {
     use libc::*;
     use std::ffi::CStr;
 
+    use crate::example_grates::fdtable::*;
+
     use libc::*;
 
     pub fn net_tests() {
@@ -2200,6 +2202,7 @@ pub mod net_tests {
                 println!("errno: {:?}", err);
                 println!("Error message: {:?}", err_msg);
                 println!("filefd: {:?}", filefd);
+                println!("FDtable: {:?}", GLOBALFDTABLE);
                 io::stdout().flush().unwrap();
                 panic!("2207");
             }
