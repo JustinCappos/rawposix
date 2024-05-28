@@ -139,7 +139,7 @@ lazy_static! {
 // These are the values we look up with at the end...
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FDTableEntry {
-    realfd: i32, // underlying fd (may be a virtual fd below us or
+    pub realfd: i32, // underlying fd (may be a virtual fd below us or
     // a kernel fd)
     should_cloexec: bool, // should I close this when exec is called?
     optionalinfo: u64,    // user specified / controlled data
