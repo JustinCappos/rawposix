@@ -2116,6 +2116,9 @@ pub mod net_tests {
         let serversockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
         let clientsockfd1 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
         let clientsockfd2 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        assert!(serversockfd > 0);
+        assert!(clientsockfd1 > 0);
+        assert!(clientsockfd2 > 0);
 
         // Create and set up the file descriptor and sockets
         // let port: u16 = 53019;
