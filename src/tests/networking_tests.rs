@@ -2145,7 +2145,21 @@ pub mod net_tests {
             interface::sleep(interface::RustDuration::from_millis(30));
             let cage2 = interface::cagetable_getref(2);
             // Connect to server and send data
-            assert_eq!(cage2.connect_syscall(clientsockfd1, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
+            // assert_eq!(cage2.connect_syscall(clientsockfd1, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
+            if cage2.connect_syscall(clientsockfd1, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32) < 0 {
+                let err = unsafe {
+                    libc::__errno_location()
+                };
+                let err_str = unsafe {
+                    libc::strerror(*err)
+                };
+                let err_msg = unsafe {
+                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                };
+                println!("errno: {:?}", err);
+                println!("Error message: {:?}", err_msg);
+                io::stdout().flush().unwrap();
+            }
             assert_eq!(
                 cage2.send_syscall(clientsockfd1, str2cbuf(&"test"), 4, 0),
                 4
@@ -2176,7 +2190,10 @@ pub mod net_tests {
                 };
                 println!("errno: {:?}", err);
                 println!("Error message: {:?}", err_msg);
+                println!("filefd: {:?}", filefd);
+                println!("FDtable: {:?}", GLOBALFDTABLE);
                 io::stdout().flush().unwrap();
+                panic!("2207");
             }
             assert_eq!(
                 cage3.send_syscall(clientsockfd2, str2cbuf(&"test"), 4, 0),
