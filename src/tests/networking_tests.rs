@@ -2109,7 +2109,7 @@ pub mod net_tests {
         let clientsockfd2 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
 
         // Create and set up the file descriptor and sockets
-        let port: u16 = 53019;
+        // let port: u16 = 53019;
         let mut addr: sockaddr_in = unsafe {
             std::mem::zeroed()
         };
@@ -2193,21 +2193,21 @@ pub mod net_tests {
                 // Wait for events using epoll_wait_syscall
                 for event in &mut event_list[..num_events as usize] {
                     // Check for any activity in the input socket and if there are events ready for reading
-                    if event.events & (EPOLLIN as u32) != 0 {
+                    if event.events & (libc::EPOLLIN as u32) != 0 {
                         // If the socket returned was listener socket, then there's a new connection
                         if event.fd == serversockfd {
                             // Handle new connections
                             let mut client_addr: sockaddr_in = unsafe {
                                 std::mem::zeroed()
                             };
-                            let mut client_len = std::mem::size_of::<sockaddr_in>() as u32;
+                            let client_len = std::mem::size_of::<sockaddr_in>() as u32;
                             let newsockfd = cage.accept_syscall(
                                 serversockfd,
                                 &mut client_addr as *mut _ as *mut _,
                                 client_len,
                             );
                             let event = interface::EpollEvent {
-                                events: EPOLLIN as u32,
+                                events: libc::EPOLLIN as u32,
                                 fd: newsockfd,
                             };
                             // Error raised to indicate that the socket file descriptor couldn't be added to the epoll instance
@@ -2220,7 +2220,7 @@ pub mod net_tests {
                             // Update
                             assert_eq!(cage.write_syscall(filefd, str2cbuf("test"), 4), 4);
                             assert_eq!(cage.lseek_syscall(filefd, 0, SEEK_SET), 0);
-                            event.events = EPOLLOUT as u32;
+                            event.events = libc::EPOLLOUT as u32;
                         } else {
                             // Handle receiving data from established connections
                             let mut buf = sizecbuf(4);
@@ -2228,14 +2228,14 @@ pub mod net_tests {
                             assert_eq!(recres & !4, 0);
                             if recres == 4 {
                                 assert_eq!(cbuf2str(&buf), "test");
-                                event.events = EPOLLOUT as u32;
+                                event.events = libc::EPOLLOUT as u32;
                             } else {
                                 assert_eq!(cage.close_syscall(event.fd), 0);
                             }
                         }
                     }
 
-                    if event.events & (EPOLLOUT as u32) != 0 {
+                    if event.events & (libc::EPOLLOUT as u32) != 0 {
                         // Check if there are events ready for writing
                         if event.fd == filefd {
                             // Handle reading from the file
@@ -2245,7 +2245,7 @@ pub mod net_tests {
                         } else {
                             // Handle sending data over connections
                             assert_eq!(cage.send_syscall(event.fd, str2cbuf(&"test"), 4, 0), 4);
-                            event.events = EPOLLIN as u32;
+                            event.events = libc::EPOLLIN as u32;
                         }
                     }
                 }
