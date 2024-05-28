@@ -155,6 +155,7 @@ pub mod net_tests {
                 };
                 println!("errno: {:?}", err);
                 println!("Error message: {:?}", err_msg);
+                println!("client_fd: {:?}", client_fd);
                 io::stdout().flush().unwrap();
             }
 
