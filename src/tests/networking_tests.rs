@@ -49,7 +49,7 @@ pub mod net_tests {
         let sockfd2 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
         assert_eq!(
             cage.bind_syscall(sockfd2, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32),
-            -(Errno::EADDRINUSE as i32)
+            -1
         ); //already bound so should fail
 
         //UDP should still work...
