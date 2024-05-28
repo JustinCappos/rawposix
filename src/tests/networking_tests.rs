@@ -6,6 +6,12 @@ pub mod net_tests {
     use std::mem::size_of;
     use std::sync::{Arc, Barrier};
 
+    use std::io::Write;
+    use std::io;
+    use std::ptr;
+    use libc::*;
+    use std::ffi::CStr;
+
     use libc::*;
 
     pub fn net_tests() {
@@ -2097,174 +2103,188 @@ pub mod net_tests {
     /* Creates an epoll instance, registers the server socket and file descriptor with epoll, and then wait for events using
     epoll_wait_syscall(). It handles the events based on their types (EPOLLIN or EPOLLOUT) and performs the necessary operations
     like accepting new connections, sending/receiving data, and modifying the event flags */
-    // pub fn ut_lind_net_epoll() {
-    //     lindrustinit(0);
-    //     let cage = interface::cagetable_getref(1);
+    pub fn ut_lind_net_epoll() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-    //     let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, 0o755);
-    //     if filefd < 0 {
-    //         let err = std::io::Error::last_os_error();
-    //         eprintln!("Failed to open file: {:?}", err);
-    //     }
-    //     assert!(filefd > 0);
-    //     // assert_eq!(filefd, 0);
+        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, 0o755);
+        if filefd < 0 {
+            let err = std::io::Error::last_os_error();
+            eprintln!("Failed to open file: {:?}", err);
+        }
+        assert!(filefd > 0);
+        // assert_eq!(filefd, 0);
 
-    //     let serversockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-    //     let clientsockfd1 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-    //     let clientsockfd2 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        let serversockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        let clientsockfd1 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        let clientsockfd2 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
 
-    //     // Create and set up the file descriptor and sockets
-    //     // let port: u16 = 53019;
-    //     let mut addr: sockaddr_in = unsafe {
-    //         std::mem::zeroed()
-    //     };
-    //     addr.sin_family = libc::AF_INET as u16;
-    //     addr.sin_addr.s_addr = INADDR_ANY;
-    //     addr.sin_port = 53019_u16.to_be(); 
+        // Create and set up the file descriptor and sockets
+        // let port: u16 = 53019;
+        let mut addr: sockaddr_in = unsafe {
+            std::mem::zeroed()
+        };
+        addr.sin_family = libc::AF_INET as u16;
+        addr.sin_addr.s_addr = INADDR_ANY;
+        addr.sin_port = 53019_u16.to_be(); 
 
-    //     assert_eq!(cage.bind_syscall(serversockfd, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
-    //     assert_eq!(cage.listen_syscall(serversockfd, 4), 0);
+        assert_eq!(cage.bind_syscall(serversockfd, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
+        assert_eq!(cage.listen_syscall(serversockfd, 4), 0);
 
-    //     let mut event_list = vec![
-    //         EpollEvent {
-    //             events: libc::EPOLLIN as u32,
-    //             fd: serversockfd,
-    //         },
-    //         EpollEvent {
-    //             events: libc::EPOLLIN as u32,
-    //             fd: filefd,
-    //         },
-    //     ];
+        let mut event_list = vec![
+            EpollEvent {
+                events: libc::EPOLLIN as u32,
+                fd: serversockfd,
+            },
+            EpollEvent {
+                events: libc::EPOLLIN as u32,
+                fd: filefd,
+            },
+        ];
 
-    //     cage.fork_syscall(2);
-    //     // Client 1 connects to the server to send and recv data
-    //     let thread1 = interface::helper_thread(move || {
-    //         interface::sleep(interface::RustDuration::from_millis(30));
-    //         let cage2 = interface::cagetable_getref(2);
-    //         // Connect to server and send data
-    //         assert_eq!(cage2.connect_syscall(clientsockfd1, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
-    //         assert_eq!(
-    //             cage2.send_syscall(clientsockfd1, str2cbuf(&"test"), 4, 0),
-    //             4
-    //         );
-    //         // Wait for data processing, give it a longer pause time so that it can process all of the data received
-    //         interface::sleep(interface::RustDuration::from_millis(100));
-    //         // Close the server socket and exit the thread
-    //         assert_eq!(cage2.close_syscall(serversockfd), 0);
-    //         cage2.exit_syscall(libc::EXIT_SUCCESS);
-    //     });
+        cage.fork_syscall(2);
+        // Client 1 connects to the server to send and recv data
+        let thread1 = interface::helper_thread(move || {
+            interface::sleep(interface::RustDuration::from_millis(30));
+            let cage2 = interface::cagetable_getref(2);
+            // Connect to server and send data
+            assert_eq!(cage2.connect_syscall(clientsockfd1, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
+            assert_eq!(
+                cage2.send_syscall(clientsockfd1, str2cbuf(&"test"), 4, 0),
+                4
+            );
+            // Wait for data processing, give it a longer pause time so that it can process all of the data received
+            interface::sleep(interface::RustDuration::from_millis(100));
+            // Close the server socket and exit the thread
+            assert_eq!(cage2.close_syscall(serversockfd), 0);
+            cage2.exit_syscall(libc::EXIT_SUCCESS);
+        });
 
-    //     cage.fork_syscall(3);
-    //     // Client 2 connects to the server to send and recv data
-    //     let thread2 = interface::helper_thread(move || {
-    //         interface::sleep(interface::RustDuration::from_millis(45));
-    //         let cage3 = interface::cagetable_getref(3);
-    //         // Connect to server and send data
-    //         assert_eq!(cage3.connect_syscall(clientsockfd2, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
-    //         assert_eq!(
-    //             cage3.send_syscall(clientsockfd2, str2cbuf(&"test"), 4, 0),
-    //             4
-    //         );
+        cage.fork_syscall(3);
+        // Client 2 connects to the server to send and recv data
+        let thread2 = interface::helper_thread(move || {
+            interface::sleep(interface::RustDuration::from_millis(45));
+            let cage3 = interface::cagetable_getref(3);
+            // Connect to server and send data
+            assert_eq!(cage3.connect_syscall(clientsockfd2, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
+            assert_eq!(
+                cage3.send_syscall(clientsockfd2, str2cbuf(&"test"), 4, 0),
+                4
+            );
 
-    //         interface::sleep(interface::RustDuration::from_millis(100));
-    //         // Close the server socket and exit the thread
-    //         assert_eq!(cage3.close_syscall(serversockfd), 0);
-    //         cage3.exit_syscall(libc::EXIT_SUCCESS);
-    //     });
+            interface::sleep(interface::RustDuration::from_millis(100));
+            // Close the server socket and exit the thread
+            assert_eq!(cage3.close_syscall(serversockfd), 0);
+            cage3.exit_syscall(libc::EXIT_SUCCESS);
+        });
 
-    //     // Acting as the server and processing the request
-    //     let thread3 = interface::helper_thread(move || {
-    //         let epfd = cage.epoll_create_syscall(1);
-    //         assert!(epfd > 0);
+        // Acting as the server and processing the request
+        let thread3 = interface::helper_thread(move || {
+            let epfd = cage.epoll_create_syscall(1);
+            assert!(epfd > 0);
 
-    //         assert_eq!(
-    //             cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, serversockfd, &mut event_list[0]),
-    //             0
-    //         );
-    //         assert_eq!(
-    //             cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, filefd, &mut event_list[1]),
-    //             0
-    //         );
-    //         // Event processing loop
-    //         for _counter in 0..600 {
-    //             let num_events = cage.epoll_wait_syscall(
-    //                 epfd,
-    //                 &mut event_list,
-    //                 1,
-    //                 0,
-    //             );
-    //             assert!(num_events >= 0);
+            assert_eq!(
+                cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, serversockfd, &mut event_list[0]),
+                0
+            );
+            assert_eq!(
+                cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, filefd, &mut event_list[1]),
+                0
+            );
+            
+            let err = unsafe {
+                libc::__errno_location()
+           };
+           let err_str = unsafe {
+               libc::strerror(*err)
+           };
+           let err_msg = unsafe {
+               CStr::from_ptr(err_str).to_string_lossy().into_owned()
+           };
+           println!("errno: {:?}", err);
+           println!("Error message: {:?}", err_msg);
+           io::stdout().flush().unwrap();
 
-    //             // Wait for events using epoll_wait_syscall
-    //             for event in &mut event_list[..num_events as usize] {
-    //                 // Check for any activity in the input socket and if there are events ready for reading
-    //                 if event.events & (libc::EPOLLIN as u32) != 0 {
-    //                     // If the socket returned was listener socket, then there's a new connection
-    //                     if event.fd == serversockfd {
-    //                         // Handle new connections
-    //                         let mut client_addr: sockaddr_in = unsafe {
-    //                             std::mem::zeroed()
-    //                         };
-    //                         let client_len = std::mem::size_of::<sockaddr_in>() as u32;
-    //                         let newsockfd = cage.accept_syscall(
-    //                             serversockfd,
-    //                             &mut client_addr as *mut _ as *mut _,
-    //                             client_len,
-    //                         );
-    //                         let event = interface::EpollEvent {
-    //                             events: libc::EPOLLIN as u32,
-    //                             fd: newsockfd,
-    //                         };
-    //                         // Error raised to indicate that the socket file descriptor couldn't be added to the epoll instance
-    //                         assert_eq!(
-    //                             cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, newsockfd, &event),
-    //                             0
-    //                         );
-    //                     } else if event.fd == filefd {
-    //                         // Handle writing to the file
-    //                         // Update
-    //                         assert_eq!(cage.write_syscall(filefd, str2cbuf("test"), 4), 4);
-    //                         assert_eq!(cage.lseek_syscall(filefd, 0, SEEK_SET), 0);
-    //                         event.events = libc::EPOLLOUT as u32;
-    //                     } else {
-    //                         // Handle receiving data from established connections
-    //                         let mut buf = sizecbuf(4);
-    //                         let recres = cage.recv_syscall(event.fd, buf.as_mut_ptr(), 4, 0);
-    //                         assert_eq!(recres & !4, 0);
-    //                         if recres == 4 {
-    //                             assert_eq!(cbuf2str(&buf), "test");
-    //                             event.events = libc::EPOLLOUT as u32;
-    //                         } else {
-    //                             assert_eq!(cage.close_syscall(event.fd), 0);
-    //                         }
-    //                     }
-    //                 }
+            // Event processing loop
+            for _counter in 0..600 {
+                let num_events = cage.epoll_wait_syscall(
+                    epfd,
+                    &mut event_list,
+                    1,
+                    0,
+                );
+                assert!(num_events >= 0);
 
-    //                 if event.events & (libc::EPOLLOUT as u32) != 0 {
-    //                     // Check if there are events ready for writing
-    //                     if event.fd == filefd {
-    //                         // Handle reading from the file
-    //                         let mut read_buf1 = sizecbuf(4);
-    //                         assert_eq!(cage.read_syscall(filefd, read_buf1.as_mut_ptr(), 4), 4);
-    //                         assert_eq!(cbuf2str(&read_buf1), "test");
-    //                     } else {
-    //                         // Handle sending data over connections
-    //                         assert_eq!(cage.send_syscall(event.fd, str2cbuf(&"test"), 4, 0), 4);
-    //                         event.events = libc::EPOLLIN as u32;
-    //                     }
-    //                 }
-    //             }
-    //         }
+                // Wait for events using epoll_wait_syscall
+                for event in &mut event_list[..num_events as usize] {
+                    // Check for any activity in the input socket and if there are events ready for reading
+                    if event.events & (libc::EPOLLIN as u32) != 0 {
+                        // If the socket returned was listener socket, then there's a new connection
+                        if event.fd == serversockfd {
+                            // Handle new connections
+                            let mut client_addr: sockaddr_in = unsafe {
+                                std::mem::zeroed()
+                            };
+                            let client_len = std::mem::size_of::<sockaddr_in>() as u32;
+                            let newsockfd = cage.accept_syscall(
+                                serversockfd,
+                                &mut client_addr as *mut _ as *mut _,
+                                client_len,
+                            );
+                            let event = interface::EpollEvent {
+                                events: libc::EPOLLIN as u32,
+                                fd: newsockfd,
+                            };
+                            // Error raised to indicate that the socket file descriptor couldn't be added to the epoll instance
+                            assert_eq!(
+                                cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, newsockfd, &event),
+                                0
+                            );
+                        } else if event.fd == filefd {
+                            // Handle writing to the file
+                            // Update
+                            assert_eq!(cage.write_syscall(filefd, str2cbuf("test"), 4), 4);
+                            assert_eq!(cage.lseek_syscall(filefd, 0, SEEK_SET), 0);
+                            event.events = libc::EPOLLOUT as u32;
+                        } else {
+                            // Handle receiving data from established connections
+                            let mut buf = sizecbuf(4);
+                            let recres = cage.recv_syscall(event.fd, buf.as_mut_ptr(), 4, 0);
+                            assert_eq!(recres & !4, 0);
+                            if recres == 4 {
+                                assert_eq!(cbuf2str(&buf), "test");
+                                event.events = libc::EPOLLOUT as u32;
+                            } else {
+                                assert_eq!(cage.close_syscall(event.fd), 0);
+                            }
+                        }
+                    }
 
-    //         // Close the server socket and exit the thread
-    //         assert_eq!(cage.close_syscall(serversockfd), 0);
-    //         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-    //     });
+                    if event.events & (libc::EPOLLOUT as u32) != 0 {
+                        // Check if there are events ready for writing
+                        if event.fd == filefd {
+                            // Handle reading from the file
+                            let mut read_buf1 = sizecbuf(4);
+                            assert_eq!(cage.read_syscall(filefd, read_buf1.as_mut_ptr(), 4), 4);
+                            assert_eq!(cbuf2str(&read_buf1), "test");
+                        } else {
+                            // Handle sending data over connections
+                            assert_eq!(cage.send_syscall(event.fd, str2cbuf(&"test"), 4, 0), 4);
+                            event.events = libc::EPOLLIN as u32;
+                        }
+                    }
+                }
+            }
 
-    //     thread1.join().unwrap();
-    //     thread2.join().unwrap();
-    //     thread3.join().unwrap();
+            // Close the server socket and exit the thread
+            assert_eq!(cage.close_syscall(serversockfd), 0);
+            assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        });
 
-    //     lindrustfinalize();
-    // }
+        thread1.join().unwrap();
+        thread2.join().unwrap();
+        thread3.join().unwrap();
+
+        lindrustfinalize();
+    }
 }
