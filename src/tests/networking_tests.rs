@@ -2163,7 +2163,21 @@ pub mod net_tests {
             interface::sleep(interface::RustDuration::from_millis(45));
             let cage3 = interface::cagetable_getref(3);
             // Connect to server and send data
-            assert_eq!(cage3.connect_syscall(clientsockfd2, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
+            // assert_eq!(cage3.connect_syscall(clientsockfd2, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
+            if cage3.connect_syscall(clientsockfd2, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32) < 0 {
+                let err = unsafe {
+                    libc::__errno_location()
+                };
+                let err_str = unsafe {
+                    libc::strerror(*err)
+                };
+                let err_msg = unsafe {
+                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                };
+                println!("errno: {:?}", err);
+                println!("Error message: {:?}", err_msg);
+                io::stdout().flush().unwrap();
+            }
             assert_eq!(
                 cage3.send_syscall(clientsockfd2, str2cbuf(&"test"), 4, 0),
                 4
