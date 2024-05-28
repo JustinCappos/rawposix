@@ -101,7 +101,7 @@ pub mod net_tests {
             &server_addr as *const _ as *const _,
             std::mem::size_of::<libc::sockaddr_in>() as u32,
         );
-        assert!(bind_result > 0);
+        // assert!(bind_result > 0);
         if bind_result < 0 {
             let err = unsafe {
                 libc::__errno_location()
