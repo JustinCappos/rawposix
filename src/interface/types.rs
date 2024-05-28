@@ -175,7 +175,7 @@ pub union Arg {
     // pub dispatch_rlimitstruct: *mut Rlimit,
     pub dispatch_statdatastruct: *mut stat,
     pub dispatch_fsdatastruct: *mut statfs,
-    pub dispatch_shmidstruct: *mut shmid_ds,
+    pub dispatch_shmidstruct: *mut ShmidsStruct,
     pub dispatch_constsockaddrstruct: *const sockaddr,
     pub dispatch_sockaddrstruct: *mut sockaddr,
     pub dispatch_socklen_t_ptr: *mut u32,
@@ -908,19 +908,19 @@ pub fn get_constsigsett<'a>(union_argument: Arg) -> Result<Option<&'a SigsetType
     }
 }
 
-pub fn get_sem<'a>(union_argument: Arg) -> Result<&'a mut sem_t, i32> {
-    let pointer = unsafe { union_argument.dispatch_structsem };
-    if !pointer.is_null() {
-        return Ok(unsafe {
-            &mut *pointer
-        });
-    }
-    return Err(syscall_error(
-        Errno::EFAULT,
-        "dispatcher",
-        "input data not valid",
-    ));
-}
+// pub fn get_sem<'a>(union_argument: Arg) -> Result<&'a mut sem_t, i32> {
+//     let pointer = unsafe { union_argument.dispatch_structsem };
+//     if !pointer.is_null() {
+//         return Ok(unsafe {
+//             &mut *pointer
+//         });
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
 
 // pub fn get_ifaddrs<'a>(union_argument: Arg) -> Result<&'a mut ifaddrs, i32> {
 //     let pointer = unsafe { *union_argument.dispatch_ifaddrs };

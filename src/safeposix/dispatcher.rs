@@ -880,7 +880,7 @@ pub extern "C" fn dispatcher(
         }
         SHMCTL_SYSCALL => {
             let cmd = get_onearg!(interface::get_int(arg2));
-            let buf = if cmd == IPC_STAT {
+            let buf = if cmd == libc::IPC_STAT {
                 Some(get_onearg!(interface::get_shmidstruct(arg3)))
             } else {
                 None
@@ -1108,10 +1108,10 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
         getuid: interface::RustAtomicI32::new(-1),
         getegid: interface::RustAtomicI32::new(-1),
         geteuid: interface::RustAtomicI32::new(-1),
-        // rev_shm: interface::Mutex::new(vec![]),
+        rev_shm: interface::Mutex::new(vec![]),
         mutex_table: interface::RustLock::new(vec![]),
         cv_table: interface::RustLock::new(vec![]),
-        // sem_table: interface::RustHashMap::new(),
+        sem_table: interface::RustHashMap::new(),
         thread_table: interface::RustHashMap::new(),
         signalhandler: interface::RustHashMap::new(),
         sigset: interface::RustHashMap::new(),
@@ -1135,10 +1135,10 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
         getuid: interface::RustAtomicI32::new(-1),
         getegid: interface::RustAtomicI32::new(-1),
         geteuid: interface::RustAtomicI32::new(-1),
-        // rev_shm: interface::Mutex::new(vec![]),
+        rev_shm: interface::Mutex::new(vec![]),
         mutex_table: interface::RustLock::new(vec![]),
         cv_table: interface::RustLock::new(vec![]),
-        // sem_table: interface::RustHashMap::new(),
+        sem_table: interface::RustHashMap::new(),
         thread_table: interface::RustHashMap::new(),
         signalhandler: interface::RustHashMap::new(),
         sigset: interface::RustHashMap::new(),
