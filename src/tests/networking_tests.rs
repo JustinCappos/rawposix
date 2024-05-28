@@ -200,6 +200,8 @@ pub mod net_tests {
 
         cage.close_syscall(client_fd);
         cage.close_syscall(server_fd);
+        thread.join().unwrap();
+        lindrustfinalize();
     }
 
     /* Creates an epoll instance, registers the server socket and file descriptor with epoll, and then wait for events using
