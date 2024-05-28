@@ -2122,11 +2122,11 @@ pub mod net_tests {
 
         let mut event_list = vec![
             EpollEvent {
-                events: EPOLLIN as u32,
+                events: libc::EPOLLIN as u32,
                 fd: serversockfd,
             },
             EpollEvent {
-                events: EPOLLIN as u32,
+                events: libc::EPOLLIN as u32,
                 fd: filefd,
             },
         ];
@@ -2173,11 +2173,11 @@ pub mod net_tests {
             assert!(epfd > 0);
 
             assert_eq!(
-                cage.epoll_ctl_syscall(epfd, EPOLL_CTL_ADD, serversockfd, &mut event_list[0]),
+                cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, serversockfd, &mut event_list[0]),
                 0
             );
             assert_eq!(
-                cage.epoll_ctl_syscall(epfd, EPOLL_CTL_ADD, filefd, &mut event_list[1]),
+                cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, filefd, &mut event_list[1]),
                 0
             );
             // Event processing loop
@@ -2212,7 +2212,7 @@ pub mod net_tests {
                             };
                             // Error raised to indicate that the socket file descriptor couldn't be added to the epoll instance
                             assert_eq!(
-                                cage.epoll_ctl_syscall(epfd, EPOLL_CTL_ADD, newsockfd, &event),
+                                cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, newsockfd, &event),
                                 0
                             );
                         } else if event.fd == filefd {
