@@ -125,6 +125,7 @@ pub mod net_tests {
         cage.fork_syscall(2);
         let thread = interface::helper_thread(move || {
             let cage2 = interface::cagetable_getref(2);
+            
             let mut client_addr: libc::sockaddr_in = unsafe {
                 std::mem::zeroed()
             };
@@ -139,6 +140,7 @@ pub mod net_tests {
             }
 
             let mut buffer = [0u8; 512];
+            interface::sleep(interface::RustDuration::from_millis(1000));
             let read_size = cage2.read_syscall(client_fd, buffer.as_mut_ptr(), 512);
             if read_size < 0 {
                 panic!("Failed to read from socket");
@@ -225,7 +227,7 @@ pub mod net_tests {
         };
         addr.sin_family = libc::AF_INET as u16;
         addr.sin_addr.s_addr = INADDR_ANY;
-        addr.sin_port = 8080_u16.to_be(); 
+        addr.sin_port = 7878_u16.to_be(); 
 
         assert_eq!(cage.bind_syscall(serversockfd, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
         assert_eq!(cage.listen_syscall(serversockfd, 4), 0);
