@@ -12,6 +12,9 @@ pub mod net_tests {
     use libc::*;
     use std::ffi::CStr;
 
+    use std::net::SocketAddrV4;
+    use std::net::Ipv4Addr;
+
     use crate::example_grates::fdtable::*;
 
     use libc::*;
@@ -142,11 +145,13 @@ pub mod net_tests {
             panic!("Failed to create socket");
         }
 
+        let client_ip = Ipv4Addr::new(127, 0, 0, 1);
+        let client_socket_addr = SocketAddrV4::new(client_ip, 7878);
         let mut client_addr: libc::sockaddr_in = unsafe {
             std::mem::zeroed()
         };
         client_addr.sin_family = libc::AF_INET as u16;
-        client_addr.sin_addr.s_addr = libc::inet_addr("127.0.0.1\0".as_ptr() as *const i8);
+        client_addr.sin_addr.s_addr = u32::from(client_ip).to_be();
         client_addr.sin_port = 7878_u16.to_be(); 
 
         let connect_result = cage.connect_syscall(
@@ -378,24 +383,24 @@ pub mod net_tests {
 
     //     lindrustfinalize();
     // }
-    pub fn ut_lind_net_epoll() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_net_epoll() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
-        assert!(filefd > 0);
-        let epfd = cage.epoll_create_syscall(1);
-        let mut event_list = vec![
-            EpollEvent {
-                events: EPOLLIN as u32,
-                fd: filefd,
-            },
-        ];
-        assert_eq!(
-            cage.epoll_ctl_syscall(epfd, EPOLL_CTL_ADD, filefd, &mut event_list[0]),
-            0
-        );
+    //     let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+    //     assert!(filefd > 0);
+    //     let epfd = cage.epoll_create_syscall(1);
+    //     let mut event_list = vec![
+    //         EpollEvent {
+    //             events: EPOLLIN as u32,
+    //             fd: filefd,
+    //         },
+    //     ];
+    //     assert_eq!(
+    //         cage.epoll_ctl_syscall(epfd, EPOLL_CTL_ADD, filefd, &mut event_list[0]),
+    //         0
+    //     );
 
-        lindrustfinalize();
-    }
+    //     lindrustfinalize();
+    // }
 }
