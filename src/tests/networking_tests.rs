@@ -2101,7 +2101,11 @@ pub mod net_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, 0o777);
+        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/netepolltest.txt", O_CREAT | O_EXCL | O_RDWR, 0o755);
+        if filefd < 0 {
+            let err = std::io::Error::last_os_error();
+            eprintln!("Failed to open file: {:?}", err);
+        }
         assert!(filefd > 0);
 
         let serversockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
