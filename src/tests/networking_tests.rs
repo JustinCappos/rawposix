@@ -242,7 +242,7 @@ pub mod net_tests {
         };
         addr.sin_family = libc::AF_INET as u16;
         addr.sin_addr.s_addr = INADDR_ANY;
-        addr.sin_port = 7878_u16.to_be(); 
+        addr.sin_port = 8080_u16.to_be(); 
 
         assert_eq!(cage.bind_syscall(serversockfd, &addr as *const _ as *const _, std::mem::size_of::<sockaddr_in>() as u32), 0);
         assert_eq!(cage.listen_syscall(serversockfd, 4), 0);
@@ -385,7 +385,7 @@ pub mod net_tests {
                             };
                             client_addr.sin_family = libc::AF_INET as u16;
                             client_addr.sin_addr.s_addr = u32::from(client_ip).to_be();
-                            client_addr.sin_port = 7878_u16.to_be(); 
+                            client_addr.sin_port = 8080_u16.to_be(); 
 
                             let client_len = std::mem::size_of::<sockaddr_in>() as u32;
                             let newsockfd = cage.accept_syscall(
