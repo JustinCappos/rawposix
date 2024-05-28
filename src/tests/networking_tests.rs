@@ -2106,7 +2106,7 @@ pub mod net_tests {
             let err = std::io::Error::last_os_error();
             eprintln!("Failed to open file: {:?}", err);
         }
-        assert!(filefd > 0);
+        assert!(filefd >= 0);
 
         let serversockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
         let clientsockfd1 = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
