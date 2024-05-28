@@ -2187,23 +2187,27 @@ pub mod net_tests {
                 cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, serversockfd, &mut event_list[0]),
                 0
             );
-            assert_eq!(
-                cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, filefd, &mut event_list[1]),
-                0
-            );
-
-            let err = unsafe {
-                libc::__errno_location()
-           };
-           let err_str = unsafe {
-               libc::strerror(*err)
-           };
-           let err_msg = unsafe {
-               CStr::from_ptr(err_str).to_string_lossy().into_owned()
-           };
-           println!("errno: {:?}", err);
-           println!("Error message: {:?}", err_msg);
-           io::stdout().flush().unwrap();
+            // assert_eq!(
+            //     cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, filefd, &mut event_list[1]),
+            //     0
+            // );
+            if cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, filefd, &mut event_list[1]) < 0 {
+                let err = unsafe {
+                    libc::__errno_location()
+                };
+                let err_str = unsafe {
+                    libc::strerror(*err)
+                };
+                let err_msg = unsafe {
+                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                };
+                println!("errno: {:?}", err);
+                println!("Error message: {:?}", err_msg);
+                io::stdout().flush().unwrap();
+                panic!("2207");
+            }
+            
+           
 
             // Event processing loop
             for _counter in 0..600 {
