@@ -38,7 +38,7 @@ pub mod net_tests {
         let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
 
         let mut addr: sockaddr_in = unsafe { std::mem::zeroed() };
-        addr.sin_family = libc::AF_INET as u8;
+        addr.sin_family = libc::AF_INET as u16;
         addr.sin_addr.s_addr = INADDR_ANY;
         addr.sin_port = 8080_u16.to_be();//8080
 
