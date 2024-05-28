@@ -142,8 +142,20 @@ pub mod net_tests {
             let mut buffer = [0u8; 512];
             interface::sleep(interface::RustDuration::from_millis(1000));
             let read_size = cage2.read_syscall(client_fd, buffer.as_mut_ptr(), 512);
+
             if read_size < 0 {
-                panic!("Failed to read from socket");
+                let err = unsafe {
+                    libc::__errno_location()
+                };
+                let err_str = unsafe {
+                    libc::strerror(*err)
+                };
+                let err_msg = unsafe {
+                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                };
+                println!("errno: {:?}", err);
+                println!("Error message: {:?}", err_msg);
+                io::stdout().flush().unwrap();
             }
 
             let message = String::from_utf8_lossy(&buffer[..read_size as usize]);
