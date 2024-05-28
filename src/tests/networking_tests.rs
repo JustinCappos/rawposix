@@ -20,7 +20,7 @@ pub mod net_tests {
         // ut_lind_net_recvfrom();
         // ut_lind_net_select();
         // ut_lind_net_shutdown();
-        ut_lind_net_socket();
+        // ut_lind_net_socket();
         // ut_lind_net_socketoptions();
         // ut_lind_net_socketpair();
         // ut_lind_net_udp_bad_bind();
@@ -29,7 +29,7 @@ pub mod net_tests {
         // ut_lind_net_gethostname();
         // ut_lind_net_dns_rootserver_ping();
         // ut_lind_net_domain_socket();
-        // ut_lind_net_epoll();
+        ut_lind_net_epoll();
     }
 
     pub fn ut_lind_net_bind() {
