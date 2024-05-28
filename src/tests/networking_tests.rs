@@ -35,7 +35,7 @@ pub mod net_tests {
         // ut_lind_net_gethostname();
         // ut_lind_net_dns_rootserver_ping();
         // ut_lind_net_domain_socket();
-        // ut_lind_net_epoll();
+        ut_lind_net_epoll();
     }
 
     pub fn ut_lind_net_bind() {
@@ -2191,7 +2191,7 @@ pub mod net_tests {
                 cage.epoll_ctl_syscall(epfd, libc::EPOLL_CTL_ADD, filefd, &mut event_list[1]),
                 0
             );
-            
+
             let err = unsafe {
                 libc::__errno_location()
            };
