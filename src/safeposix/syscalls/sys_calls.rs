@@ -178,11 +178,20 @@ impl Cage {
             interval_timer: interface::IntervalTimer::new(child_cageid),
         };
 
+        let shmtable = &SHM_METADATA.shmtable;
+        //update fields for shared mappings in cage
+        for rev_mapping in cageobj.rev_shm.lock().iter() {
+            let mut shment = shmtable.get_mut(&rev_mapping.1).unwrap();
+            shment.shminfo.shm_nattch += 1;
+            let refs = shment.attached_cages.get(&self.cageid).unwrap();
+            let childrefs = refs.clone();
+            drop(refs);
+            shment.attached_cages.insert(child_cageid, childrefs);
+        }
+
         interface::cagetable_insert(child_cageid, cageobj);
 
         0
-
-        // unsafe { libc::fork() }
     }
 
     /*
