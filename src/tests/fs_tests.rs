@@ -59,7 +59,7 @@ pub mod fs_tests {
         // ut_lind_fs_exec_cloexec();
         ut_lind_fs_shm();
         // ut_lind_fs_getpid_getppid();
-        // ut_lind_fs_sem_fork();
+        ut_lind_fs_sem_fork();
         // ut_lind_fs_sem_trytimed();
         // ut_lind_fs_sem_test();
         // ut_lind_fs_tmp_file_test();
