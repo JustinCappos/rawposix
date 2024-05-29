@@ -414,8 +414,8 @@ use std::os::unix::io::{AsRawFd, RawFd};
 #[derive(Debug)]
 pub struct ShmFile {
     fobj: Arc<Mutex<File>>,
-    _key: i32,
-    _size: usize,
+    key: i32,
+    size: usize,
 }
 
 pub fn new_shm_backing(key: i32, size: usize) -> std::io::Result<ShmFile> {
