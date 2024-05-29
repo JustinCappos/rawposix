@@ -245,7 +245,24 @@ pub mod net_tests {
         assert_eq!(cage.fork_syscall(2), 0);
         let sender = std::thread::spawn(move || {
             let cage2 = interface::cagetable_getref(2);
-            assert_eq!(cage2.close_syscall(pipefds.readfd), 0);
+            
+            if cage2.close_syscall(pipefds.readfd) < 0 {
+                let err = unsafe {
+                    libc::__errno_location()
+                };
+                let err_str = unsafe {
+                    libc::strerror(*err)
+                };
+                let err_msg = unsafe {
+                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                };
+                println!("errno: {:?}", err);
+                println!("Error message: {:?}", err_msg);
+                println!("pipefds.readfd: {:?}", pipefds.readfd);
+                io::stdout().flush().unwrap();
+                panic!();
+            }
+
             let message = b"Hello from child";
             
             if cage2.write_syscall(pipefds.writefd, message.as_ptr(), message.len()) < 0 {
