@@ -253,7 +253,7 @@ pub mod net_tests {
         });
         assert_eq!(cage.close_syscall(pipefds.writefd), 0);
         let mut epollevent = EpollEvent {
-            events: EPOLLIN as u32,
+            events: libc::EPOLLIN as u32,
             fd: pipefds.readfd,
         };
         assert_ne!(cage.epoll_ctl_syscall(epoll_fd, libc::EPOLL_CTL_ADD, pipefds.readfd, &mut epollevent), -1);
@@ -267,6 +267,7 @@ pub mod net_tests {
 
         assert_ne!(cage.close_syscall(pipefds.readfd), -1);
         assert_ne!(cage.close_syscall(epoll_fd), -1);
+        sender.join().unwrap();
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
     }
