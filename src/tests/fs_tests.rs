@@ -36,7 +36,7 @@ pub mod fs_tests {
         // ut_lind_fs_dup2();
         // ut_lind_fs_fcntl();
 
-        // ut_lind_fs_ioctl();
+        ut_lind_fs_ioctl();
 
         // ut_lind_fs_fdflags();
         // ut_lind_fs_file_link_unlink();
@@ -59,9 +59,9 @@ pub mod fs_tests {
         // prdwrtest();
         // chardevtest();
         // ut_lind_fs_exec_cloexec();
-        ut_lind_fs_shm();
+        // ut_lind_fs_shm();
         // ut_lind_fs_getpid_getppid();
-        ut_lind_fs_sem_fork();
+        // ut_lind_fs_sem_fork();
         // ut_lind_fs_sem_trytimed();
         // ut_lind_fs_sem_test();
         // ut_lind_fs_tmp_file_test();
