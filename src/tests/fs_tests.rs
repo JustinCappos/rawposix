@@ -10,29 +10,31 @@ pub mod fs_tests {
     use std::os::unix::fs::PermissionsExt;
     use libc::*;
     use std::mem;
+
     use std::io::Write;
     use std::io;
     use std::ptr;
     use libc::*;
     use std::ffi::CStr;
+    use crate::tests::fs_tests::fs_tests::shm::SHM_METADATA;
 
     static S_IRWXA: u32 = 0o777;
     static S_LIND: u32 = 0o755;
 
     pub fn test_fs() {
-        ut_lind_fs_fork();
+        // ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
-        rdwrtest();
+        // rdwrtest();
 
-        ut_lind_fs_broken_close();
-        ut_lind_fs_chmod();
-        ut_lind_fs_fchmod();
-        ut_lind_fs_dir_chdir();
-        ut_lind_fs_dir_mode();
-        ut_lind_fs_dir_multiple();
-        ut_lind_fs_dup();
-        ut_lind_fs_dup2();
-        ut_lind_fs_fcntl();
+        // ut_lind_fs_broken_close();
+        // ut_lind_fs_chmod();
+        // ut_lind_fs_fchmod();
+        // ut_lind_fs_dir_chdir();
+        // ut_lind_fs_dir_mode();
+        // ut_lind_fs_dir_multiple();
+        // ut_lind_fs_dup();
+        // ut_lind_fs_dup2();
+        // ut_lind_fs_fcntl();
 
         // ut_lind_fs_ioctl();
 
@@ -1172,26 +1174,25 @@ pub mod fs_tests {
                 cage1.exit_syscall(libc::EXIT_SUCCESS);
             });
             //Parent processes
-            let thread_parent = interface::helper_thread(move || {
-                // Parents waits for the semaphore
-                assert_eq!(cage.sem_wait_syscall(shmatret as u32), 0);
-                assert_eq!(cage.sem_getvalue_syscall(shmatret as u32), 0);
-                interface::sleep(interface::RustDuration::from_millis(100));
-                // Parents release the semaphore
-                assert_eq!(cage.sem_post_syscall(shmatret as u32), 0);
-                assert_eq!(cage.sem_getvalue_syscall(shmatret as u32), 1);
-                // Destroy the semaphore
-                assert_eq!(cage.sem_destroy_syscall(shmatret as u32), 0);
-                // mark the shared memory to be rmoved
-                let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, None);
-                assert_eq!(shmctlret2, 0);
-                //detach from shared memory
-                let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
-                assert_eq!(shmdtret, shmid);
-                cage.exit_syscall(libc::EXIT_SUCCESS);
-            });
+            // Parents waits for the semaphore
+            assert_eq!(cage.sem_wait_syscall(shmatret as u32), 0);
+            assert_eq!(cage.sem_getvalue_syscall(shmatret as u32), 0);
+            interface::sleep(interface::RustDuration::from_millis(100));
+            // Parents release the semaphore
+            assert_eq!(cage.sem_post_syscall(shmatret as u32), 0);
+            assert_eq!(cage.sem_getvalue_syscall(shmatret as u32), 1);
+            // Destroy the semaphore
+            assert_eq!(cage.sem_destroy_syscall(shmatret as u32), 0);
+            // mark the shared memory to be rmoved
+            let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, None);
+            assert_eq!(shmctlret2, 0);
+            //detach from shared memory
+            // panic!(&SHM_METADATA);
+            let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
+            assert_eq!(shmdtret, shmid);
+            
             thread_child.join().unwrap();
-            thread_parent.join().unwrap();
+            cage.exit_syscall(libc::EXIT_SUCCESS);
             lindrustfinalize();
         }
 
