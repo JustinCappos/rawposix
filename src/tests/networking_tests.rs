@@ -11,6 +11,7 @@ pub mod net_tests {
     use std::ptr;
     use libc::*;
     use std::ffi::CString;
+    use std::ffi::CStr;
 
     use std::net::SocketAddrV4;
     use std::net::Ipv4Addr;
@@ -123,7 +124,7 @@ pub mod net_tests {
         }
 
         cage.fork_syscall(2);
-        
+
         let thread = interface::helper_thread(move || {
             // Client
             let cage2 = interface::cagetable_getref(2);
