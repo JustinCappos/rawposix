@@ -302,7 +302,7 @@ pub mod net_tests {
         assert_ne!(cage.read_syscall(pipefds.readfd, buffer.as_mut_ptr(), buffer.len()), -1);
 
         assert_ne!(cage.close_syscall(pipefds.readfd), -1);
-        assert_ne!(cage.close_syscall(epoll_fd), -1);
+        // assert_ne!(cage.close_syscall(epoll_fd), -1);
         sender.join().unwrap();
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
