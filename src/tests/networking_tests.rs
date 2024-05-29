@@ -260,8 +260,9 @@ pub mod net_tests {
                 };
                 println!("errno: {:?}", err);
                 println!("Error message: {:?}", err_msg);
-                println!("pipefds.readfd: {:?}", pipefds.writefd);
+                println!("pipefds.writefd: {:?}", pipefds.writefd);
                 io::stdout().flush().unwrap();
+                panic!();
             }
             assert_eq!(cage2.close_syscall(pipefds.writefd), 0);
             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
@@ -283,10 +284,12 @@ pub mod net_tests {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            println!("errno: {:?}", err);
+            let kernelfd = translate_virtual_fd(1, pipefds.readfd).unwrap();
+            println!("kernel fd: {:?}", kernelfd);
             println!("Error message: {:?}", err_msg);
             println!("pipefds.readfd: {:?}", pipefds.readfd);
             io::stdout().flush().unwrap();
+            panic!();
         }
 
 
