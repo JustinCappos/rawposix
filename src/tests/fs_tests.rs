@@ -533,9 +533,6 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        let mut arg0: u8 = 0;
-        let mut arg1: u8 = 1;
-
         let mut union0: winsize = unsafe { mem::zeroed() };
         let mut union1: winsize = unsafe { mem::zeroed() };
         union1.ws_col = 1;
@@ -548,10 +545,25 @@ pub mod fs_tests {
         let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/ioctl_file", O_CREAT | O_EXCL, S_LIND);
 
         //try to use FIONBIO for a non-socket
-        assert_eq!(
-            cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
-            0
-        );
+        // assert_eq!(
+        //     cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
+        //     0
+        // );
+        if cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8) < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
 
         //clear the O_NONBLOCK flag
         assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
