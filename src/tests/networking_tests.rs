@@ -23,9 +23,9 @@ pub mod net_tests {
     pub fn net_tests() {
         // ut_lind_net_bind();
         // ut_lind_net_socketpair();
-        ut_lind_net_connect();
+        // ut_lind_net_connect();
         // ut_lind_net_socket();
-        // ut_lind_net_epoll();
+        ut_lind_net_epoll();
     }
 
     pub fn ut_lind_net_bind() {
@@ -103,7 +103,7 @@ pub mod net_tests {
             &server_addr as *const _ as *const _,
             std::mem::size_of::<libc::sockaddr_in>() as u32,
         );
-        // assert!(bind_result > 0);
+        
         if bind_result < 0 {
             let err = unsafe {
                 libc::__errno_location()
@@ -142,12 +142,6 @@ pub mod net_tests {
             if connect_result < 0 {
                 panic!("Failed to connect to server");
             }
-
-            // let mut buffer = [0u8; 1024];
-            // let len = cage2.recv_syscall(clientfd, buffer.as_mut_ptr() as *mut u8, buffer.len(), 0);
-            // if len == 0 {
-            //     panic!("Fail on child recv");
-            // }
             let message = CString::new("Hello from client").unwrap();
             let sendret = cage2.send_syscall(clientfd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
             
@@ -167,9 +161,6 @@ pub mod net_tests {
         if client_fd < 0 {
             panic!("client_fd");
         }
-        // interface::sleep(interface::RustDuration::from_millis(100));
-        // let message = CString::new("Hello from client").unwrap();
-        // let sendret = cage.send_syscall(client_fd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
 
         let mut buffer = [0u8; 1024];
         let len = cage.recv_syscall(client_fd, buffer.as_mut_ptr() as *mut u8, buffer.len(), 0);
