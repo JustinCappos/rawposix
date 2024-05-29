@@ -10,7 +10,7 @@ pub mod net_tests {
     use std::io;
     use std::ptr;
     use libc::*;
-    use std::ffi::CStr;
+    use std::ffi::CString;
 
     use std::net::SocketAddrV4;
     use std::net::Ipv4Addr;
@@ -122,6 +122,35 @@ pub mod net_tests {
             panic!("listen_result");
         }
 
+        cage.fork_syscall(2);
+        
+        let thread = interface::helper_thread(move || {
+            // Client
+            let cage2 = interface::cagetable_getref(2);
+            let clientfd = cage2.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+            if clientfd < 0 {
+                panic!("Failed to create socket");
+            }
+
+            let connect_result = cage2.connect_syscall(
+                clientfd,
+                &server_addr as *const libc::sockaddr_in as *const libc::sockaddr,
+                std::mem::size_of::<libc::sockaddr_in>() as u32,
+            );
+            if connect_result < 0 {
+                panic!("Failed to connect to server");
+            }
+
+            let mut buffer = [0u8; 1024];
+            let len = cage2.recv_syscall(clientfd, buffer.as_mut_ptr() as *mut u8, buffer.len(), 0);
+            if len == 0 {
+                panic!("Fail on child recv");
+            }
+            
+            cage2.close_syscall(clientfd);
+            assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        });
+
         let mut client_addr: libc::sockaddr_in = unsafe {
             std::mem::zeroed()
         };
@@ -134,88 +163,70 @@ pub mod net_tests {
         if client_fd < 0 {
             panic!("client_fd");
         }
-
-        cage.fork_syscall(2);
-        let thread = interface::helper_thread(move || {
-            // Client
-            let cage2 = interface::cagetable_getref(2);
-            let clientfd = cage2.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-            if clientfd < 0 {
-                panic!("Failed to create socket");
-            }
-
-            // let client_ip = Ipv4Addr::new(127, 0, 0, 1);
-            // let client_socket_addr = SocketAddrV4::new(client_ip, 7878);
-            // let mut client_addr: libc::sockaddr_in = unsafe {
-            //     std::mem::zeroed()
-            // };
-            // client_addr.sin_family = libc::AF_INET as u16;
-            // client_addr.sin_addr.s_addr = u32::from(client_ip).to_be();
-            // client_addr.sin_port = 7878_u16.to_be(); 
-
-            let connect_result = cage2.connect_syscall(
-                clientfd,
-                &server_addr as *const libc::sockaddr_in as *const libc::sockaddr,
-                std::mem::size_of::<libc::sockaddr_in>() as u32,
-            );
-            if connect_result < 0 {
-                panic!("Failed to connect to server");
-            }
-
-            let mut buffer = [0u8; 512];
-            // interface::sleep(interface::RustDuration::from_millis(1000));
-            let read_size = cage2.read_syscall(clientfd, buffer.as_mut_ptr(), 512);
-
-            if read_size < 0 {
-                let err = unsafe {
-                    libc::__errno_location()
-                };
-                let err_str = unsafe {
-                    libc::strerror(*err)
-                };
-                let err_msg = unsafe {
-                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
-                };
-                println!("errno: {:?}", err);
-                println!("Error message: {:?}", err_msg);
-                println!("client_fd: {:?}", clientfd);
-                io::stdout().flush().unwrap();
-            }
-
-            let message = String::from_utf8_lossy(&buffer[..read_size as usize]);
-            println!("Received from client: {}", message);
-
-            let response = b"Hello, client!";
-            let write_size = cage2.write_syscall(clientfd, response.as_ptr(), response.len());
-            if write_size < 0 {
-                panic!("Failed to write to socket");
-            }
-
-            cage2.close_syscall(clientfd);
-        });
-
         // interface::sleep(interface::RustDuration::from_millis(100));
-
-        let message = b"Hello, server!";
-        let write_size = cage.write_syscall(client_fd, message.as_ptr(), message.len());
-        if write_size < 0 {
-            panic!("Failed to write to socket");
-        }
-
-        let mut buffer = [0u8; 512];
-        let read_size = cage.read_syscall(client_fd, buffer.as_mut_ptr(), 512);
-        if read_size < 0 {
-            panic!("Failed to read from socket");
-        }
-
-        let response = String::from_utf8_lossy(&buffer[..read_size as usize]);
-        println!("Received from server: {}", response);
+        let message = CString::new("Hello from client").unwrap();
+        let sendret = cage.send_syscall(client_fd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
 
         cage.close_syscall(client_fd);
         cage.close_syscall(server_fd);
         thread.join().unwrap();
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
     }
+
+    pub fn ut_lind_net_socketpair() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
+        let mut socketpair = interface::SockPair::default();
+        assert_eq!(
+            Cage::socketpair_syscall(&cage.clone(), libc::AF_UNIX, libc::SOCK_STREAM, 0, &mut socketpair),
+            0
+        );
+        let cage2 = cage.clone();
+
+        let thread = interface::helper_thread(move || {
+            let mut buf = sizecbuf(10);
+            loop {
+                let result = cage2.recv_syscall(socketpair.sock2, buf.as_mut_ptr(), 10, 0);
+                if result != -libc::EINTR {
+                    break; // if the error was EINTR, retry the syscall
+                }
+            }
+            assert_eq!(cbuf2str(&buf), "test\0\0\0\0\0\0");
+
+            interface::sleep(interface::RustDuration::from_millis(30));
+            assert_eq!(
+                cage2.send_syscall(socketpair.sock2, str2cbuf("Socketpair Test"), 15, 0),
+                15
+            );
+        });
+
+        assert_eq!(
+            cage.send_syscall(socketpair.sock1, str2cbuf("test"), 4, 0),
+            4
+        );
+
+        let mut buf2 = sizecbuf(15);
+        loop {
+            let result = cage.recv_syscall(socketpair.sock1, buf2.as_mut_ptr(), 15, 0);
+            if result != -libc::EINTR {
+                break; // if the error was EINTR, retry the syscall
+            }
+        }
+        let str2 = cbuf2str(&buf2);
+        assert_eq!(str2, "Socketpair Test");
+
+        thread.join().unwrap();
+
+        assert_eq!(cage.close_syscall(socketpair.sock1), 0);
+        assert_eq!(cage.close_syscall(socketpair.sock2), 0);
+
+        // end of the socket pair test (note we are only supporting AF_UNIX and TCP)
+
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
+
 
     /* Creates an epoll instance, registers the server socket and file descriptor with epoll, and then wait for events using
     epoll_wait_syscall(). It handles the events based on their types (EPOLLIN or EPOLLOUT) and performs the necessary operations
