@@ -163,7 +163,7 @@ pub mod net_tests {
             }
 
             let mut buffer = [0u8; 512];
-            interface::sleep(interface::RustDuration::from_millis(1000));
+            // interface::sleep(interface::RustDuration::from_millis(1000));
             let read_size = cage2.read_syscall(clientfd, buffer.as_mut_ptr(), 512);
 
             if read_size < 0 {
@@ -194,7 +194,7 @@ pub mod net_tests {
             cage2.close_syscall(clientfd);
         });
 
-        interface::sleep(interface::RustDuration::from_millis(100));
+        // interface::sleep(interface::RustDuration::from_millis(100));
 
         let message = b"Hello, server!";
         let write_size = cage.write_syscall(client_fd, message.as_ptr(), message.len());
