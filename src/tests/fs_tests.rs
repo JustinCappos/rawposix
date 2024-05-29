@@ -538,26 +538,29 @@ pub mod fs_tests {
 
         let mut union0: winsize = unsafe { mem::zeroed() };
         let mut union1: winsize = unsafe { mem::zeroed() };
-        // union1.ws_col = 1;
-        // union1.ws_row = 1;
+        union1.ws_col = 1;
+        union1.ws_row = 1;
+
+        let union0_ptr: *mut winsize = &mut union0;
+        let union1_ptr: *mut winsize = &mut union1;
 
         let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
         let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/ioctl_file", O_CREAT | O_EXCL, S_LIND);
 
         //try to use FIONBIO for a non-socket
         assert_eq!(
-            cage.ioctl_syscall(filefd, FIONBIO, &mut arg0),
+            cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
             0
         );
 
         //clear the O_NONBLOCK flag
-        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, &mut arg0), 0);
+        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
 
         //checking to see if the flag was updated
         assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
 
         //set the O_NONBLOCK flag
-        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, &mut arg1), 0);
+        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union1_ptr as *mut u8), 0);
 
         //checking to see if the flag was updated
         assert_eq!(
@@ -566,7 +569,7 @@ pub mod fs_tests {
         );
 
         //clear the O_NONBLOCK flag
-        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, &mut union0), 0);
+        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
 
         //checking to see if the flag was updated
         assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
