@@ -22,7 +22,8 @@ pub mod net_tests {
 
     pub fn net_tests() {
         // ut_lind_net_bind();
-        ut_lind_net_connect();
+        ut_lind_net_socketpair();
+        // ut_lind_net_connect();
         // ut_lind_net_socket();
         // ut_lind_net_epoll();
     }
