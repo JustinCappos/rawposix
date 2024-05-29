@@ -139,7 +139,7 @@ pub mod net_tests {
         let thread = interface::helper_thread(move || {
             // Client
             let cage2 = interface::cagetable_getref(2);
-            let clientfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+            let clientfd = cage2.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
             if clientfd < 0 {
                 panic!("Failed to create socket");
             }
