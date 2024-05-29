@@ -237,8 +237,8 @@ pub mod net_tests {
         assert_ne!(epoll_fd, -1);
 
         let mut pipefds = PipeArray {
-            readfd: 1,
-            writefd: 2,
+            readfd: 0,
+            writefd: 0,
         };
         assert_eq!(cage.pipe_syscall(&mut pipefds), 0);
         assert_eq!(cage.fork_syscall(2), 0);

@@ -530,25 +530,29 @@ impl Cage {
     *   pipe() will return 0 when sucess, -1 when fail 
     */
     pub fn pipe_syscall(&self, pipefd: &mut PipeArray) -> i32 {
-        let mut kernel_fds = Vec::with_capacity(2);
-        let virtual_read = pipefd.readfd;
-        let kernel_read = translate_virtual_fd(self.cageid, virtual_read).unwrap();
-        kernel_fds.push(kernel_read);
-        let virtual_write = pipefd.writefd;
-        let kernel_write = translate_virtual_fd(self.cageid, virtual_write).unwrap();
-        kernel_fds.push(kernel_write);
-        unsafe { libc::pipe(kernel_fds.as_mut_ptr() as *mut i32) }
+        let mut kernel_fds = [0; 2];
+        
+        let ret = unsafe { libc::pipe(kernel_fds.as_mut_ptr() as *mut i32) };
+        pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0], false, 0).unwrap();
+        pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1], false, 0).unwrap();
+
+        return ret;
     }
 
     pub fn pipe2_syscall(&self, pipefd: &mut PipeArray, flags: i32) -> i32 {
-        let mut kernel_fds = Vec::with_capacity(2);
-        let virtual_read = pipefd.readfd;
-        let kernel_read = translate_virtual_fd(self.cageid, virtual_read).unwrap();
-        kernel_fds.push(kernel_read);
-        let virtual_write = pipefd.writefd;
-        let kernel_write = translate_virtual_fd(self.cageid, virtual_write).unwrap();
-        kernel_fds.push(kernel_write);
-        unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) }
+        let mut kernel_fds = [0; 2];
+        
+        let ret = unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) };
+
+        if flags == libc::O_CLOEXEC {
+            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0], true, 0).unwrap();
+            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1], true, 0).unwrap();
+        } else {
+            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0], false, 0).unwrap();
+            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1], false, 0).unwrap();
+        }
+
+        return ret;
     }
 
     //------------------GETDENTS SYSCALL------------------
