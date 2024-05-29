@@ -57,7 +57,7 @@ pub mod fs_tests {
         // prdwrtest();
         // chardevtest();
         // ut_lind_fs_exec_cloexec();
-        // ut_lind_fs_shm();
+        ut_lind_fs_shm();
         // ut_lind_fs_getpid_getppid();
         // ut_lind_fs_sem_fork();
         // ut_lind_fs_sem_trytimed();
@@ -1087,40 +1087,40 @@ pub mod fs_tests {
 //         lindrustfinalize();
 //     }
 
-//     use libc::c_void;
-//     pub fn ut_lind_fs_shm() {
-//         lindrustinit(0);
-//         let cage = interface::cagetable_getref(1);
-//         let key = 31337;
-//         let mut shmidstruct = ShmidsStruct::default();
+    use libc::c_void;
+    pub fn ut_lind_fs_shm() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
+        let key = 31337;
+        let mut shmidstruct = interface::ShmidsStruct::default();
 
-//         // shmget returns an identifier in shmid
-//         let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
+        // shmget returns an identifier in shmid
+        let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
 
-//         // shmat to attach to shared memory
-//         let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
+        // shmat to attach to shared memory
+        let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
 
-//         assert_ne!(shmatret, -1);
+        assert_ne!(shmatret, -1);
 
-//         // get struct info
-//         let shmctlret1 = cage.shmctl_syscall(shmid, IPC_STAT, Some(&mut shmidstruct));
+        // get struct info
+        let shmctlret1 = cage.shmctl_syscall(shmid, IPC_STAT, Some(&mut shmidstruct));
 
-//         assert_eq!(shmctlret1, 0);
+        assert_eq!(shmctlret1, 0);
 
-//         assert_eq!(shmidstruct.shm_nattch, 1);
+        assert_eq!(shmidstruct.shm_nattch, 1);
 
-//         // mark the shared memory to be rmoved
-//         let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, None);
+        // mark the shared memory to be rmoved
+        let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, None);
 
-//         assert_eq!(shmctlret2, 0);
+        assert_eq!(shmctlret2, 0);
 
-//         //detach from shared memory
-//         let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
+        //detach from shared memory
+        let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
 
-//         assert_eq!(shmdtret, shmid); //NaCl requires shmdt to return the shmid, so this is non-posixy
+        assert_eq!(shmdtret, shmid); //NaCl requires shmdt to return the shmid, so this is non-posixy
 
-//         lindrustfinalize();
-//     }
+        lindrustfinalize();
+    }
 
 //     pub fn ut_lind_fs_getpid_getppid() {
 //         lindrustinit(0);
