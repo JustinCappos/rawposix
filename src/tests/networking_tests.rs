@@ -122,26 +122,49 @@ pub mod net_tests {
             panic!("listen_result");
         }
 
+        let mut client_addr: libc::sockaddr_in = unsafe {
+            std::mem::zeroed()
+        };
+        let mut addr_len = std::mem::size_of::<libc::sockaddr_in>() as u32;
+        let client_fd = cage.accept_syscall(
+            server_fd,
+            &mut client_addr as *mut libc::sockaddr_in as *mut libc::sockaddr,
+            addr_len,
+        );
+        if client_fd < 0 {
+            panic!("client_fd");
+        }
+
         cage.fork_syscall(2);
         let thread = interface::helper_thread(move || {
+            // Client
             let cage2 = interface::cagetable_getref(2);
-            
-            let mut client_addr: libc::sockaddr_in = unsafe {
-                std::mem::zeroed()
-            };
-            let mut addr_len = std::mem::size_of::<libc::sockaddr_in>() as u32;
-            let client_fd = cage2.accept_syscall(
-                server_fd,
-                &mut client_addr as *mut libc::sockaddr_in as *mut libc::sockaddr,
-                addr_len,
+            let clientfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+            if clientfd < 0 {
+                panic!("Failed to create socket");
+            }
+
+            // let client_ip = Ipv4Addr::new(127, 0, 0, 1);
+            // let client_socket_addr = SocketAddrV4::new(client_ip, 7878);
+            // let mut client_addr: libc::sockaddr_in = unsafe {
+            //     std::mem::zeroed()
+            // };
+            // client_addr.sin_family = libc::AF_INET as u16;
+            // client_addr.sin_addr.s_addr = u32::from(client_ip).to_be();
+            // client_addr.sin_port = 7878_u16.to_be(); 
+
+            let connect_result = cage2.connect_syscall(
+                clientfd,
+                &server_addr as *const libc::sockaddr_in as *const libc::sockaddr,
+                std::mem::size_of::<libc::sockaddr_in>() as u32,
             );
-            if client_fd < 0 {
-                panic!("client_fd");
+            if connect_result < 0 {
+                panic!("Failed to connect to server");
             }
 
             let mut buffer = [0u8; 512];
             interface::sleep(interface::RustDuration::from_millis(1000));
-            let read_size = cage2.read_syscall(client_fd, buffer.as_mut_ptr(), 512);
+            let read_size = cage2.read_syscall(clientfd, buffer.as_mut_ptr(), 512);
 
             if read_size < 0 {
                 let err = unsafe {
@@ -155,7 +178,7 @@ pub mod net_tests {
                 };
                 println!("errno: {:?}", err);
                 println!("Error message: {:?}", err_msg);
-                println!("client_fd: {:?}", client_fd);
+                println!("client_fd: {:?}", clientfd);
                 io::stdout().flush().unwrap();
             }
 
@@ -163,38 +186,15 @@ pub mod net_tests {
             println!("Received from client: {}", message);
 
             let response = b"Hello, client!";
-            let write_size = cage2.write_syscall(client_fd, response.as_ptr(), response.len());
+            let write_size = cage2.write_syscall(clientfd, response.as_ptr(), response.len());
             if write_size < 0 {
                 panic!("Failed to write to socket");
             }
 
-            cage2.close_syscall(client_fd);
+            cage2.close_syscall(clientfd);
         });
 
         interface::sleep(interface::RustDuration::from_millis(100));
-
-        let client_fd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        if client_fd < 0 {
-            panic!("Failed to create socket");
-        }
-
-        let client_ip = Ipv4Addr::new(127, 0, 0, 1);
-        let client_socket_addr = SocketAddrV4::new(client_ip, 7878);
-        let mut client_addr: libc::sockaddr_in = unsafe {
-            std::mem::zeroed()
-        };
-        client_addr.sin_family = libc::AF_INET as u16;
-        client_addr.sin_addr.s_addr = u32::from(client_ip).to_be();
-        client_addr.sin_port = 7878_u16.to_be(); 
-
-        let connect_result = cage.connect_syscall(
-            client_fd,
-            &client_addr as *const libc::sockaddr_in as *const libc::sockaddr,
-            std::mem::size_of::<libc::sockaddr_in>() as u32,
-        );
-        if connect_result < 0 {
-            panic!("Failed to connect to server");
-        }
 
         let message = b"Hello, server!";
         let write_size = cage.write_syscall(client_fd, message.as_ptr(), message.len());
