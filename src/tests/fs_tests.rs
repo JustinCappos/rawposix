@@ -1181,6 +1181,7 @@ pub mod fs_tests {
             interface::sleep(interface::RustDuration::from_millis(100));
             // Parents release the semaphore
             assert_eq!(cage.sem_post_syscall(shmatret as u32), 0);
+            interface::sleep(interface::RustDuration::from_millis(100));
             assert_eq!(cage.sem_getvalue_syscall(shmatret as u32), 1);
             // Destroy the semaphore
             assert_eq!(cage.sem_destroy_syscall(shmatret as u32), 0);
