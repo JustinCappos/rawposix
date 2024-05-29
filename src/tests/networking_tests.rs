@@ -22,8 +22,8 @@ pub mod net_tests {
 
     pub fn net_tests() {
         // ut_lind_net_bind();
-        ut_lind_net_socketpair();
-        // ut_lind_net_connect();
+        // ut_lind_net_socketpair();
+        ut_lind_net_connect();
         // ut_lind_net_socket();
         // ut_lind_net_epoll();
     }
@@ -143,11 +143,13 @@ pub mod net_tests {
                 panic!("Failed to connect to server");
             }
 
-            let mut buffer = [0u8; 1024];
-            let len = cage2.recv_syscall(clientfd, buffer.as_mut_ptr() as *mut u8, buffer.len(), 0);
-            if len == 0 {
-                panic!("Fail on child recv");
-            }
+            // let mut buffer = [0u8; 1024];
+            // let len = cage2.recv_syscall(clientfd, buffer.as_mut_ptr() as *mut u8, buffer.len(), 0);
+            // if len == 0 {
+            //     panic!("Fail on child recv");
+            // }
+            let message = CString::new("Hello from client").unwrap();
+            let sendret = cage2.send_syscall(clientfd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
             
             cage2.close_syscall(clientfd);
             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
@@ -166,9 +168,14 @@ pub mod net_tests {
             panic!("client_fd");
         }
         // interface::sleep(interface::RustDuration::from_millis(100));
-        let message = CString::new("Hello from client").unwrap();
-        let sendret = cage.send_syscall(client_fd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
+        // let message = CString::new("Hello from client").unwrap();
+        // let sendret = cage.send_syscall(client_fd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
 
+        let mut buffer = [0u8; 1024];
+        let len = cage.recv_syscall(client_fd, buffer.as_mut_ptr() as *mut u8, buffer.len(), 0);
+        if len == 0 {
+            panic!("Fail on child recv");
+        }
         cage.close_syscall(client_fd);
         cage.close_syscall(server_fd);
         thread.join().unwrap();
