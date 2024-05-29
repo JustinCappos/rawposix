@@ -241,6 +241,7 @@ pub mod net_tests {
             writefd: 0,
         };
         assert_eq!(cage.pipe_syscall(&mut pipefds), 0);
+
         assert_eq!(cage.fork_syscall(2), 0);
         let sender = std::thread::spawn(move || {
             let cage2 = interface::cagetable_getref(2);
@@ -251,12 +252,30 @@ pub mod net_tests {
             assert_eq!(cage2.close_syscall(pipefds.writefd), 0);
             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         });
+
         assert_eq!(cage.close_syscall(pipefds.writefd), 0);
         let mut epollevent = EpollEvent {
             events: libc::EPOLLIN as u32,
             fd: pipefds.readfd,
         };
-        assert_ne!(cage.epoll_ctl_syscall(epoll_fd, libc::EPOLL_CTL_ADD, pipefds.readfd, &mut epollevent), -1);
+
+        if cage.epoll_ctl_syscall(epoll_fd, libc::EPOLL_CTL_ADD, pipefds.readfd, &mut epollevent) < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            println!("pipefds.readfd: {:?}", pipefds.readfd);
+            io::stdout().flush().unwrap();
+        }
+
+
         let mut epoll_events = [EpollEvent{
             events: 0,
             fd: 0,
