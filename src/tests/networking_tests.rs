@@ -234,7 +234,7 @@ pub mod net_tests {
         let cage = interface::cagetable_getref(1);
 
         let epoll_fd = cage.epoll_create_syscall(0);
-        assert_eq!(epoll_fd, -1);
+        assert_ne!(epoll_fd, -1);
 
         let mut pipefds = PipeArray {
             readfd: 0,
