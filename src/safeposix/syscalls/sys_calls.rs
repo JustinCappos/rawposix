@@ -202,9 +202,6 @@ impl Cage {
 
         self.unmap_shm_mappings();
 
-        // Delete all fd marked with FD_CLOEXEC
-        let newfdtable = empty_fds_for_exec(self.cageid);
-
         // Delete the original one
         let _ = remove_cage_from_fdtable(self.cageid);
         // Add the new one to fdtable
