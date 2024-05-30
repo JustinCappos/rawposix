@@ -203,7 +203,7 @@ impl Cage {
         self.unmap_shm_mappings();
 
         // Delete the original one
-        let _ = remove_cage_from_fdtable(self.cageid);
+        let newfdtable = remove_cage_from_fdtable(self.cageid);
         // Add the new one to fdtable
         let _ = add_cage_to_fdtable(self.cageid, newfdtable);
 
