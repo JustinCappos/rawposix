@@ -12,6 +12,9 @@ use crate::safeposix::shm::*;
 use crate::example_grates::fdtable::*;
 use libc::*;
 
+use std::io::Write;
+use std::io;
+
 use std::sync::Arc as RustRfc;
 
 impl Cage {
@@ -266,7 +269,14 @@ impl Cage {
         closehandlers.final_handler = Self::kernel_close;
         closehandlers.unreal_handler = NULL_FUNC;
 
+        println!("exit - before fd rm");
+        io::stdout().flush().unwrap();
+
         let _ = remove_cage_from_fdtable(self.cageid);
+
+        println!("exit - after fd rm");
+        io::stdout().flush().unwrap();
+
         //may not be removable in case of lindrustfinalize, we don't unwrap the remove result
         interface::cagetable_remove(self.cageid);
 
