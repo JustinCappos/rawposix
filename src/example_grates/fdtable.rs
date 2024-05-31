@@ -206,6 +206,7 @@ pub fn get_specific_virtual_fd(
         .get(&cageid)
         .unwrap()[requested_virtualfd as usize].is_some()
     {
+        printfd();
         Err(threei::Errno::ELIND as u64)
     } else {
         FDTABLE.get_mut(&cageid).unwrap()[requested_virtualfd as usize] = Some(myentry);
@@ -376,17 +377,40 @@ pub fn close_virtualfd(cageid:u64, virtfd:i32) -> Result<(),threei::RetVal> {
             let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
             (closehandlers.unreal_handler)(myfdarray[virtfd as usize].unwrap().optionalinfo);
             // Zero out this entry...
+            println!("virtualfd closed - {:?}", virtfd);
+            io::stdout().flush().unwrap();
+
             myfdarray[virtfd as usize] = None;
             return Ok(());
         }
         _decrement_realfd(therealfd);
         // Zero out this entry...
+        println!("virtualfd closed - {:?}", virtfd);
+        io::stdout().flush().unwrap();
         myfdarray[virtfd as usize] = None;
         return Ok(());
     }
     Err(threei::Errno::EBADFD as u64)
 }
 
+fn printfd() {
+    FDTABLE.iter().for_each(|entry| {
+        let (cageid, fd_array) = entry.pair();
+        println!("CageID: {}", cageid);
+        for (index, fd_entry) in fd_array.iter().enumerate() {
+            match fd_entry {
+                Some(fd_entry) => {
+                    println!("  FD {}: {:?}", index, fd_entry);
+                    io::stdout().flush().unwrap();
+                }
+                None => {
+                    println!("  FD {}: None", index);
+                    io::stdout().flush().unwrap();
+                }
+            }
+        }
+    });
+}
 
 // Returns the HashMap returns a copy of the fdtable for a cage.  Useful 
 // helper function for a caller that needs to examine the table.  Likely could
@@ -447,22 +471,15 @@ fn _decrement_realfd(realfd: i32) -> u64 {
 
     let newcount:u64 = REALFDCOUNT.get(&realfd).unwrap().value() - 1;
 
-    println!("fd - newcount: {:?}", newcount);
-    io::stdout().flush().unwrap();
-
     let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
 
-    println!("fd - CLOSEHANDLERTABLE: {:?}", CLOSEHANDLERTABLE);
-    io::stdout().flush().unwrap();
     if newcount > 0 {
         (closehandlers.intermediate_handler)(realfd);
         REALFDCOUNT.insert(realfd,newcount);
     }
     else{
-        println!("fd - before final_handler");
-        io::stdout().flush().unwrap();
         (closehandlers.final_handler)(realfd);
-        println!("fd - after final_handler");
+        println!("realfd closed - {:?}", realfd);
         io::stdout().flush().unwrap();
     }
     newcount

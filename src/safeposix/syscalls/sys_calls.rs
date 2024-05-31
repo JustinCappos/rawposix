@@ -261,13 +261,7 @@ impl Cage {
         interface::flush_stdout();
         self.unmap_shm_mappings();
 
-        println!("exit - before fd rm");
-        io::stdout().flush().unwrap();
-
         let _ = remove_cage_from_fdtable(self.cageid);
-
-        println!("exit - after fd rm");
-        io::stdout().flush().unwrap();
 
         //may not be removable in case of lindrustfinalize, we don't unwrap the remove result
         interface::cagetable_remove(self.cageid);
