@@ -18,9 +18,14 @@ mod main_tests {
     // use crate::safeposix::{cage::*, dispatcher::*, filesystem::*};
     use crate::safeposix::{cage::*, dispatcher::*};
     use std::process::Command;
+    use std::io::Write;
+    use std::io;
 
     #[test]
     pub fn tests() {
+        println!("TEST begin");
+        io::stdout().flush().unwrap();
+
         interface::RUSTPOSIX_TESTSUITE.store(true, interface::RustAtomicOrdering::Relaxed);
 
         // lindrustinit(0);
