@@ -3,6 +3,8 @@
 //      Static DashMap.  Let's see if having the FDTableEntries be a static
 //      array is any faster...
 
+use crate::safeposix::syscalls::fs_calls::*;
+
 use super::threei;
 
 use dashmap::DashMap;
@@ -97,7 +99,8 @@ lazy_static! {
     pub static ref CLOSEHANDLERTABLE: Mutex<CloseHandlers> = {
         let c = CloseHandlers {
             intermediate_handler:NULL_FUNC, 
-            final_handler:NULL_FUNC,
+            // final_handler:NULL_FUNC,
+            final_handler:kernel_close,
             unreal_handler:NULL_FUNC,
         };
         Mutex::new(c)
