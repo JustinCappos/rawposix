@@ -3,6 +3,7 @@
 //      Static DashMap.  Let's see if having the FDTableEntries be a static
 //      array is any faster...
 
+use crate::safeposix::cage;
 use crate::safeposix::syscalls::fs_calls::*;
 
 use super::threei;
@@ -206,6 +207,9 @@ pub fn get_specific_virtual_fd(
         .get(&cageid)
         .unwrap()[requested_virtualfd as usize].is_some()
     {
+        println!("cageid: {:?}", cageid);
+        println!("VirtalFD: {:?}", requested_virtualfd);
+        io::stdout().flush().unwrap();
         printfd();
         Err(threei::Errno::ELIND as u64)
     } else {
