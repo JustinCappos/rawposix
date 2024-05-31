@@ -1,102 +1,39 @@
+//  DashMap<u64,[Option<FDTableEntry>;FD_PER_PROCESSS_MAX]>  Space is ~24KB 
+//  per cage w/ 1024 fds?!?
+//      Static DashMap.  Let's see if having the FDTableEntries be a static
+//      array is any faster...
+
 use super::threei;
+
+use dashmap::DashMap;
 
 use lazy_static::lazy_static;
 
-use std::sync::Mutex;
-
 use std::collections::HashMap;
 
-// This is a basic fdtables library.  The purpose is to allow a cage to have
-// a set of virtual fds which is translated into real fds.
-//
-// For example, suppose a cage with cageid A, wants to open a file.  That open
-// operation needs to return a file descriptor to the cage.  Rather than have
-// each cage have the actual underlying numeric fd[*], each cage has its own
-// virtual fd numbers.  So cageid A's fd 6 will potentially be different from
-// cageid B's fd 6.  When a call from cageid A or B is made, this will need to
-// be translated from that virtual fd into the read fd[**].
-//
-// One other complexity deals with the CLOEXEC flag.  If this is set on a file
-// descriptor, then when exec is called, it must be closed.  This library
-// provides a few functions to simplify this process.
-//
-// To make this work, this library provides the following funtionality:
-//
-//      translate_virtual_fd(cageid, virtualfd) -> Result<realfd,EBADFD>
-//
-//      get_unused_virtual_fd(cageid,realfd,is_cloexec,optionalinfo) -> Result<virtualfd, EMFILE>
-//
-//      set_cloexec(cageid,virtualfd,is_cloexec) -> Result<(), EBADFD>
-//
-//      get_specific_virtual_fd(cageid,virtualfd,realfd,is_cloexec,optionalinfo) -> Result<(), (ELIND|EBADF)>
-//          This is mostly used for dup2/3.  I'm assuming the caller got the
-//          entry already and wants to put it in a location.  Returns ELIND
-//          if the entry is occupied and EBADF if out of range...
-//
-//      copy_fdtable_for_cage(srccageid, newcageid) -> Result<(), ENFILE>
-//          This is effectively just making a copy of a specific cage's
-//          fdtable, for use in fork()
-//
-//      remove_cage_from_fdtable(cageid) -> HashMap<virt_fd:u64,FDTableEntry>
-//          This is mostly used in handling exit, etc.  Returns the HashMap
-//          for the cage.
-//
-//      empty_fds_for_exec(cageid) -> HashMap<virt_fd:u64,FDTableEntry>
-//          This handles exec by removing all of FDTableEntries with cloexec
-//          set.  Those are returned in a HashMap
-//
-//      iterate_over_fdtable(cageid) -> Values<'_, K, V>
-//          returns an iterator over the elements in the cage.
-//
-//
-//
-// There are other helper functions meant to be used when this is imported
-// as a grate library::
-//
-//      get_optionalinfo(cageid,virtualfd) -> Result<optionalinfo, EBADFD>
-//      set_optionalinfo(cageid,virtualfd,optionalinfo) -> Result<(), EBADFD>
-//          The above two are useful if you want to track other things like
-//          an id for other in-memory data structures
-//
-// In situations where this will be used by a grate, a few other calls are
-// particularly useful:
-//
-//      threeii::reserve_fd(cageid, Option<fd>) -> Result<fd, EMFILE / ENFILE>
-//          Used to have the grate, etc. beneath you reserve (or provide) a fd.
-//          This is useful for situatiosn where you want to have most fds
-//          handled elsewhere, but need to be able to acquire a few for your
-//          purposes (like implementing in-memory pipes, etc.)
-//
-// [*] This isn't possible because fork causes the same fd in the parent and
-// child to have separate file pointers (e.g., read / write to separate
-// locations in the file).
-//
-// [**] This is only the 'real' fd from the standpoint of the user of this
-// library.  If another part of the system below it, such as another grate or
-// the microvisor, is using this library, it will get translated again.
-//
+use std::sync::Mutex;
 
-// This library is likely the place in the system where we should consider
-// putting in place limits on file descriptors.  Linux does this through two
-// error codes, one for a per-process limit and the other for an overall system
-// limit.  My thinking currently is that both will be configurable values in
-// the library.
-//
-//       EMFILE The per-process limit on the number of open file
-//              descriptors has been reached.
-//
-//       ENFILE The system-wide limit on the total number of open files
-//              has been reached.
+// This uses a Dashmap (for cages) with an array of FDTableEntry items.
 
-const FD_PER_PROCESS_MAX: i32 = 1024;
+// Get constants about the fd table sizes, etc.
+pub use super::commonconstants::*;
 
-// BUG / TODO: Use this in some sane way...
-#[allow(dead_code)]
-const TOTAL_FD_MAX: i32 = 4096;
+// algorithm name.  Need not be listed.  Used in benchmarking output
+// #[doc(hidden)]
+pub const ALGONAME: &str = "DashMapArrayGlobal";
+
+// These are the values we look up with at the end...
+// #[doc = include_str!("../docs/fdtableentry.md")]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FDTableEntry {
+    pub realfd: i32, // underlying fd (may be a virtual fd below us or
+    // a kernel fd)
+    pub should_cloexec: bool, // should I close this when exec is called?
+    pub optionalinfo: i32,    // user specified / controlled data
+}
 
 // It's fairly easy to check the fd count on a per-process basis (I just check
-// when I would
-// add a new fd).
+// when I would add a new fd).
 //
 // BUG: I will ignore the total limit for now.  I would ideally do this on
 // every creation, close, fork, etc. but it's a PITA to track this.
@@ -106,62 +43,81 @@ const TOTAL_FD_MAX: i32 = 4096;
 // code.  However, it is expected we could receive an invalid file descriptor
 // when a cage makes a call.
 
-// In order to store this information, I'm going to use a HashMap which
-// has keys of (cageid:u64) and values that are another HashMap.  The second
-// HashMap has keys of (virtualfd:64) and values of (realfd:u64,
-// should_cloexec:bool, optionalinfo:u64).
+// In order to store this information, I'm going to use a DashMap which
+// has keys of (cageid:u64) and values that are an array of FD_PER_PROCESS_MAX
+// Option<FDTableEntry> items. 
 //
-// To speed up lookups, I could have used arrays instead of HashMaps.  In
-// theory, that space is far too large, but likely each could be bounded to
-// smaller values like 1024.  For simplicity I avoided this for now.
-//
-// I thought also about having different tables for the tuple of values
-// since they aren't always used together, but this seemed needlessly complex
-// (at least at first).
 //
 
 // This lets me initialize the code as a global.
-// BUG / TODO: Use a DashMap instead of a Mutex for this?
 lazy_static! {
+
   #[derive(Debug)]
-  // GLOBALFDTABLE = <cageid, <virtualfd, FDTableEntry>> 
-  pub static ref GLOBALFDTABLE: Mutex<HashMap<u64, HashMap<i32,FDTableEntry>>> = {
-    let m = HashMap::new();
+  static ref FDTABLE: DashMap<u64, [Option<FDTableEntry>;FD_PER_PROCESS_MAX as usize]> = {
+    let m = DashMap::new();
     // Insert a cage so that I have something to fork / test later, if need
     // be. Otherwise, I'm not sure how I get this started. I think this
     // should be invalid from a 3i standpoint, etc. Could this mask an
     // error in the future?
-    // m.insert(threei::TESTING_CAGEID,HashMap::new());
-    Mutex::new(m)
+    // m.insert(threei::TESTING_CAGEID,[Option::None;FD_PER_PROCESS_MAX as usize]);
+    m
   };
 }
 
-// These are the values we look up with at the end...
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct FDTableEntry {
-    pub realfd: i32, // underlying fd (may be a virtual fd below us or
-    // a kernel fd)
-    should_cloexec: bool, // should I close this when exec is called?
-    optionalinfo: u64,    // user specified / controlled data
+lazy_static! {
+    // This is needed for close and similar functionality.  I need track the
+    // number of times a realfd is open
+    #[derive(Debug)]
+    // REALFDCOUNT = <realfd, count>
+    pub static ref REALFDCOUNT: DashMap<i32, u64> = {
+        DashMap::new()
+    };
+
 }
 
+// Internal helper to hold the close handlers...
+pub struct CloseHandlers {
+    pub intermediate_handler: fn(i32),
+    pub final_handler: fn(i32),
+    pub unreal_handler: fn(i32),
+}
+
+// Seems sort of like a constant...  I'm not sure if this is bad form or not...
+#[allow(non_snake_case)]
+pub fn NULL_FUNC(_:i32) { }
+
+lazy_static! {
+    // This holds the user registered handlers they want to have called when
+    // a close occurs.  I did this rather than return messy data structures
+    // from the close, exec, and exit handlers because it seemed cleaner...
+    #[derive(Debug)]
+    pub static ref CLOSEHANDLERTABLE: Mutex<CloseHandlers> = {
+        let c = CloseHandlers {
+            intermediate_handler:NULL_FUNC, 
+            final_handler:NULL_FUNC,
+            unreal_handler:NULL_FUNC,
+        };
+        Mutex::new(c)
+    };
+}
+
+
+// #[doc = include_str!("../docs/translate_virtual_fd.md")]
 pub fn translate_virtual_fd(cageid: u64, virtualfd: i32) -> Result<i32, threei::RetVal> {
-    // Get the lock on the fdtable...  I'm not handling "poisoned locks" now
-    // where a thread holding the lock died...
-    let fdtable = GLOBALFDTABLE.lock().unwrap();
 
     // They should not be able to pass a new cage I don't know.  I should
     // always have a table for each cage because each new cage is added at fork
     // time
-    if !fdtable.contains_key(&cageid) {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
-    return match fdtable.get(&cageid).unwrap().get(&virtualfd) {
+    return match FDTABLE.get(&cageid).unwrap()[virtualfd as usize] {
         Some(tableentry) => Ok(tableentry.realfd),
         None => Err(threei::Errno::EBADFD as u64),
     };
 }
+
 
 // This is fairly slow if I just iterate sequentially through numbers.
 // However there are not that many to choose from.  I could pop from a list
@@ -170,15 +126,15 @@ pub fn translate_virtual_fd(cageid: u64, virtualfd: i32) -> Result<i32, threei::
 // super fast for a normal cage and will be correct in the weird case.
 // Right now, I'll just implement the slow path and will speed this up
 // later, if needed.
+// #[doc = include_str!("../docs/get_unused_virtual_fd.md")]
 pub fn get_unused_virtual_fd(
     cageid: u64,
     realfd: i32,
     should_cloexec: bool,
-    optionalinfo: u64,
+    optionalinfo: i32,
 ) -> Result<i32, threei::RetVal> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
-    if !fdtable.contains_key(&cageid) {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
     // Set up the entry so it has the right info...
@@ -190,14 +146,15 @@ pub fn get_unused_virtual_fd(
         optionalinfo,
     };
 
+    let mut myfdarray = FDTABLE.get_mut(&cageid).unwrap();
+
     // Check the fds in order.
-    for fdcandidate in 1..FD_PER_PROCESS_MAX {
-        if !fdtable.get(&cageid).unwrap().contains_key(&fdcandidate) {
+    for fdcandidate in 0..FD_PER_PROCESS_MAX {
+        // FIXME: This is likely very slow.  Should do something smarter...
+        if myfdarray[fdcandidate as usize].is_none() {
             // I just checked.  Should not be there...
-            fdtable
-                .get_mut(&cageid)
-                .unwrap()
-                .insert(fdcandidate, myentry);
+            myfdarray[fdcandidate as usize] = Some(myentry);
+            _increment_realfd(realfd);
             return Ok(fdcandidate);
         }
     }
@@ -209,17 +166,16 @@ pub fn get_unused_virtual_fd(
 // This is used for things like dup2, which need a specific fd...
 // NOTE: I will assume that the requested_virtualfd isn't used.  If it is, I
 // will return ELIND
-// virtual and realfds are different
+// #[doc = include_str!("../docs/get_specific_virtual_fd.md")]
 pub fn get_specific_virtual_fd(
     cageid: u64,
     requested_virtualfd: i32,
     realfd: i32,
     should_cloexec: bool,
-    optionalinfo: u64,
+    optionalinfo: i32,
 ) -> Result<(), threei::RetVal> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
-    if !fdtable.contains_key(&cageid) {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
@@ -240,165 +196,277 @@ pub fn get_specific_virtual_fd(
         optionalinfo,
     };
 
-    if fdtable
+    if FDTABLE
         .get(&cageid)
-        .unwrap()
-        .contains_key(&requested_virtualfd)
+        .unwrap()[requested_virtualfd as usize].is_some()
     {
-        // Err(threei::Errno::ELIND as u64)
-        Ok(())
+        Err(threei::Errno::ELIND as u64)
     } else {
-        fdtable
-            .get_mut(&cageid)
-            .unwrap()
-            .insert(requested_virtualfd, myentry);
+        FDTABLE.get_mut(&cageid).unwrap()[requested_virtualfd as usize] = Some(myentry);
+        _increment_realfd(realfd);
         Ok(())
-    }
-}
-
-/*
-*   Remove virtual file descriptor mappings from fdtable. 
-*   Usage: close() 
-*/
-pub fn rm_virtual_fd(cageid: u64, virtualfd: i32) -> Result<(), threei::RetVal> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
-    if !fdtable.contains_key(&cageid) {
-        panic!("Unknown cageid in fdtable access");
-    }
-    if let Some(virtualfdmap) = fdtable.get_mut(&cageid) {
-        virtualfdmap.remove(&virtualfd);
-        Ok(())
-    } else {
-        Err(threei::Errno::EBADFD as u64)
     }
 }
 
 // We're just setting a flag here, so this should be pretty straightforward.
+// #[doc = include_str!("../docs/set_cloexec.md")]
 pub fn set_cloexec(cageid: u64, virtualfd: i32, is_cloexec: bool) -> Result<(), threei::RetVal> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
-    if !fdtable.contains_key(&cageid) {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
-    // Set the is_cloexec flag or return EBADFD, if that's missing...
-    return match fdtable.get_mut(&cageid).unwrap().get_mut(&virtualfd) {
-        Some(tableentry) => {
-            tableentry.should_cloexec = is_cloexec;
-            Ok(())
-        }
-        None => Err(threei::Errno::EBADFD as u64),
-    };
+    // return EBADFD, if the fd is missing...
+    if FDTABLE.get(&cageid).unwrap()[virtualfd as usize].is_none() {
+        return Err(threei::Errno::EBADFD as u64);
+    }
+    // Set the is_cloexec flag
+    FDTABLE.get_mut(&cageid).unwrap()[virtualfd as usize].as_mut().unwrap().should_cloexec = is_cloexec;
+    Ok(())
 }
 
 // Super easy, just return the optionalinfo field...
-pub fn get_optionalinfo(cageid: u64, virtualfd: i32) -> Result<u64, threei::RetVal> {
-    let fdtable = GLOBALFDTABLE.lock().unwrap();
-    if !fdtable.contains_key(&cageid) {
+// #[doc = include_str!("../docs/get_optionalinfo.md")]
+pub fn get_optionalinfo(cageid: u64, virtualfd: i32) -> Result<i32, threei::RetVal> {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
-    return match fdtable.get(&cageid).unwrap().get(&virtualfd) {
+    return match FDTABLE.get(&cageid).unwrap()[virtualfd as usize] {
         Some(tableentry) => Ok(tableentry.optionalinfo),
         None => Err(threei::Errno::EBADFD as u64),
     };
 }
 
 // We're setting an opaque value here. This should be pretty straightforward.
+// #[doc = include_str!("../docs/set_optionalinfo.md")]
 pub fn set_optionalinfo(
     cageid: u64,
     virtualfd: i32,
-    optionalinfo: u64,
+    optionalinfo: i32,
 ) -> Result<(), threei::RetVal> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
-    if !fdtable.contains_key(&cageid) {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
-    // Set the is_cloexec flag or return EBADFD, if that's missing...
-    return match fdtable.get_mut(&cageid).unwrap().get_mut(&virtualfd) {
-        Some(tableentry) => {
-            tableentry.optionalinfo = optionalinfo;
-            Ok(())
-        }
-        None => Err(threei::Errno::EBADFD as u64),
-    };
+    // return EBADFD, if the fd is missing...
+    if FDTABLE.get(&cageid).unwrap()[virtualfd as usize].is_none() {
+        return Err(threei::Errno::EBADFD as u64);
+    }
+
+    // Set optionalinfo or return EBADFD, if that's missing...
+    FDTABLE.get_mut(&cageid).unwrap()[virtualfd as usize].as_mut().unwrap().optionalinfo = optionalinfo;
+    Ok(())
 }
 
 // Helper function used for fork...  Copies an fdtable for another process
+// #[doc = include_str!("../docs/copy_fdtable_for_cage.md")]
 pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), threei::Errno> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
 
-    if !fdtable.contains_key(&srccageid) {
+    if !FDTABLE.contains_key(&srccageid) {
         panic!("Unknown srccageid in fdtable access");
     }
-    if fdtable.contains_key(&newcageid) {
+    if FDTABLE.contains_key(&newcageid) {
         panic!("Known newcageid in fdtable access");
     }
 
     // Insert a copy and ensure it didn't exist...
-    let hmcopy = fdtable.get(&srccageid).unwrap().clone();
-    assert!(fdtable.insert(newcageid, hmcopy).is_none());
+    // BUG: Is this a copy!?!  Am I passing a ref to the same thing!?!?!?
+    let hmcopy = *FDTABLE.get(&srccageid).unwrap();
+
+    // Increment copied items
+    for entry in FDTABLE.get(&srccageid).unwrap().iter() {
+        if entry.is_some() {
+            let thisrealfd = entry.unwrap().realfd;
+            if thisrealfd != NO_REAL_FD {
+                _increment_realfd(thisrealfd);
+            }
+        }
+    }
+
+    assert!(FDTABLE.insert(newcageid, hmcopy).is_none());
     Ok(())
     // I'm not going to bother to check the number of fds used overall yet...
     //    Err(threei::Errno::EMFILE as u64),
 }
 
-/* 
-*   Helper function for exec
-*/
-pub fn add_cage_to_fdtable(cageid: u64, cage_fdtable: HashMap<i32, FDTableEntry>) -> Result<(), threei::Errno> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
-    if fdtable.contains_key(&cageid) {
-        panic!("Cageid already in fdtable");
-    }
-
-    fdtable.insert(cageid, cage_fdtable);
-
-    Ok(())
-
-}
 // This is mostly used in handling exit, etc.  Returns the HashMap
 // for the cage.
-pub fn remove_cage_from_fdtable(cageid: u64) -> HashMap<i32, FDTableEntry> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
+// #[doc = include_str!("../docs/remove_cage_from_fdtable.md")]
+pub fn remove_cage_from_fdtable(cageid: u64) {
 
-    if !fdtable.contains_key(&cageid) {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
-    fdtable.remove(&cageid).unwrap()
+
+    let myfdarray = FDTABLE.get(&cageid).unwrap();
+    for item in 0..FD_PER_PROCESS_MAX as usize {
+        if myfdarray[item].is_some() {
+            let therealfd = myfdarray[item].unwrap().realfd;
+            if therealfd != NO_REAL_FD {
+                _decrement_realfd(therealfd);
+            }
+            else{
+                // Let their code know this has been closed...
+                let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
+                (closehandlers.unreal_handler)(myfdarray[item].unwrap().optionalinfo);
+            }
+        }
+    }
+    // I need to do this or else I'll try to double claim the lock and
+    // deadlock...
+    drop(myfdarray);
+
+    FDTABLE.remove(&cageid);
+
 }
 
 // This removes all fds with the should_cloexec flag set.  They are returned
 // in a new hashmap...
-pub fn empty_fds_for_exec(cageid: u64) -> HashMap<i32, FDTableEntry> {
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
+// #[doc = include_str!("../docs/empty_fds_for_exec.md")]
+pub fn empty_fds_for_exec(cageid: u64) {
 
-    if !fdtable.contains_key(&cageid) {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
-    // Create this hashmap through an lambda that checks should_cloexec...
-    // See: https://doc.rust-lang.org/std/collections/struct.HashMap.html#method.extract_if
+    let mut myfdarray = FDTABLE.get_mut(&cageid).unwrap();
+    for item in 0..FD_PER_PROCESS_MAX as usize {
+        if myfdarray[item].is_some() && myfdarray[item].unwrap().should_cloexec {
+            let therealfd = myfdarray[item].unwrap().realfd;
+            if therealfd != NO_REAL_FD {
+                _decrement_realfd(therealfd);
+            }
+            else{
+                // Let their code know this has been closed...
+                let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
+                (closehandlers.unreal_handler)(myfdarray[item].unwrap().optionalinfo);
+            }
+            myfdarray[item] = None;
+        }
+    }
 
-    fdtable
-        .get_mut(&cageid)
-        .unwrap()
-        .extract_if(|_k, v| v.should_cloexec)
-        .collect()
 }
 
-// returns a copy of the fdtable for a cage.  Useful helper function for a
-// caller that needs to examine the table.  Likely could be more efficient by
-// letting the caller borrow this...
-pub fn return_fdtable_copy(cageid: u64) -> HashMap<i32, FDTableEntry> {
-    let fdtable = GLOBALFDTABLE.lock().unwrap();
 
-    if !fdtable.contains_key(&cageid) {
+// Helper for close.  Returns a tuple of realfd, number of references
+// remaining.
+// #[doc = include_str!("../docs/close_virtualfd.md")]
+pub fn close_virtualfd(cageid:u64, virtfd:i32) -> Result<(),threei::RetVal> {
+    if !FDTABLE.contains_key(&cageid) {
         panic!("Unknown cageid in fdtable access");
     }
 
-    fdtable.get(&cageid).unwrap().clone()
+    let mut myfdarray = FDTABLE.get_mut(&cageid).unwrap();
+
+
+    if myfdarray[virtfd as usize].is_some() {
+        let therealfd = myfdarray[virtfd as usize].unwrap().realfd;
+
+        if therealfd == NO_REAL_FD {
+            // Let their code know this has been closed...
+            let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
+            (closehandlers.unreal_handler)(myfdarray[virtfd as usize].unwrap().optionalinfo);
+            // Zero out this entry...
+            myfdarray[virtfd as usize] = None;
+            return Ok(());
+        }
+        _decrement_realfd(therealfd);
+        // Zero out this entry...
+        myfdarray[virtfd as usize] = None;
+        return Ok(());
+    }
+    Err(threei::Errno::EBADFD as u64)
+}
+
+
+// Returns the HashMap returns a copy of the fdtable for a cage.  Useful 
+// helper function for a caller that needs to examine the table.  Likely could
+// be more efficient by letting the caller borrow this...
+// #[doc = include_str!("../docs/return_fdtable_copy.md")]
+pub fn return_fdtable_copy(cageid: u64) -> HashMap<i32, FDTableEntry> {
+
+    if !FDTABLE.contains_key(&cageid) {
+        panic!("Unknown cageid in fdtable access");
+    }
+
+    let mut myhashmap = HashMap::new();
+
+    let myfdarray = FDTABLE.get(&cageid).unwrap();
+    for item in 0..FD_PER_PROCESS_MAX as usize {
+        if myfdarray[item].is_some() {
+            myhashmap.insert(item as i32,myfdarray[item].unwrap());
+        }
+    }
+    myhashmap
+}
+
+// Register a series of helpers to be called for close.  Can be called
+// multiple times to override the older helpers.
+// #[doc = include_str!("../docs/register_close_handlers.md")]
+pub fn register_close_handlers(intermediate_handler: fn(i32), final_handler: fn(i32), unreal_handler: fn(i32)) {
+    // Unlock the table and set the handlers...
+    let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
+    closehandlers.intermediate_handler = intermediate_handler;
+    closehandlers.final_handler = final_handler;
+    closehandlers.unreal_handler = unreal_handler;
+}
+
+
+
+// #[doc(hidden)]
+// Helper to initialize / empty out state so we can test with a clean system...
+// This is only used in tests, thus is hidden...
+// pub fn refresh() {
+//     FDTABLE.clear();
+//     FDTABLE.insert(threei::TESTING_CAGEID,[Option::None;FD_PER_PROCESS_MAX as usize]);
+//     let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap_or_else(|e| {
+//         CLOSEHANDLERTABLE.clear_poison();
+//         e.into_inner()
+//     });
+//     closehandlers.intermediate_handler = NULL_FUNC;
+//     closehandlers.final_handler = NULL_FUNC;
+//     closehandlers.unreal_handler = NULL_FUNC;
+//     // Note, it doesn't seem that Dashmaps can be poisoned...
+// }
+
+// Helpers to track the count of times each realfd is used
+// #[doc(hidden)]
+fn _decrement_realfd(realfd: i32) -> u64 {
+    if realfd == NO_REAL_FD {
+        panic!("Called _decrement_realfd with NO_REAL_FD");
+    }
+
+    let newcount:u64 = REALFDCOUNT.get(&realfd).unwrap().value() - 1;
+    let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
+    if newcount > 0 {
+        (closehandlers.intermediate_handler)(realfd);
+        REALFDCOUNT.insert(realfd,newcount);
+    }
+    else{
+        (closehandlers.final_handler)(realfd);
+    }
+    newcount
+}
+
+// Helpers to track the count of times each realfd is used
+// #[doc(hidden)]
+fn _increment_realfd(realfd: i32) -> u64 {
+    if realfd == NO_REAL_FD {
+        return 0
+    }
+
+    // Get a mutable reference to the entry so we can update it.
+    return match REALFDCOUNT.get_mut(&realfd) {
+        Some(mut count) => {
+            *count += 1;
+            *count
+        }
+        None => {
+            REALFDCOUNT.insert(realfd, 1);
+            1
+        }
+    }
 }

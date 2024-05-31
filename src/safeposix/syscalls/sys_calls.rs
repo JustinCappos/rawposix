@@ -203,9 +203,9 @@ impl Cage {
         self.unmap_shm_mappings();
 
         // Delete the original one
-        let newfdtable = remove_cage_from_fdtable(self.cageid);
+        let _newfdtable = remove_cage_from_fdtable(self.cageid);
         // Add the new one to fdtable
-        let _ = add_cage_to_fdtable(self.cageid, newfdtable);
+        let _ = copy_fdtable_for_cage(self.cageid, child_cageid);
 
         // we grab the parent cages main threads sigset and store it at 0
         // this way the child can initialize the sigset properly when it establishes its own mainthreadid
@@ -257,6 +257,14 @@ impl Cage {
         //flush anything left in stdout
         interface::flush_stdout();
         self.unmap_shm_mappings();
+
+        let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap_or_else(|e| {
+            CLOSEHANDLERTABLE.clear_poison();
+            e.into_inner()
+        });
+        closehandlers.intermediate_handler = NULL_FUNC;
+        closehandlers.final_handler = Self::kernel_close;
+        closehandlers.unreal_handler = NULL_FUNC;
 
         let _ = remove_cage_from_fdtable(self.cageid);
         //may not be removable in case of lindrustfinalize, we don't unwrap the remove result

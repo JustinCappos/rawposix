@@ -17,6 +17,7 @@ use std::io::stdout;
 use std::os::unix::io::RawFd;
 use std::io::{self, Write};
 use std::ffi::CString;
+use std::u64;
 
 use crate::example_grates::fdtable::*;
 
@@ -294,11 +295,30 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        // Remove file descriptor from virtual fdtable
-        let _ = rm_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe {
-            libc::close(kernel_fd)
+        let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap_or_else(|e| {
+            CLOSEHANDLERTABLE.clear_poison();
+            e.into_inner()
+        });
+        closehandlers.intermediate_handler = NULL_FUNC;
+        closehandlers.final_handler = Self::kernel_close;
+        closehandlers.unreal_handler = NULL_FUNC;
+        match close_virtualfd(self.cageid, virtual_fd) {
+            Ok(()) => {
+                return 0;
+            }
+            Err(_) => {
+                return -1;
+            }
+        }
+        
+    }
+
+    pub fn kernel_close(kernelfd: i32) {
+        let ret = unsafe {
+            libc::close(kernelfd)
+        };
+        if ret != 0 {
+            panic!("kernel close failed! ");
         }
     }
 
