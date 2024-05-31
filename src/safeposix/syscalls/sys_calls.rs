@@ -261,14 +261,6 @@ impl Cage {
         interface::flush_stdout();
         self.unmap_shm_mappings();
 
-        // let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap_or_else(|e| {
-        //     CLOSEHANDLERTABLE.clear_poison();
-        //     e.into_inner()
-        // });
-        // closehandlers.intermediate_handler = NULL_FUNC;
-        // closehandlers.final_handler = Self::kernel_close;
-        // closehandlers.unreal_handler = NULL_FUNC;
-
         println!("exit - before fd rm");
         io::stdout().flush().unwrap();
 

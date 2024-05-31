@@ -295,13 +295,6 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
-        // let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap_or_else(|e| {
-        //     CLOSEHANDLERTABLE.clear_poison();
-        //     e.into_inner()
-        // });
-        // closehandlers.intermediate_handler = NULL_FUNC;
-        // closehandlers.final_handler = Self::kernel_close;
-        // closehandlers.unreal_handler = NULL_FUNC;
         match close_virtualfd(self.cageid, virtual_fd) {
             Ok(()) => {
                 return 0;
