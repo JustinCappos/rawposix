@@ -157,6 +157,9 @@ pub mod fs_tests {
         assert_eq!(cage.read_syscall(fd, read_buf2.as_mut_ptr(), 12), 12);
         assert_eq!(cbuf2str(&read_buf2), "hello world!");
 
+        println!("read finished");
+        io::stdout().flush().unwrap();
+
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 
         println!("exit finished");
