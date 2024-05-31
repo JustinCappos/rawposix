@@ -279,7 +279,7 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
     for entry in FDTABLE.get(&srccageid).unwrap().iter() {
         if entry.is_some() {
             let thisrealfd = entry.unwrap().realfd;
-            if thisrealfd != NO_REAL_FD {
+            if thisrealfd as u64 != NO_REAL_FD {
                 _increment_realfd(thisrealfd);
             }
         }
@@ -305,7 +305,7 @@ pub fn remove_cage_from_fdtable(cageid: u64) {
     for item in 0..FD_PER_PROCESS_MAX as usize {
         if myfdarray[item].is_some() {
             let therealfd = myfdarray[item].unwrap().realfd;
-            if therealfd != NO_REAL_FD {
+            if therealfd as u64 != NO_REAL_FD {
                 _decrement_realfd(therealfd);
             }
             else{
@@ -336,7 +336,7 @@ pub fn empty_fds_for_exec(cageid: u64) {
     for item in 0..FD_PER_PROCESS_MAX as usize {
         if myfdarray[item].is_some() && myfdarray[item].unwrap().should_cloexec {
             let therealfd = myfdarray[item].unwrap().realfd;
-            if therealfd != NO_REAL_FD {
+            if therealfd as u64 != NO_REAL_FD {
                 _decrement_realfd(therealfd);
             }
             else{
@@ -365,7 +365,7 @@ pub fn close_virtualfd(cageid:u64, virtfd:i32) -> Result<(),threei::RetVal> {
     if myfdarray[virtfd as usize].is_some() {
         let therealfd = myfdarray[virtfd as usize].unwrap().realfd;
 
-        if therealfd == NO_REAL_FD {
+        if therealfd as u64 == NO_REAL_FD {
             // Let their code know this has been closed...
             let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
             (closehandlers.unreal_handler)(myfdarray[virtfd as usize].unwrap().optionalinfo);
@@ -435,7 +435,7 @@ pub fn register_close_handlers(intermediate_handler: fn(i32), final_handler: fn(
 // Helpers to track the count of times each realfd is used
 // #[doc(hidden)]
 fn _decrement_realfd(realfd: i32) -> u64 {
-    if realfd == NO_REAL_FD {
+    if realfd as u64 == NO_REAL_FD {
         panic!("Called _decrement_realfd with NO_REAL_FD");
     }
 
@@ -454,7 +454,7 @@ fn _decrement_realfd(realfd: i32) -> u64 {
 // Helpers to track the count of times each realfd is used
 // #[doc(hidden)]
 fn _increment_realfd(realfd: i32) -> u64 {
-    if realfd == NO_REAL_FD {
+    if realfd as u64 == NO_REAL_FD {
         return 0
     }
 
