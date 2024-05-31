@@ -448,6 +448,9 @@ fn _decrement_realfd(realfd: i32) -> u64 {
     io::stdout().flush().unwrap();
 
     let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
+
+    println!("fd - CLOSEHANDLERTABLE: {:?}", CLOSEHANDLERTABLE);
+    io::stdout().flush().unwrap();
     if newcount > 0 {
         (closehandlers.intermediate_handler)(realfd);
         REALFDCOUNT.insert(realfd,newcount);
