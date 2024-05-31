@@ -90,7 +90,7 @@ pub mod net_tests {
         let cage = interface::cagetable_getref(1);
 
         let server_fd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        assert!(server_fd > 0);
+        assert!(server_fd >= 0);
         let mut server_addr: libc::sockaddr_in = unsafe {
             std::mem::zeroed()
         };
