@@ -13,6 +13,9 @@ use std::collections::HashMap;
 
 use std::sync::Mutex;
 
+use std::io::Write;
+use std::io;
+
 // This uses a Dashmap (for cages) with an array of FDTableEntry items.
 
 // Get constants about the fd table sizes, etc.
@@ -440,6 +443,10 @@ fn _decrement_realfd(realfd: i32) -> u64 {
     }
 
     let newcount:u64 = REALFDCOUNT.get(&realfd).unwrap().value() - 1;
+
+    println!("fd - newcount: {:?}", newcount);
+    io::stdout().flush().unwrap();
+
     let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
     if newcount > 0 {
         (closehandlers.intermediate_handler)(realfd);
