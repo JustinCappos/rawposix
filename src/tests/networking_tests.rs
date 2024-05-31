@@ -68,10 +68,10 @@ pub mod net_tests {
         let sockfd4 = cage.socket_syscall(libc::AF_INET, libc::SOCK_DGRAM, libc::IPPROTO_UDP);
 
         //checking that the fd's are correct
-        assert!(sockfd > 0);
-        assert!(sockfd2 > 0);
-        assert!(sockfd3 > 0);
-        assert!(sockfd4 > 0);
+        assert!(sockfd >= 0);
+        assert!(sockfd2 >= 0);
+        assert!(sockfd3 >= 0);
+        assert!(sockfd4 >= 0);
 
         //let's check an illegal operation...
         let sockfddomain = cage.socket_syscall(libc::AF_UNIX, libc::SOCK_DGRAM, 0);
