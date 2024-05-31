@@ -125,6 +125,9 @@ pub mod fs_tests {
     // }
 
     pub fn rdwrtest() {
+        println!("RDWTEST begin");
+        io::stdout().flush().unwrap();
+
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
@@ -133,8 +136,14 @@ pub mod fs_tests {
             O_CREAT | O_TRUNC | O_RDWR, 
             (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
         assert!(fd >= 0);
+        
+        println!("open finished");
+        io::stdout().flush().unwrap();
 
         assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
+
+        println!("write finished");
+        io::stdout().flush().unwrap();
 
         assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
         let mut read_buf1 = sizecbuf(5);
