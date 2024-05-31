@@ -53,7 +53,7 @@ pub struct FDTableEntry {
 lazy_static! {
 
   #[derive(Debug)]
-  static ref FDTABLE: DashMap<u64, [Option<FDTableEntry>;FD_PER_PROCESS_MAX as usize]> = {
+  pub static ref FDTABLE: DashMap<u64, [Option<FDTableEntry>;FD_PER_PROCESS_MAX as usize]> = {
     let m = DashMap::new();
     // Insert a cage so that I have something to fork / test later, if need
     // be. Otherwise, I'm not sure how I get this started. I think this

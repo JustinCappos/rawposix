@@ -1121,8 +1121,8 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     };
 
     interface::cagetable_insert(0, utilcage);
-    let mut fdtable = GLOBALFDTABLE.lock().unwrap();
-    fdtable.insert(0, HashMap::new());
+    // let mut fdtable = FDTABLE;
+    FDTABLE.insert(0, [Option::None;FD_PER_PROCESS_MAX as usize]);
 
     //init cage is its own parent
     let initcage = Cage {
@@ -1147,7 +1147,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
         interval_timer: interface::IntervalTimer::new(1),
     };
     interface::cagetable_insert(1, initcage);
-    fdtable.insert(1, HashMap::new());
+    FDTABLE.insert(1, [Option::None;FD_PER_PROCESS_MAX as usize]);
     // make sure /tmp is clean
     // cleartmp(true);
 }
