@@ -159,6 +159,9 @@ pub mod fs_tests {
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 
+        println!("exit finished");
+        io::stdout().flush().unwrap();
+
         lindrustfinalize();
     }
 
