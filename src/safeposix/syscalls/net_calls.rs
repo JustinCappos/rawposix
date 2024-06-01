@@ -8,6 +8,13 @@ use crate::interface;
 
 use crate::example_grates::fdtable::*;
 
+use std::io::Write;
+use std::io;
+use std::ptr;
+use libc::*;
+use std::ffi::CString;
+use std::ffi::CStr;
+
 use libc::*;
 use std::{os::fd::RawFd, ptr};
 use bit_set::BitSet;
@@ -316,8 +323,23 @@ impl Cage {
      */
     pub fn epoll_create_syscall(&self, size: i32) -> i32 {
         let kernel_fd = unsafe { libc::epoll_create(size) };
-        println!("[epoll] kernel_fd: {:?}", kernel_fd);
-        io::stdout().flush().unwrap();
+        
+        if kernel_fd < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            println!("[EPOLL] kernelfd: {:?}", kernel_fd);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
         return get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap() as i32;
     }
 
