@@ -385,16 +385,21 @@ impl Cage {
         protocol: i32,
         virtual_socket_vector: &mut interface::SockPair,
     ) -> i32 {
-        // Change from pointer to reference
-        // let virtual_socket_vector = unsafe { &mut *virtual_socket_vector };
-        
-        // let (vsv_1, vsv_2) = (virtual_socket_vector[0], virtual_socket_vector[1]);
-        let ksv_1 = translate_virtual_fd(self.cageid, virtual_socket_vector.sock1).unwrap();
-        let ksv_2 = translate_virtual_fd(self.cageid, virtual_socket_vector.sock2).unwrap();
+        /* TODO: change to translate from kernel - virtual after calling sockpair */
 
-        let mut kernel_socket_vector: [i32; 2] = [ksv_1, ksv_2];
+        let mut kernel_socket_vector: [i32; 2] = [0, 0];
 
-        unsafe { libc::socketpair(domain, type_, protocol, kernel_socket_vector.as_mut_ptr()) }
+        let ret = unsafe { libc::socketpair(domain, type_, protocol, kernel_socket_vector.as_mut_ptr()) };
+        if ret == 0 {
+            let ksv_1 = kernel_socket_vector[0];
+            let ksv_2 = kernel_socket_vector[1];
+            let vsv_1 = get_unused_virtual_fd(self.cageid, ksv_1, false, 0).unwrap();
+            let vsv_2 = get_unused_virtual_fd(self.cageid, ksv_2, false, 0).unwrap();
+            virtual_socket_vector.sock1 = vsv_1;
+            virtual_socket_vector.sock2 = vsv_2;
+            return 0;
+        }
+        return -1;
     }
 
     // pub fn getifaddrs_syscall(&self, buf: *mut u8, count: usize) -> i32 {
