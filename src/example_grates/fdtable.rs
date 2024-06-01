@@ -385,6 +385,10 @@ pub fn close_virtualfd(cageid:u64, virtfd:i32) -> Result<(),threei::RetVal> {
             myfdarray[virtfd as usize] = None;
             return Ok(());
         }
+        if therealfd == -1 {
+            println!("When realfd == -1, virtualfd: {:?}", virtfd);
+            io::stdout().flush().unwrap();
+        }
         _decrement_realfd(therealfd);
         // Zero out this entry...
         myfdarray[virtfd as usize] = None;
