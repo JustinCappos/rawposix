@@ -381,16 +381,12 @@ pub fn close_virtualfd(cageid:u64, virtfd:i32) -> Result<(),threei::RetVal> {
             let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
             (closehandlers.unreal_handler)(myfdarray[virtfd as usize].unwrap().optionalinfo);
             // Zero out this entry...
-            println!("virtualfd closed - {:?}", virtfd);
-            io::stdout().flush().unwrap();
 
             myfdarray[virtfd as usize] = None;
             return Ok(());
         }
         _decrement_realfd(therealfd);
         // Zero out this entry...
-        println!("virtualfd closed - {:?}", virtfd);
-        io::stdout().flush().unwrap();
         myfdarray[virtfd as usize] = None;
         return Ok(());
     }
@@ -483,8 +479,6 @@ fn _decrement_realfd(realfd: i32) -> u64 {
     }
     else{
         (closehandlers.final_handler)(realfd);
-        println!("realfd closed - {:?}", realfd);
-        io::stdout().flush().unwrap();
     }
     newcount
 }

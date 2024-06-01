@@ -301,7 +301,7 @@ pub mod net_tests {
             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         });
 
-        println!("before parent close");
+        println!("parent - before close");
         io::stdout().flush().unwrap();
 
         assert_eq!(cage.close_syscall(pipefds.writefd), 0);
@@ -337,8 +337,14 @@ pub mod net_tests {
         let mut buffer = [0; 128];
         assert_ne!(cage.read_syscall(pipefds.readfd, buffer.as_mut_ptr(), buffer.len()), -1);
 
+        println!("parent - after read");
+        io::stdout().flush().unwrap();
+
         assert_ne!(cage.close_syscall(pipefds.readfd), -1);
         // assert_ne!(cage.close_syscall(epoll_fd), -1);
+        println!("parent - after close");
+        io::stdout().flush().unwrap();
+
         sender.join().unwrap();
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
