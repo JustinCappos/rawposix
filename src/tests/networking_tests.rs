@@ -236,6 +236,9 @@ pub mod net_tests {
         let epoll_fd = cage.epoll_create_syscall(0);
         assert_ne!(epoll_fd, -1);
 
+        println!("epoll_fd: {:?}", epoll_fd);
+        io::stdout().flush().unwrap();
+
         let mut pipefds = PipeArray {
             readfd: 0,
             writefd: 0,
