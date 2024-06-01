@@ -10,7 +10,6 @@ use crate::example_grates::fdtable::*;
 
 use std::io::Write;
 use std::io;
-use std::ptr;
 use libc::*;
 use std::ffi::CString;
 use std::ffi::CStr;
