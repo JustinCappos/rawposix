@@ -270,7 +270,10 @@ pub mod net_tests {
             }
 
             let message = b"Hello from child";
-            
+
+            println!("child - before write");
+            io::stdout().flush().unwrap();
+
             if cage2.write_syscall(pipefds.writefd, message.as_ptr(), message.len()) < 0 {
                 let err = unsafe {
                     libc::__errno_location()
@@ -287,7 +290,14 @@ pub mod net_tests {
                 io::stdout().flush().unwrap();
                 panic!();
             }
+            println!("child - after write");
+            io::stdout().flush().unwrap();
+
             assert_eq!(cage2.close_syscall(pipefds.writefd), 0);
+
+            println!("child - after close");
+            io::stdout().flush().unwrap();
+
             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         });
 

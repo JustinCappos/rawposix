@@ -16,6 +16,7 @@ use libc::*;
 use std::io::stdout;
 use std::os::unix::io::RawFd;
 use std::io::{self, Write};
+use std::ffi::CStr;
 use std::ffi::CString;
 use std::u64;
 
@@ -1394,6 +1395,18 @@ pub fn kernel_close(kernelfd: i32) {
         libc::close(kernelfd)
     };
     if ret != 0 {
+        let err = unsafe {
+            libc::__errno_location()
+        };
+        let err_str = unsafe {
+            libc::strerror(*err)
+        };
+        let err_msg = unsafe {
+            CStr::from_ptr(err_str).to_string_lossy().into_owned()
+        };
+        println!("errno: {:?}", err);
+        println!("Error message: {:?}", err_msg);
+        io::stdout().flush().unwrap();
         panic!("kernel close failed! ");
     }
 }
