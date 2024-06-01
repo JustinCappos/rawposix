@@ -316,6 +316,8 @@ impl Cage {
      */
     pub fn epoll_create_syscall(&self, size: i32) -> i32 {
         let kernel_fd = unsafe { libc::epoll_create(size) };
+        println!("[epoll] kernel_fd: {:?}", kernel_fd);
+        io::stdout().flush().unwrap();
         return get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap() as i32;
     }
 
