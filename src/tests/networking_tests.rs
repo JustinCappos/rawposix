@@ -233,7 +233,7 @@ pub mod net_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        let epoll_fd = cage.epoll_create_syscall(0);
+        let epoll_fd = cage.epoll_create_syscall(1);
         assert_ne!(epoll_fd, -1);
 
         println!("epoll_fd: {:?}", epoll_fd);
