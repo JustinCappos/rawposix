@@ -396,25 +396,6 @@ pub fn close_virtualfd(cageid:u64, virtfd:i32) -> Result<(),threei::RetVal> {
     Err(threei::Errno::EBADFD as u64)
 }
 
-fn printfd() {
-    FDTABLE.iter().for_each(|entry| {
-        let (cageid, fd_array) = entry.pair();
-        println!("CageID: {}", cageid);
-        for (index, fd_entry) in fd_array.iter().enumerate() {
-            match fd_entry {
-                Some(fd_entry) => {
-                    println!("  FD {}: {:?}", index, fd_entry);
-                    io::stdout().flush().unwrap();
-                }
-                None => {
-                    println!("  FD {}: None", index);
-                    io::stdout().flush().unwrap();
-                }
-            }
-        }
-    });
-}
-
 // Returns the HashMap returns a copy of the fdtable for a cage.  Useful 
 // helper function for a caller that needs to examine the table.  Likely could
 // be more efficient by letting the caller borrow this...

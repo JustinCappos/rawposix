@@ -143,7 +143,7 @@ pub mod net_tests {
                 panic!("Failed to connect to server");
             }
             let message = CString::new("Hello from client").unwrap();
-            let sendret = cage2.send_syscall(clientfd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
+            let _sendret = cage2.send_syscall(clientfd, message.as_ptr() as *const u8, message.to_bytes().len(), 0);
             
             cage2.close_syscall(clientfd);
             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
@@ -152,7 +152,7 @@ pub mod net_tests {
         let mut client_addr: libc::sockaddr_in = unsafe {
             std::mem::zeroed()
         };
-        let mut addr_len = std::mem::size_of::<libc::sockaddr_in>() as u32;
+        let addr_len = std::mem::size_of::<libc::sockaddr_in>() as u32;
         let client_fd = cage.accept_syscall(
             server_fd,
             &mut client_addr as *mut libc::sockaddr_in as *mut libc::sockaddr,
@@ -332,7 +332,7 @@ pub mod net_tests {
         }
 
 
-        let mut epoll_events = [EpollEvent{
+        let epoll_events = [EpollEvent{
             events: 0,
             fd: 0,
         }; 10];
