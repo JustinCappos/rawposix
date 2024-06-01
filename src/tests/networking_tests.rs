@@ -242,10 +242,16 @@ pub mod net_tests {
         };
         assert_eq!(cage.pipe_syscall(&mut pipefds), 0);
 
+        println!("pipe finished");
+        io::stdout().flush().unwrap();
+
         assert_eq!(cage.fork_syscall(2), 0);
         let sender = std::thread::spawn(move || {
             let cage2 = interface::cagetable_getref(2);
-            
+
+            println!("child start");
+            io::stdout().flush().unwrap();
+
             if cage2.close_syscall(pipefds.readfd) < 0 {
                 let err = unsafe {
                     libc::__errno_location()
@@ -284,6 +290,9 @@ pub mod net_tests {
             assert_eq!(cage2.close_syscall(pipefds.writefd), 0);
             assert_eq!(cage2.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         });
+
+        println!("before parent close");
+        io::stdout().flush().unwrap();
 
         assert_eq!(cage.close_syscall(pipefds.writefd), 0);
         // let mut epollevent = EpollEvent {
