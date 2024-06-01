@@ -207,10 +207,6 @@ pub fn get_specific_virtual_fd(
         .get(&cageid)
         .unwrap()[requested_virtualfd as usize].is_some()
     {
-        println!("cageid: {:?}", cageid);
-        println!("VirtalFD: {:?}", requested_virtualfd);
-        io::stdout().flush().unwrap();
-        printfd();
         Err(threei::Errno::ELIND as u64)
     } else {
         FDTABLE.get_mut(&cageid).unwrap()[requested_virtualfd as usize] = Some(myentry);
@@ -317,6 +313,10 @@ pub fn remove_cage_from_fdtable(cageid: u64) {
         if myfdarray[item].is_some() {
             let therealfd = myfdarray[item].unwrap().realfd;
             if therealfd as u64 != NO_REAL_FD {
+                if therealfd == -1 {
+                    println!("When realfd == -1, virtualfd: {:?}", item);
+                    io::stdout().flush().unwrap();
+                }
                 _decrement_realfd(therealfd);
             }
             else{
@@ -384,10 +384,6 @@ pub fn close_virtualfd(cageid:u64, virtfd:i32) -> Result<(),threei::RetVal> {
 
             myfdarray[virtfd as usize] = None;
             return Ok(());
-        }
-        if therealfd == -1 {
-            println!("When realfd == -1, virtualfd: {:?}", virtfd);
-            io::stdout().flush().unwrap();
         }
         _decrement_realfd(therealfd);
         // Zero out this entry...
