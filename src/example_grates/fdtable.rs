@@ -313,7 +313,6 @@ pub fn remove_cage_from_fdtable(cageid: u64) {
         if myfdarray[item].is_some() {
             let therealfd = myfdarray[item].unwrap().realfd;
             if therealfd as u64 != NO_REAL_FD {
-                printfd();
                 _decrement_realfd(therealfd);
             }
             else{
