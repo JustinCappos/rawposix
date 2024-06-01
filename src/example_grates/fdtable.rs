@@ -478,6 +478,8 @@ fn _decrement_realfd(realfd: i32) -> u64 {
         REALFDCOUNT.insert(realfd,newcount);
     }
     else{
+        println!("[fd-final close]: realfd - {:?}", realfd);
+        io::stdout().flush().unwrap();
         (closehandlers.final_handler)(realfd);
     }
     newcount
