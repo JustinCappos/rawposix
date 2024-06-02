@@ -309,14 +309,10 @@ pub fn get_mutcbuf_null(union_argument: Arg) -> Result<Option<*mut u8>, i32> {
 
 pub fn get_fdset<'a>(union_argument: Arg) -> Result<*mut BitSet, i32> {
     let pointer = unsafe { union_argument.dispatch_fdset };
-    if !pointer.is_null() {
-        return Ok(pointer);
-    }
-    return Err(syscall_error(
-        Errno::EFAULT,
-        "dispatcher",
-        "input data not valid",
-    ));
+    // if !pointer.is_null() {
+    //     return Ok(pointer);
+    // }
+    return Ok(pointer);
 }
 
 pub fn get_cstr<'a>(union_argument: Arg) -> Result<&'a str, i32> {
