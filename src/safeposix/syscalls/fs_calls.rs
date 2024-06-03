@@ -45,6 +45,10 @@ impl Cage {
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
+        if kernel_fd < 0 {
+            return -1;
+        }
+
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         virtual_fd
     }

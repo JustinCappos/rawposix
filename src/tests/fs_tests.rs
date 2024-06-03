@@ -17,7 +17,7 @@ pub mod fs_tests {
     use libc::*;
     use std::ffi::CStr;
     use crate::example_grates::translate_virtual_fd;
-    
+
     use crate::tests::fs_tests::fs_tests::shm::SHM_METADATA;
 
     static S_IRWXA: u32 = 0o777;
@@ -73,6 +73,23 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
         let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
+        if fd < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            println!("VirtualFD: {:?}", fd);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        
         let kernel_fd = translate_virtual_fd(1, fd).unwrap();
         if cage.fcntl_syscall(fd, F_GETFD, 0) < 0 {
             let err = unsafe {
