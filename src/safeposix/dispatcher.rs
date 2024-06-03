@@ -1102,7 +1102,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     // incref_root();
     // incref_root();
 
-    fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp").unwrap();
+    fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp/").unwrap();
     std::env::set_current_dir("/").unwrap();
 
     let utilcage = Cage {
