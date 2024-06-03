@@ -24,7 +24,7 @@ pub mod fs_tests {
     static S_LIND: u32 = 0o755;
 
     pub fn test_fs() {
-        ut_lind_fs_fcntl_shm_open();
+        ut_lind_fs_open();
         // ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
         // rdwrtest();
@@ -69,7 +69,8 @@ pub mod fs_tests {
         // ut_lind_fs_sem_test();
         // ut_lind_fs_tmp_file_test();
     }
-    pub fn ut_lind_fs_fcntl_shm_open() {
+    
+    pub fn ut_lind_fs_open() {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
         let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
