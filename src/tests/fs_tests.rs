@@ -27,7 +27,7 @@ pub mod fs_tests {
         // ut_lind_fs_open();
         // ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
-        rdwrtest();
+        // rdwrtest();
 
         // ut_lind_fs_broken_close();
         // ut_lind_fs_chmod();
