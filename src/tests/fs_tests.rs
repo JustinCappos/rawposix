@@ -70,10 +70,10 @@ pub mod fs_tests {
     pub fn ut_lind_fs_fcntl_shm_open() {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
-        let fd = cage.open_syscall("/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
+        let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
         let ret = cage.fcntl_syscall(fd, F_GETFD, 0);
         panic!("fcntl flag: {:?}", ret);
-        
+
     }
 
     pub fn ut_lind_fs_fork() {
