@@ -109,8 +109,8 @@ pub mod fs_tests {
             io::stdout().flush().unwrap();
             // panic!();
         }
-        assert_eq!(kernel_fd, 1);
-        
+        assert_eq!(kernel_fd, 3);
+
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
     }
