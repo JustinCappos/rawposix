@@ -114,6 +114,10 @@ use std::collections::HashMap;
 
 use super::cage::*;
 use crate::example_grates::fdtable::*;
+
+// Chroot
+use std::os::unix::fs;
+
 // use super::filesystem::{
 //     incref_root, load_fs, persist_metadata, remove_domain_sock, FilesystemMetadata, FS_METADATA,
 //     LOGFILENAME, LOGMAP,
@@ -1097,6 +1101,9 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     // load_fs();
     // incref_root();
     // incref_root();
+
+    fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp").unwrap();
+    std::env::set_current_dir("/").unwrap();
 
     let utilcage = Cage {
         cageid: 0,
