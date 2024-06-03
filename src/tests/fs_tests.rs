@@ -27,7 +27,7 @@ pub mod fs_tests {
         ut_lind_fs_open();
         // ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
-        // rdwrtest();
+        rdwrtest();
 
         // ut_lind_fs_broken_close();
         // ut_lind_fs_chmod();
@@ -69,7 +69,7 @@ pub mod fs_tests {
         // ut_lind_fs_sem_test();
         // ut_lind_fs_tmp_file_test();
     }
-    
+
     pub fn ut_lind_fs_open() {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
