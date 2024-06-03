@@ -72,7 +72,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
         let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
         let ret = cage.fcntl_syscall(fd, F_GETFD, 0);
-        panic!("fcntl flag: {:?}", ret);
+        panic!("fd: {:?}\nfcntl flag: {:?}", fd, ret);
 
     }
 
