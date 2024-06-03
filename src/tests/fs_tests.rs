@@ -87,9 +87,10 @@ pub mod fs_tests {
             println!("Error message: {:?}", err_msg);
             println!("VirtualFD: {:?}", fd);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
-        
+        assert_eq!(fd, 3);
+
         let kernel_fd = translate_virtual_fd(1, fd).unwrap();
         if cage.fcntl_syscall(fd, F_GETFD, 0) < 0 {
             let err = unsafe {
@@ -106,9 +107,10 @@ pub mod fs_tests {
             println!("VirtualFD: {:?}", fd);
             println!("KernelFD: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
-
+        assert_eq!(kernel_fd, 1);
+        
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
     }
