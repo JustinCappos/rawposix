@@ -1132,12 +1132,12 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     FDTABLE.insert(0, [Option::None;FD_PER_PROCESS_MAX as usize]);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
-    get_unused_virtual_fd(0, 0, false, 0);
+    get_unused_virtual_fd(0, 0, false, 0).unwrap();
     // STDOUT
-    get_unused_virtual_fd(0, 1, false, 0);
+    get_unused_virtual_fd(0, 1, false, 0).unwrap();
     // STDERR
-    get_unused_virtual_fd(0, 2, false, 0);
-    
+    get_unused_virtual_fd(0, 2, false, 0).unwrap();
+
     //init cage is its own parent
     let initcage = Cage {
         cageid: 1,
@@ -1164,11 +1164,11 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     FDTABLE.insert(1, [Option::None;FD_PER_PROCESS_MAX as usize]);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
-    get_unused_virtual_fd(1, 0, false, 0);
+    get_unused_virtual_fd(1, 0, false, 0).unwrap();
     // STDOUT
-    get_unused_virtual_fd(1, 1, false, 0);
+    get_unused_virtual_fd(1, 1, false, 0).unwrap();
     // STDERR
-    get_unused_virtual_fd(1, 2, false, 0);
+    get_unused_virtual_fd(1, 2, false, 0).unwrap();
     // make sure /tmp is clean
     // cleartmp(true);
 }
