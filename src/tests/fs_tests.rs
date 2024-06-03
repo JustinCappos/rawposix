@@ -71,9 +71,25 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
         let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
-        let ret = cage.fcntl_syscall(fd, F_GETFD, 0);
-        panic!("fd: {:?}\nfcntl flag: {:?}", fd, ret);
+        
+        if cage.fcntl_syscall(fd, F_GETFD, 0) < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
 
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
     }
 
     pub fn ut_lind_fs_fork() {
