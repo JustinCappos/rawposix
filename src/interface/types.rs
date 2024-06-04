@@ -9,25 +9,25 @@ const SIZEOF_SOCKADDR: u32 = 16;
 
 //redefining the FSData struct in this file so that we maintain flow of program
 //derive eq attributes for testing whether the structs equal other fsdata structs from stat/fstat
-// #[derive(Eq, PartialEq, Default)]
-// #[repr(C)]
-// pub struct FSData {
-//     pub f_type: u64,
-//     pub f_bsize: u64,
-//     pub f_blocks: u64,
-//     pub f_bfree: u64,
-//     pub f_bavail: u64,
-//     //total files in the file system -- should be infinite
-//     pub f_files: u64,
-//     //free files in the file system -- should be infinite
-//     pub f_ffiles: u64,
-//     pub f_fsid: u64,
-//     //not really a limit for naming, but 254 works
-//     pub f_namelen: u64,
-//     //arbitrary val for blocksize as well
-//     pub f_frsize: u64,
-//     pub f_spare: [u8; 32],
-// }
+#[derive(Eq, PartialEq, Default)]
+#[repr(C)]
+pub struct FSData {
+    pub f_type: u64,
+    pub f_bsize: u64,
+    pub f_blocks: u64,
+    pub f_bfree: u64,
+    pub f_bavail: u64,
+    //total files in the file system -- should be infinite
+    pub f_files: u64,
+    //free files in the file system -- should be infinite
+    pub f_ffiles: u64,
+    pub f_fsid: u64,
+    //not really a limit for naming, but 254 works
+    pub f_namelen: u64,
+    //arbitrary val for blocksize as well
+    pub f_frsize: u64,
+    pub f_spare: [u8; 32],
+}
 
 //redefining the StatData struct in this file so that we maintain flow of program
 //derive eq attributes for testing whether the structs equal other statdata structs from stat/fstat
@@ -178,7 +178,8 @@ pub union Arg {
     // pub dispatch_rlimitstruct: *mut Rlimit,
     // pub dispatch_statdatastruct: *mut stat,
     pub dispatch_statdatastruct: *mut StatData,
-    pub dispatch_fsdatastruct: *mut statfs,
+    // pub dispatch_fsdatastruct: *mut statfs,
+    pub dispatch_fsdatastruct: *mut FSData,
     pub dispatch_shmidstruct: *mut ShmidsStruct,
     pub dispatch_constsockaddrstruct: *const sockaddr,
     pub dispatch_sockaddrstruct: *mut sockaddr,
@@ -396,7 +397,18 @@ pub fn get_statdatastruct<'a>(union_argument: Arg) -> Result<&'a mut StatData, i
     ));
 }
 
-pub fn get_fsdatastruct<'a>(union_argument: Arg) -> Result<&'a mut statfs, i32> {
+// pub fn get_fsdatastruct<'a>(union_argument: Arg) -> Result<&'a mut statfs, i32> {
+//     let pointer = unsafe { union_argument.dispatch_fsdatastruct };
+//     if !pointer.is_null() {
+//         return Ok(unsafe { &mut *pointer });
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
+pub fn get_fsdatastruct<'a>(union_argument: Arg) -> Result<&'a mut FSData, i32> {
     let pointer = unsafe { union_argument.dispatch_fsdatastruct };
     if !pointer.is_null() {
         return Ok(unsafe { &mut *pointer });

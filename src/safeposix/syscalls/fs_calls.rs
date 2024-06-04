@@ -5,6 +5,7 @@ use super::fs_constants;
 use super::fs_constants::*;
 use super::sys_constants::*;
 use crate::interface;
+use crate::interface::FSData;
 use crate::safeposix::cage::Errno::EINVAL;
 use crate::safeposix::cage::*;
 use crate::safeposix::filesystem::convpath;
@@ -22,6 +23,7 @@ use std::io::{self, Write};
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::ptr;
+use std::mem;
 
 use crate::example_grates::fdtable::*;
 
@@ -194,9 +196,9 @@ impl Cage {
             rposix_statbuf.st_rdev = libc_statbuf.st_rdev;
             rposix_statbuf.st_size = libc_statbuf.st_size;
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
-            return 0;
+            
         }
-        return -1;
+        libcret
     }
 
     //------------------------------------FSTAT SYSCALL------------------------------------
@@ -212,44 +214,54 @@ impl Cage {
     // }
     pub fn fstat_syscall(&self, virtual_fd: i32, rposix_statbuf: &mut StatData) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-         // Declare statbuf by ourselves 
-         let mut libc_statbuf: stat = unsafe { std::mem::zeroed() };
-         let libcret = unsafe {
-            libc::fstat(kernel_fd, &mut libc_statbuf)
-         };
-         
-         if libcret == 0 {
-             rposix_statbuf.st_atim = libc_statbuf.st_atime;
-             rposix_statbuf.st_blksize = libc_statbuf.st_blksize;
-             rposix_statbuf.st_blocks = libc_statbuf.st_blocks;
-             rposix_statbuf.st_ctim = libc_statbuf.st_ctime;
-             rposix_statbuf.st_dev = libc_statbuf.st_dev;
-             rposix_statbuf.st_gid = libc_statbuf.st_gid;
-             rposix_statbuf.st_ino = libc_statbuf.st_ino;
-             rposix_statbuf.st_mode = libc_statbuf.st_mode;
-             rposix_statbuf.st_mtim = libc_statbuf.st_mtime;
-             rposix_statbuf.st_nlink = libc_statbuf.st_nlink;
-             rposix_statbuf.st_rdev = libc_statbuf.st_rdev;
-             rposix_statbuf.st_size = libc_statbuf.st_size;
-             rposix_statbuf.st_uid = libc_statbuf.st_uid;
-             return 0;
-         }
-         return -1;
+        // Declare statbuf by ourselves 
+        let mut libc_statbuf: stat = unsafe { std::mem::zeroed() };
+        let libcret = unsafe {
+        libc::fstat(kernel_fd, &mut libc_statbuf)
+        };
+        
+        if libcret == 0 {
+            rposix_statbuf.st_atim = libc_statbuf.st_atime;
+            rposix_statbuf.st_blksize = libc_statbuf.st_blksize;
+            rposix_statbuf.st_blocks = libc_statbuf.st_blocks;
+            rposix_statbuf.st_ctim = libc_statbuf.st_ctime;
+            rposix_statbuf.st_dev = libc_statbuf.st_dev;
+            rposix_statbuf.st_gid = libc_statbuf.st_gid;
+            rposix_statbuf.st_ino = libc_statbuf.st_ino;
+            rposix_statbuf.st_mode = libc_statbuf.st_mode;
+            rposix_statbuf.st_mtim = libc_statbuf.st_mtime;
+            rposix_statbuf.st_nlink = libc_statbuf.st_nlink;
+            rposix_statbuf.st_rdev = libc_statbuf.st_rdev;
+            rposix_statbuf.st_size = libc_statbuf.st_size;
+            rposix_statbuf.st_uid = libc_statbuf.st_uid;
+        }
+        libcret
     }
 
     //------------------------------------STATFS SYSCALL------------------------------------
     /*
     *   statfs() will return 0 when success and -1 when fail 
     */
-    pub fn statfs_syscall(&self, path: &str, databuf: &mut statfs) -> i32 {
-        // let c_path = CString::new(path).expect("CString::new failed");
+    pub fn statfs_syscall(&self, path: &str, rposix_databuf: &mut FSData) -> i32 {
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
-        unsafe {
-            libc::statfs(c_path.as_ptr(), databuf)
+
+        let mut libc_databuf: StatFs = unsafe { mem::zeroed() };
+        let libcret = unsafe {
+            libc::statfs(c_path.as_ptr(), &mut libc_databuf)
+        };
+        if libcret == 0 {
+            rposix_databuf.f_bavail = libc_databuf.f_bavail;
+            rposix_databuf.f_bfree = libc_databuf.f_bfree;
+            rposix_databuf.f_blocks = libc_databuf.f_blocks;
+            rposix_databuf.f_bsize = libc_databuf.f_bsize;
+            rposix_databuf.f_ffiles = libc_databuf.f_ffree;
+            rposix_databuf.f_files = libc_databuf.f_files;
+            rposix_databuf.f_fsid = libc_databuf.f_fsid;
         }
+        libcret
     }
 
     //------------------------------------FSTATFS SYSCALL------------------------------------
@@ -257,11 +269,23 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fstatfs() will return 0 when success and -1 when fail 
     */
-    pub fn fstatfs_syscall(&self, virtual_fd: i32, databuf: &mut statfs) -> i32 {
+    pub fn fstatfs_syscall(&self, virtual_fd: i32, rposix_databuf: &mut FSData) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe{
-            libc::fstatfs(kernel_fd, databuf)
+        
+        let mut libc_databuf: StatFs = unsafe { mem::zeroed() };
+        let libcret = unsafe {
+            libc::fstatfs(kernel_fd, libc_databuf)
+        };
+        if libcret == 0 {
+            rposix_databuf.f_bavail = libc_databuf.f_bavail;
+            rposix_databuf.f_bfree = libc_databuf.f_bfree;
+            rposix_databuf.f_blocks = libc_databuf.f_blocks;
+            rposix_databuf.f_bsize = libc_databuf.f_bsize;
+            rposix_databuf.f_ffiles = libc_databuf.f_ffree;
+            rposix_databuf.f_files = libc_databuf.f_files;
+            rposix_databuf.f_fsid = libc_databuf.f_fsid;
         }
+        libcret
     }
 
     //------------------------------------READ SYSCALL------------------------------------
