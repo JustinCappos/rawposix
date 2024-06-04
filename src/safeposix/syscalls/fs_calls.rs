@@ -50,11 +50,7 @@ impl Cage {
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
-        let c_path = CString::new(full_path.clone()).unwrap();
-        println!("LIND_ROOT: {:?}", LIND_ROOT);
-        println!("full_path: {:?}", full_path);
-        println!("c_path: {:?}", c_path);
-        io::stdout().flush().unwrap();
+        let c_path = CString::new(full_path).unwrap();
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
