@@ -52,6 +52,7 @@ impl Cage {
         let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
 
         println!("Open PATH: {:?}", c_path);
+        println!("LIND_ROOT: {:?}", LIND_ROOT);
         io::stdout().flush().unwrap();
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
