@@ -47,24 +47,14 @@ impl Cage {
 
         // Convert data type from &str into *const i8
         // let c_path = CString::new(path).unwrap();
-        let relative_path = normpath(convpath(path), self);
-        let mut path = interface::RustPathBuf::new();
-        path.push(LIND_ROOT);
-        println!("path: {:?}", path);
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path.clone()).unwrap();
+        println!("LIND_ROOT: {:?}", LIND_ROOT);
+        println!("full_path: {:?}", full_path);
+        println!("c_path: {:?}", c_path);
         io::stdout().flush().unwrap();
-        path.push(&relative_path);
-        println!("path: {:?}", path);
-        io::stdout().flush().unwrap();
-
-        let c_path = CString::new(path.to_str().unwrap()).unwrap();
-
-        // let full_path = interface::RustPath::new(LIND_ROOT).join(relative_path);
-        // let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
-
-        // println!("LIND_ROOT: {:?}", LIND_ROOT);
-        // println!("full_path: {:?}", full_path);
-        // println!("c_path: {:?}", c_path);
-        // io::stdout().flush().unwrap();
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
