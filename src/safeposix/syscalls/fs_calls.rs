@@ -24,7 +24,7 @@ use std::ptr;
 
 use crate::example_grates::fdtable::*;
 
-static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp/";
+static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
 
 /* 
 *   We will receive parameters with type u64 by default, then we will do type conversion inside
@@ -52,7 +52,7 @@ impl Cage {
         path.push(LIND_ROOT);
         println!("path: {:?}", path);
         io::stdout().flush().unwrap();
-        path.push(relative_path);
+        path.push(&relative_path);
         println!("path: {:?}", path);
         io::stdout().flush().unwrap();
 
