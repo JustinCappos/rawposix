@@ -236,7 +236,7 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/foobar2", O_CREAT | O_TRUNC | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+        let fd = cage.open_syscall("/foobar2", O_CREAT | O_TRUNC | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
         assert!(fd >= 0);
 
         assert_eq!(cage.pwrite_syscall(fd, str2cbuf("hello there!"), 12, 0), 12);
@@ -307,12 +307,12 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         //write should work
-        let mut fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
+        let mut fd = cage.open_syscall("/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
         assert_eq!(cage.write_syscall(fd, str2cbuf("Hello There!"), 12), 12);
         assert_eq!(cage.close_syscall(fd), 0);
 
         //close the file and then open it again... and then close it again
-        fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/broken_close_file", O_RDWR, S_IRWXA);
+        fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
         assert_eq!(cage.close_syscall(fd), 0);
 
         //let's try some things with connect
@@ -325,12 +325,12 @@ pub mod fs_tests {
         // assert_eq!(cage.bind_syscall(sockfd, &sockad), 0);
 
         fd = cage.open_syscall(
-            "/home/lind/lind_project/src/rawposix/tmp/broken_close_file", 
+            "/broken_close_file", 
             O_RDWR, 
             (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
         assert_eq!(cage.close_syscall(fd), 0);
 
-        fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/broken_close_file", O_RDWR, S_IRWXA);
+        fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
         assert_eq!(cage.close_syscall(fd), 0);
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
@@ -342,7 +342,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-        let filepath = "/home/lind/lind_project/src/rawposix/tmp/chmodTestFile";
+        let filepath = "/chmodTestFile";
 
         let mut statdata: stat = unsafe { std::mem::zeroed() };
 
@@ -369,7 +369,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-        let filepath = "/home/lind/lind_project/src/rawposix/tmp/fchmodTestFile";
+        let filepath = "/fchmodTestFile";
 
         let mut statdata: stat = unsafe { std::mem::zeroed() };
 
@@ -396,18 +396,18 @@ pub mod fs_tests {
 
         //testing the ability to make and change to directories
 
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", S_LIND), 0);
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2", S_LIND), 0);
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2/subdir3", S_LIND), 0);
+        assert_eq!(cage.mkdir_syscall("/subdir1", S_LIND), 0);
+        assert_eq!(cage.mkdir_syscall("/subdir1/subdir2", S_LIND), 0);
+        assert_eq!(cage.mkdir_syscall("/subdir1/subdir2/subdir3", S_LIND), 0);
 
-        assert_eq!(cage.access_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", F_OK), 0);
-        assert_eq!(cage.chdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1"), 0);
+        assert_eq!(cage.access_syscall("/subdir1", F_OK), 0);
+        assert_eq!(cage.chdir_syscall("/subdir1"), 0);
 
-        assert_eq!(cage.access_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2", F_OK), 0);
+        assert_eq!(cage.access_syscall("/subdir1/subdir2", F_OK), 0);
         assert_eq!(cage.chdir_syscall(".."), 0);
 
-        assert_eq!(cage.access_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1", F_OK), 0);
-        assert_eq!(cage.chdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdir1/subdir2/subdir3"), 0);
+        assert_eq!(cage.access_syscall("/subdir1", F_OK), 0);
+        assert_eq!(cage.chdir_syscall("/subdir1/subdir2/subdir3"), 0);
         assert_eq!(cage.access_syscall("../../../subdir1", F_OK), 0);
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
@@ -418,8 +418,8 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        let filepath1 = "/home/lind/lind_project/src/rawposix/tmp/subdirDirMode1";
-        let filepath2 = "/home/lind/lind_project/src/rawposix/tmp/subdirDirMode2";
+        let filepath1 = "/subdirDirMode1";
+        let filepath2 = "/subdirDirMode2";
 
         let mut statdata: stat = unsafe { std::mem::zeroed() };
 
@@ -439,13 +439,13 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        assert_eq!(cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdirMultiple1", S_LIND), 0);
+        assert_eq!(cage.mkdir_syscall("/subdirMultiple1", S_LIND), 0);
         assert_eq!(
-            cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdirMultiple1/subdirMultiple2", S_LIND),
+            cage.mkdir_syscall("/subdirMultiple1/subdirMultiple2", S_LIND),
             0
         );
         assert_eq!(
-            cage.mkdir_syscall("/home/lind/lind_project/src/rawposix/tmp/subdirMultiple1/subdirMultiple2/subdirMultiple3", 0),
+            cage.mkdir_syscall("/subdirMultiple1/subdirMultiple2/subdirMultiple3", 0),
             0
         );
 
@@ -453,14 +453,14 @@ pub mod fs_tests {
 
         //ensure that the file is a dir with all of the correct bits on for nodes
         assert_eq!(
-            cage.stat_syscall("/home/lind/lind_project/src/rawposix/tmp/subdirMultiple1/subdirMultiple2", &mut statdata),
+            cage.stat_syscall("/subdirMultiple1/subdirMultiple2", &mut statdata),
             0
         );
         assert_eq!(statdata.st_mode, S_LIND | S_IFDIR as u32);
 
         assert_eq!(
             cage.stat_syscall(
-                "/home/lind/lind_project/src/rawposix/tmp/subdirMultiple1/subdirMultiple2/subdirMultiple3",
+                "/subdirMultiple1/subdirMultiple2/subdirMultiple3",
                 &mut statdata
             ),
             0
@@ -476,7 +476,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-        let filepath = "/home/lind/lind_project/src/rawposix/tmp/dupfile";
+        let filepath = "/dupfile";
 
         let fd = cage.open_syscall(filepath, flags, S_IRWXA);
         let mut temp_buffer = sizecbuf(2);
@@ -533,7 +533,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-        let filepath = "/home/lind/lind_project/src/rawposix/tmp/dup2file";
+        let filepath = "/dup2file";
 
         let fd = cage.open_syscall(filepath, flags, S_IRWXA);
 
@@ -581,7 +581,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_CREAT | O_EXCL, S_IRWXA);
+        let filefd = cage.open_syscall("/fcntl_file", O_CREAT | O_EXCL, S_IRWXA);
 
         //set the setfd flag
         assert_eq!(cage.fcntl_syscall(sockfd, F_SETFD, libc::FD_CLOEXEC), 0);
@@ -621,7 +621,7 @@ pub mod fs_tests {
         let union1_ptr: *mut winsize = &mut union1;
 
         let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        let filefd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/ioctl_file", O_CREAT | O_EXCL, S_LIND);
+        let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, S_LIND);
 
         //try to use FIONBIO for a non-socket
         // assert_eq!(
