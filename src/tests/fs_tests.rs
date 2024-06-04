@@ -33,10 +33,10 @@ pub mod fs_tests {
         // ut_lind_fs_chmod();
         // ut_lind_fs_fchmod();
         // ut_lind_fs_dir_chdir();
-        ut_lind_fs_dir_mode();
-        ut_lind_fs_dir_multiple();
-        // ut_lind_fs_dup();
-        // ut_lind_fs_dup2();
+        // ut_lind_fs_dir_mode();
+        // ut_lind_fs_dir_multiple();
+        ut_lind_fs_dup();
+        ut_lind_fs_dup2();
         // ut_lind_fs_fcntl();
 
         // ut_lind_fs_ioctl();
