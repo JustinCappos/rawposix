@@ -24,7 +24,7 @@ use std::ptr;
 
 use crate::example_grates::fdtable::*;
 
-static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
+static LIND_ROOT: &str = "/home/lind/lind_project/src/rawposix/tmp";
 
 /* 
 *   We will receive parameters with type u64 by default, then we will do type conversion inside
