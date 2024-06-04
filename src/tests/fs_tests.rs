@@ -24,22 +24,22 @@ pub mod fs_tests {
     static S_LIND: u32 = 0o755;
 
     pub fn test_fs() {
-        // ut_lind_fs_open();
-        // ut_lind_fs_fork();
+        ut_lind_fs_open();
+        ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
         rdwrtest();
 
-        // ut_lind_fs_broken_close();
-        // ut_lind_fs_chmod();
-        // ut_lind_fs_fchmod();
-        // ut_lind_fs_dir_chdir();
-        // ut_lind_fs_dir_mode();
-        // ut_lind_fs_dir_multiple();
-        // ut_lind_fs_dup();
-        // ut_lind_fs_dup2();
-        // ut_lind_fs_fcntl();
+        ut_lind_fs_broken_close();
+        ut_lind_fs_chmod();
+        ut_lind_fs_fchmod();
+        ut_lind_fs_dir_chdir();
+        ut_lind_fs_dir_mode();
+        ut_lind_fs_dir_multiple();
+        ut_lind_fs_dup();
+        ut_lind_fs_dup2();
+        ut_lind_fs_fcntl();
 
-        // ut_lind_fs_ioctl();
+        ut_lind_fs_ioctl();
 
         // ut_lind_fs_fdflags();
         // ut_lind_fs_file_link_unlink();
@@ -126,7 +126,7 @@ pub mod fs_tests {
         let thread_child = interface::helper_thread(move || {
             interface::sleep(interface::RustDuration::from_millis(500));
             let cage1 = interface::cagetable_getref(2);
-            let fd1 = cage1.open_syscall("/home/lind/lind_project/src/rawposix/tmp/foobar", O_RDWR, S_LIND);
+            let fd1 = cage1.open_syscall("/foobar", O_RDWR, S_LIND);
             assert_eq!(cage1.lseek_syscall(fd1, 5, SEEK_SET), 5);
             assert_eq!(cage1.write_syscall(fd1, str2cbuf(" world"), 6), 6);
             assert_eq!(cage1.lseek_syscall(fd1, 0, SEEK_SET), 0);
@@ -137,7 +137,7 @@ pub mod fs_tests {
         });
         //Parent processes
         let thread_parent = interface::helper_thread(move || {
-            let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/foobar", O_CREAT | O_RDWR, S_LIND);
+            let fd = cage.open_syscall("/foobar", O_CREAT | O_RDWR, S_LIND);
             assert!(fd >= 0);
             assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
 

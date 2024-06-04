@@ -69,9 +69,10 @@ impl Cage {
     pub fn mkdir_syscall(&self, path: &str, mode: u32) -> i32 {
         // Convert data type from &str into *const i8
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         
         unsafe {
             libc::mkdir(c_path.as_ptr(), mode)
@@ -85,9 +86,10 @@ impl Cage {
     pub fn mknod_syscall(&self, path: &str, mode: u32, dev: u64) -> i32 {
         // Convert data type from &str into *const i8
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         unsafe {
             libc::mknod(c_path.as_ptr(), mode, dev)
         }
@@ -123,9 +125,10 @@ impl Cage {
     */
     pub fn creat_syscall(&self, path: &str, mode: u32) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
 
         let kernel_fd = unsafe {
             libc::creat(c_path.as_ptr(), mode)
@@ -140,9 +143,10 @@ impl Cage {
     */
     pub fn stat_syscall(&self, path: &str, statbuf: &mut stat) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         unsafe {
             libc::stat(c_path.as_ptr(), statbuf)
         }
@@ -166,9 +170,10 @@ impl Cage {
     */
     pub fn statfs_syscall(&self, path: &str, databuf: &mut statfs) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         unsafe {
             libc::statfs(c_path.as_ptr(), databuf)
         }
@@ -262,9 +267,10 @@ impl Cage {
     */
     pub fn access_syscall(&self, path: &str, amode: i32) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         unsafe {
             libc::access(c_path.as_ptr(), amode)
         }
@@ -410,9 +416,10 @@ impl Cage {
     */
     pub fn chmod_syscall(&self, path: &str, mode: u32) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         unsafe {
             libc::chmod(c_path.as_ptr(), mode)
         }
@@ -484,9 +491,10 @@ impl Cage {
     */
     pub fn rmdir_syscall(&self, path: &str) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         unsafe {
             libc::rmdir(c_path.as_ptr())
         }
@@ -564,9 +572,10 @@ impl Cage {
     */
     pub fn truncate_syscall(&self, path: &str, length: isize) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
-        let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
-        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
         unsafe {
             libc::truncate(c_path.as_ptr(), length as i64)
         }
