@@ -248,7 +248,7 @@ impl Cage {
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
 
-        let mut libc_databuf: StatFs = unsafe { mem::zeroed() };
+        let mut libc_databuf: statfs = unsafe { mem::zeroed() };
         let libcret = unsafe {
             libc::statfs(c_path.as_ptr(), &mut libc_databuf)
         };
@@ -272,7 +272,7 @@ impl Cage {
     pub fn fstatfs_syscall(&self, virtual_fd: i32, rposix_databuf: &mut FSData) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
         
-        let mut libc_databuf: StatFs = unsafe { mem::zeroed() };
+        let mut libc_databuf: statfs = unsafe { mem::zeroed() };
         let libcret = unsafe {
             libc::fstatfs(kernel_fd, libc_databuf)
         };
