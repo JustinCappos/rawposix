@@ -54,7 +54,23 @@ impl Cage {
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
+        // if kernel_fd < 0 {
+        //     return -1;
+        // }
         if kernel_fd < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            println!("c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
             return -1;
         }
 
