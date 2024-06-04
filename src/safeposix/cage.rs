@@ -10,7 +10,7 @@ pub use crate::interface::types::{
     Arg, EpollEvent, IoctlPtrUnion, PipeArray, PollStruct,
 };
 
-// use super::filesystem::normpath;
+use super::filesystem::normpath;
 // use super::net::SocketHandle;
 pub use super::syscalls::fs_constants::*;
 pub use super::syscalls::net_constants::*;
