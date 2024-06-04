@@ -274,7 +274,7 @@ impl Cage {
         
         let mut libc_databuf: statfs = unsafe { mem::zeroed() };
         let libcret = unsafe {
-            libc::fstatfs(kernel_fd, libc_databuf)
+            libc::fstatfs(kernel_fd, &mut libc_databuf)
         };
         if libcret == 0 {
             rposix_databuf.f_bavail = libc_databuf.f_bavail;

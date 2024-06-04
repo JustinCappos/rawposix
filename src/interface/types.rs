@@ -13,7 +13,7 @@ const SIZEOF_SOCKADDR: u32 = 16;
 #[repr(C)]
 pub struct FSData {
     pub f_type: u64,
-    pub f_bsize: u64,
+    pub f_bsize: i64,
     pub f_blocks: u64,
     pub f_bfree: u64,
     pub f_bavail: u64,
@@ -21,12 +21,12 @@ pub struct FSData {
     pub f_files: u64,
     //free files in the file system -- should be infinite
     pub f_ffiles: u64,
-    pub f_fsid: u64,
+    pub f_fsid: libc::fsid_t,
     //not really a limit for naming, but 254 works
-    pub f_namelen: u64,
+    // pub f_namelen: u64,
     //arbitrary val for blocksize as well
-    pub f_frsize: u64,
-    pub f_spare: [u8; 32],
+    // pub f_frsize: u64,
+    // pub f_spare: [u8; 32],
 }
 
 //redefining the StatData struct in this file so that we maintain flow of program
