@@ -1,12 +1,12 @@
-// // Filesystem metadata struct
-// #![allow(dead_code)]
+// Filesystem metadata struct
+#![allow(dead_code)]
 
 // use super::net::NET_METADATA;
 // use super::syscalls::fs_constants::*;
 // use super::syscalls::sys_constants::*;
-// use crate::interface;
+use crate::interface;
 
-// use super::cage::Cage;
+use super::cage::Cage;
 
 // pub const METADATAFILENAME: &str = "lind.metadata";
 
@@ -400,9 +400,9 @@
 //     metadata_fileobj.close().unwrap();
 // }
 
-// pub fn convpath(cpath: &str) -> interface::RustPathBuf {
-//     interface::RustPathBuf::from(cpath)
-// }
+pub fn convpath(cpath: &str) -> interface::RustPathBuf {
+    interface::RustPathBuf::from(cpath)
+}
 
 // /// This function resolves the absolute path of a directory from its inode number in a filesystem.
 // /// Here's how it operates:
@@ -542,32 +542,32 @@
 // pub fn metawalk(path: &interface::RustPath) -> Option<usize> {
 //     metawalkandparent(path).0
 // }
-// pub fn normpath(origp: interface::RustPathBuf, cage: &Cage) -> interface::RustPathBuf {
-//     //If path is relative, prefix it with the current working directory, otherwise populate it with rootdir
-//     let mut newp = if origp.is_relative() {
-//         (**cage.cwd.read()).clone()
-//     } else {
-//         interface::RustPathBuf::from("/")
-//     };
+pub fn normpath(origp: interface::RustPathBuf, cage: &Cage) -> interface::RustPathBuf {
+    //If path is relative, prefix it with the current working directory, otherwise populate it with rootdir
+    let mut newp = if origp.is_relative() {
+        (**cage.cwd.read()).clone()
+    } else {
+        interface::RustPathBuf::from("/")
+    };
 
-//     for comp in origp.components() {
-//         match comp {
-//             //if we have a normal path component, push it on to our normed path
-//             interface::RustPathComponent::Normal(_) => {
-//                 newp.push(comp);
-//             }
+    for comp in origp.components() {
+        match comp {
+            //if we have a normal path component, push it on to our normed path
+            interface::RustPathComponent::Normal(_) => {
+                newp.push(comp);
+            }
 
-//             //if we have a .. path component, pop the last component off our normed path
-//             interface::RustPathComponent::ParentDir => {
-//                 newp.pop();
-//             }
+            //if we have a .. path component, pop the last component off our normed path
+            interface::RustPathComponent::ParentDir => {
+                newp.pop();
+            }
 
-//             //if we have a . path component (Or a root dir or a prefix(?)) do nothing
-//             _ => {}
-//         };
-//     }
-//     newp
-// }
+            //if we have a . path component (Or a root dir or a prefix(?)) do nothing
+            _ => {}
+        };
+    }
+    newp
+}
 
 // pub fn remove_domain_sock(truepath: interface::RustPathBuf) {
 //     match metawalkandparent(truepath.as_path()) {

@@ -1102,12 +1102,12 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     // incref_root();
     // incref_root();
 
-    fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp/").unwrap();
-    std::env::set_current_dir("/").unwrap();
+    // fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp/").unwrap();
+    // std::env::set_current_dir("/").unwrap();
     
     let utilcage = Cage {
         cageid: 0,
-        // cwd: interface::RustLock::new(interface::RustRfc::new(interface::RustPathBuf::from("/"))),
+        cwd: interface::RustLock::new(interface::RustRfc::new(interface::RustPathBuf::from("/"))),
         parent: 0,
         // filedescriptortable: init_fdtable(),
         cancelstatus: interface::RustAtomicBool::new(false),
@@ -1141,7 +1141,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     //init cage is its own parent
     let initcage = Cage {
         cageid: 1,
-        // cwd: interface::RustLock::new(interface::RustRfc::new(interface::RustPathBuf::from("/"))),
+        cwd: interface::RustLock::new(interface::RustRfc::new(interface::RustPathBuf::from("/"))),
         parent: 1,
         // filedescriptortable: init_fdtable(),
         cancelstatus: interface::RustAtomicBool::new(false),

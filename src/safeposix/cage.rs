@@ -73,7 +73,7 @@ pub use crate::interface::CAGE_TABLE;
 #[derive(Debug)]
 pub struct Cage {
     pub cageid: u64,
-    // pub cwd: interface::RustLock<interface::RustRfc<interface::RustPathBuf>>,
+    pub cwd: interface::RustLock<interface::RustRfc<interface::RustPathBuf>>,
     pub parent: u64,
     // pub filedescriptortable: FdTable,
     pub cancelstatus: interface::RustAtomicBool,
@@ -126,11 +126,11 @@ impl Cage {
     //     );
     // }
 
-    // pub fn changedir(&self, newdir: interface::RustPathBuf) {
-    //     let newwd = interface::RustRfc::new(normpath(newdir, self));
-    //     let mut cwdbox = self.cwd.write();
-    //     *cwdbox = newwd;
-    // }
+    pub fn changedir(&self, newdir: interface::RustPathBuf) {
+        let newwd = interface::RustRfc::new(normpath(newdir, self));
+        let mut cwdbox = self.cwd.write();
+        *cwdbox = newwd;
+    }
 
     // function to signal all cvs in a cage when forcing exit
     pub fn signalcvs(&self) {

@@ -27,7 +27,7 @@ pub mod fs_tests {
         // ut_lind_fs_open();
         // ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
-        // rdwrtest();
+        rdwrtest();
 
         // ut_lind_fs_broken_close();
         // ut_lind_fs_chmod();
@@ -73,7 +73,7 @@ pub mod fs_tests {
     pub fn ut_lind_fs_open() {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
-        let fd = cage.open_syscall("/home/lind/lind_project/src/rawposix/tmp/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
+        let fd = cage.open_syscall("/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
         if fd < 0 {
             let err = unsafe {
                 libc::__errno_location()
@@ -181,7 +181,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let fd = cage.open_syscall(
-            "/home/lind/lind_project/src/rawposix/tmp/foobar", 
+            "/foobar", 
             O_CREAT | O_TRUNC | O_RDWR, 
             (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
         assert!(fd >= 0);

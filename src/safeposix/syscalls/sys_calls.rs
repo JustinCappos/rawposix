@@ -152,7 +152,7 @@ impl Cage {
 
         let cageobj = Cage {
             cageid: child_cageid,
-            // cwd: interface::RustLock::new(self.cwd.read().clone()),
+            cwd: interface::RustLock::new(self.cwd.read().clone()),
             parent: self.cageid,
             // filedescriptortable: newfdtable,
             cancelstatus: interface::RustAtomicBool::new(false),
@@ -231,7 +231,7 @@ impl Cage {
 
         let newcage = Cage {
             cageid: child_cageid,
-            // cwd: interface::RustLock::new(self.cwd.read().clone()),
+            cwd: interface::RustLock::new(self.cwd.read().clone()),
             parent: self.parent,
             // filedescriptortable: self.filedescriptortable.clone(),
             cancelstatus: interface::RustAtomicBool::new(false),

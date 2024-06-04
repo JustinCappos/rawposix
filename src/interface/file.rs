@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 // pub use std::ffi::CStr as RustCStr;
 use std::fs::{self, canonicalize, File, OpenOptions};
 // use std::io::{Read, Seek, SeekFrom, Write};
-// pub use std::path::{Component as RustPathComponent, Path as RustPath, PathBuf as RustPathBuf};
+pub use std::path::{Component as RustPathComponent, Path as RustPath, PathBuf as RustPathBuf};
 // use std::slice;
 use std::sync::Arc;
 pub use std::sync::LazyLock as RustLazyGlobal;

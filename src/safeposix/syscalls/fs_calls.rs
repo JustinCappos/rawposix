@@ -7,6 +7,8 @@ use super::sys_constants::*;
 use crate::interface;
 use crate::safeposix::cage::Errno::EINVAL;
 use crate::safeposix::cage::*;
+use crate::safeposix::filesystem::convpath;
+use crate::safeposix::filesystem::normpath;
 // use crate::safeposix::filesystem::*;
 // use crate::safeposix::net::NET_METADATA;
 use crate::safeposix::shm::*;
@@ -18,9 +20,11 @@ use std::os::unix::io::RawFd;
 use std::io::{self, Write};
 use std::ffi::CStr;
 use std::ffi::CString;
-use std::u64;
+use std::ptr;
 
 use crate::example_grates::fdtable::*;
+
+static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp/";
 
 /* 
 *   We will receive parameters with type u64 by default, then we will do type conversion inside
@@ -40,8 +44,12 @@ impl Cage {
     *   Then return virtual fd
     */
     pub fn open_syscall(&self, path: &str, oflag: i32, mode: u32) -> i32 {
+
         // Convert data type from &str into *const i8
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).unwrap();
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
@@ -59,7 +67,10 @@ impl Cage {
     */
     pub fn mkdir_syscall(&self, path: &str, mode: u32) -> i32 {
         // Convert data type from &str into *const i8
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         
         unsafe {
             libc::mkdir(c_path.as_ptr(), mode)
@@ -72,7 +83,10 @@ impl Cage {
     */
     pub fn mknod_syscall(&self, path: &str, mode: u32, dev: u64) -> i32 {
         // Convert data type from &str into *const i8
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         unsafe {
             libc::mknod(c_path.as_ptr(), mode, dev)
         }
@@ -107,7 +121,11 @@ impl Cage {
     *   creat() will return fd when success and -1 when fail 
     */
     pub fn creat_syscall(&self, path: &str, mode: u32) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
+
         let kernel_fd = unsafe {
             libc::creat(c_path.as_ptr(), mode)
         };
@@ -120,7 +138,10 @@ impl Cage {
     *   stat() will return 0 when success and -1 when fail 
     */
     pub fn stat_syscall(&self, path: &str, statbuf: &mut stat) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         unsafe {
             libc::stat(c_path.as_ptr(), statbuf)
         }
@@ -143,7 +164,10 @@ impl Cage {
     *   statfs() will return 0 when success and -1 when fail 
     */
     pub fn statfs_syscall(&self, path: &str, databuf: &mut statfs) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         unsafe {
             libc::statfs(c_path.as_ptr(), databuf)
         }
@@ -236,7 +260,10 @@ impl Cage {
     *   access() will return 0 when sucess, -1 when fail 
     */
     pub fn access_syscall(&self, path: &str, amode: i32) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         unsafe {
             libc::access(c_path.as_ptr(), amode)
         }
@@ -259,10 +286,13 @@ impl Cage {
     *   chdir() will return 0 when sucess, -1 when fail 
     */
     pub fn chdir_syscall(&self, path: &str) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
-        unsafe {
-            libc::chdir(c_path.as_ptr())
-        }
+        let truepath = normpath(convpath(path), self);
+        
+        //at this point, syscall isn't an error
+        let mut cwd_container = self.cwd.write();
+
+        *cwd_container = interface::RustRfc::new(truepath);
+        0 
     }
 
     //------------------------------------DUP & DUP2 SYSCALLS------------------------------------
@@ -378,7 +408,10 @@ impl Cage {
     *   chmod() will return 0 when success and -1 when fail 
     */
     pub fn chmod_syscall(&self, path: &str, mode: u32) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         unsafe {
             libc::chmod(c_path.as_ptr(), mode)
         }
@@ -449,7 +482,10 @@ impl Cage {
     *   rmdir() will return 0 when sucess, -1 when fail 
     */
     pub fn rmdir_syscall(&self, path: &str) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         unsafe {
             libc::rmdir(c_path.as_ptr())
         }
@@ -526,7 +562,10 @@ impl Cage {
     *   truncate() will return 0 when sucess, -1 when fail 
     */
     pub fn truncate_syscall(&self, path: &str, length: isize) -> i32 {
-        let c_path = CString::new(path).expect("CString::new failed");
+        // let c_path = CString::new(path).expect("CString::new failed");
+        let relative_path = normpath(convpath(path), self);
+        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
         unsafe {
             libc::truncate(c_path.as_ptr(), length as i64)
         }
@@ -587,9 +626,16 @@ impl Cage {
     *   - null, fail 
     */
     pub fn getcwd_syscall(&self, buf: *mut u8, bufsize: u32) -> i32 {
-        unsafe {
-            libc::getcwd(buf as *mut i8, bufsize as usize) as i32
+        let cwd_container = self.cwd.read();
+        let path = cwd_container.to_str().unwrap();
+        if path.len() >= bufsize as usize {
+            return -1;
         }
+        unsafe {
+            ptr::copy(path.as_ptr(), buf, path.len());
+            *buf.add(path.len()) = 0;
+        }
+        0
     }
 
     //------------------SHMHELPERS----------------------
