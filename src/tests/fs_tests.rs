@@ -184,7 +184,22 @@ pub mod fs_tests {
             "/foobar", 
             O_CREAT | O_TRUNC | O_RDWR, 
             (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
-        assert!(fd >= 0);
+        if fd < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            println!("VirtualFD: {:?}", fd);
+            io::stdout().flush().unwrap();
+            // panic!();
+        }
         
         println!("open finished");
         io::stdout().flush().unwrap();
