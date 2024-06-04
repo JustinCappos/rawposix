@@ -257,8 +257,8 @@ impl Cage {
     }
 
     pub fn exit_syscall(&self, status: i32) -> i32 {
-        println!("[[EXIT]] - {:?}", self.cageid);
-        io::stdout().flush().unwrap();
+        // println!("[[EXIT]] - {:?}", self.cageid);
+        // io::stdout().flush().unwrap();
 
         //flush anything left in stdout
         interface::flush_stdout();
