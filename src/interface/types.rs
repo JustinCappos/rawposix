@@ -9,7 +9,7 @@ const SIZEOF_SOCKADDR: u32 = 16;
 
 //redefining the FSData struct in this file so that we maintain flow of program
 //derive eq attributes for testing whether the structs equal other fsdata structs from stat/fstat
-#[derive(Eq, PartialEq, Default)]
+#[derive(Eq, PartialEq)]
 #[repr(C)]
 pub struct FSData {
     pub f_type: u64,
