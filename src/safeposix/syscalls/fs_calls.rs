@@ -51,6 +51,9 @@ impl Cage {
         let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
         let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
 
+        println!("Open PATH: {:?}", c_path);
+        io::stdout().flush().unwrap();
+
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
         if kernel_fd < 0 {
