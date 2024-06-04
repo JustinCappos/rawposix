@@ -508,10 +508,18 @@ impl Cage {
         virtual_fd: i32,
         off: i64,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+        if virtual_fd != -1 {
+            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+            let ret = unsafe {
+                ((libc::mmap(addr as *mut c_void, len, prot, flags, kernel_fd, off) as i64) 
+                    & 0xffffffff) as i32
+            };
+            return ret;
+        }
+        
         // Do type conversion to translate from c_void into i32
         unsafe {
-            ((libc::mmap(addr as *mut c_void, len, prot, flags, kernel_fd, off) as i64) 
+            ((libc::mmap(addr as *mut c_void, len, prot, flags, -1, off) as i64) 
                 & 0xffffffff) as i32
         }
     }
