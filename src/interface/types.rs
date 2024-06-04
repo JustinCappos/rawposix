@@ -34,15 +34,15 @@ const SIZEOF_SOCKADDR: u32 = 16;
 #[derive(Eq, PartialEq, Default)]
 #[repr(C)]
 pub struct StatData {
-    pub st_dev: i32,
+    pub st_dev: u64,
     pub st_ino: u64,
-    pub st_mode: u16,
+    pub st_mode: u32,
     pub st_uid: u32,
     pub st_gid: u32,
-    pub st_nlink: u16,
-    pub st_rdev: i32,
+    pub st_nlink: u64,
+    pub st_rdev: u64,
     pub st_size: i64,
-    pub st_blksize: i32,
+    pub st_blksize: i64,
     pub st_blocks: i64,
     //currently we don't populate or care about the time bits here
     // pub st_atim: (u64, u64),
