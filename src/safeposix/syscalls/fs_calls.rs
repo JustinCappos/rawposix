@@ -13,6 +13,7 @@ use crate::safeposix::filesystem::normpath;
 // use crate::safeposix::net::NET_METADATA;
 use crate::safeposix::shm::*;
 use crate::interface::ShmidsStruct;
+use crate::interface::StatData;
 
 use libc::*;
 use std::io::stdout;
@@ -157,15 +158,26 @@ impl Cage {
     /*
     *   stat() will return 0 when success and -1 when fail 
     */
-    pub fn stat_syscall(&self, path: &str, statbuf: &mut stat) -> i32 {
+    // pub fn stat_syscall(&self, path: &str, statbuf: &mut stat) -> i32 {
+    //     // let c_path = CString::new(path).expect("CString::new failed");
+    //     let relpath = normpath(convpath(path), self);
+    //     let relative_path = relpath.to_str().unwrap();
+    //     let full_path = format!("{}{}", LIND_ROOT, relative_path);
+    //     let c_path = CString::new(full_path).unwrap();
+    //     unsafe {
+    //         libc::stat(c_path.as_ptr(), statbuf)
+    //     }
+    // }
+    pub fn stat_syscall(&self, path: &str, _statbuf: &mut StatData) -> i32 {
         // let c_path = CString::new(path).expect("CString::new failed");
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
-        let c_path = CString::new(full_path).unwrap();
-        unsafe {
-            libc::stat(c_path.as_ptr(), statbuf)
-        }
+        let _c_path = CString::new(full_path).unwrap();
+        // unsafe {
+        //     libc::stat(c_path.as_ptr(), statbuf)
+        // }
+        0
     }
 
     //------------------------------------FSTAT SYSCALL------------------------------------
@@ -173,11 +185,21 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fstat() will return 0 when success and -1 when fail 
     */
-    pub fn fstat_syscall(&self, virtual_fd: i32, statbuf: &mut stat) -> i32 {
+    // pub fn fstat_syscall(&self, virtual_fd: i32, statbuf: &mut stat) -> i32 {
+    //     let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+    //     unsafe {
+    //         libc::fstat(kernel_fd, statbuf)
+    //     }
+    // }
+    pub fn fstat_syscall(&self, virtual_fd: i32, _statbuf: &mut StatData) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe {
-            libc::fstat(kernel_fd, statbuf)
+        // unsafe {
+        //     libc::fstat(kernel_fd, statbuf)
+        // }
+        if kernel_fd < 0 {
+            return -1;
         }
+        0
     }
 
     //------------------------------------STATFS SYSCALL------------------------------------
@@ -216,9 +238,26 @@ impl Cage {
     */
     pub fn read_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: usize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::read(kernel_fd, readbuf as *mut c_void, count) as i32
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            println!("kernel_fd: {:?}", kernel_fd);
+            io::stdout().flush().unwrap();
+            return -1;
         }
+        ret
     }
 
     //------------------------------------PREAD SYSCALL------------------------------------

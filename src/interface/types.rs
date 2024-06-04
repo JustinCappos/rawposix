@@ -31,24 +31,24 @@ const SIZEOF_SOCKADDR: u32 = 16;
 
 //redefining the StatData struct in this file so that we maintain flow of program
 //derive eq attributes for testing whether the structs equal other statdata structs from stat/fstat
-// #[derive(Eq, PartialEq, Default)]
-// #[repr(C)]
-// pub struct StatData {
-//     pub st_dev: u64,
-//     pub st_ino: usize,
-//     pub st_mode: u32,
-//     pub st_nlink: u32,
-//     pub st_uid: u32,
-//     pub st_gid: u32,
-//     pub st_rdev: u64,
-//     pub st_size: usize,
-//     pub st_blksize: i32,
-//     pub st_blocks: u32,
-//     //currently we don't populate or care about the time bits here
-//     pub st_atim: (u64, u64),
-//     pub st_mtim: (u64, u64),
-//     pub st_ctim: (u64, u64),
-// }
+#[derive(Eq, PartialEq, Default)]
+#[repr(C)]
+pub struct StatData {
+    pub st_dev: u64,
+    pub st_ino: usize,
+    pub st_mode: u32,
+    pub st_nlink: u32,
+    pub st_uid: u32,
+    pub st_gid: u32,
+    pub st_rdev: u64,
+    pub st_size: usize,
+    pub st_blksize: i32,
+    pub st_blocks: u32,
+    //currently we don't populate or care about the time bits here
+    pub st_atim: (u64, u64),
+    pub st_mtim: (u64, u64),
+    pub st_ctim: (u64, u64),
+}
 
 //R Limit for getrlimit system call
 // #[repr(C)]
@@ -173,7 +173,8 @@ pub union Arg {
     pub dispatch_cstr: *const i8, //Typically corresponds to a passed in string of type char*, as in open
     pub dispatch_cstrarr: *const *const i8, //Typically corresponds to a passed in string array of type char* const[] as in execve
     // pub dispatch_rlimitstruct: *mut Rlimit,
-    pub dispatch_statdatastruct: *mut stat,
+    // pub dispatch_statdatastruct: *mut stat,
+    pub dispatch_statdatastruct: *mut StatData,
     pub dispatch_fsdatastruct: *mut statfs,
     pub dispatch_shmidstruct: *mut ShmidsStruct,
     pub dispatch_constsockaddrstruct: *const sockaddr,
@@ -369,7 +370,18 @@ pub fn get_cstrarr<'a>(union_argument: Arg) -> Result<Vec<&'a str>, i32> {
     ));
 }
 
-pub fn get_statdatastruct<'a>(union_argument: Arg) -> Result<&'a mut stat, i32> {
+// pub fn get_statdatastruct<'a>(union_argument: Arg) -> Result<&'a mut stat, i32> {
+//     let pointer = unsafe { union_argument.dispatch_statdatastruct };
+//     if !pointer.is_null() {
+//         return Ok(unsafe { &mut *pointer });
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
+pub fn get_statdatastruct<'a>(union_argument: Arg) -> Result<&'a mut StatData, i32> {
     let pointer = unsafe { union_argument.dispatch_statdatastruct };
     if !pointer.is_null() {
         return Ok(unsafe { &mut *pointer });
