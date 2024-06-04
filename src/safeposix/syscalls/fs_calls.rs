@@ -48,7 +48,7 @@ impl Cage {
         // Convert data type from &str into *const i8
         // let c_path = CString::new(path).unwrap();
         let relative_path = normpath(convpath(path), self);
-        let full_path = interface::RustPathBuf::from(LIND_ROOT).join(relative_path);
+        let full_path = interface::RustPath::new(LIND_ROOT).join(relative_path);
         let c_path = CString::new(full_path.to_str().unwrap()).unwrap();
 
         println!("Open PATH: {:?}", c_path);
