@@ -289,6 +289,7 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
 
     println!("new cage not exit at begining");
     io::stdout().flush().unwrap();
+    dbg!(&FDTABLE);
 
     // Insert a copy and ensure it didn't exist...
     // BUG: Is this a copy!?!  Am I passing a ref to the same thing!?!?!?
