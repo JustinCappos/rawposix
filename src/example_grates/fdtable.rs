@@ -282,8 +282,12 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
         panic!("Unknown srccageid in fdtable access");
     }
     if FDTABLE.contains_key(&newcageid) {
+        println!("newcageid: {:?}\nnewcage fdtable: {:?}", newcageid, FDTABLE.get(&newcageid));
+        io::stdout().flush().unwrap();
         panic!("Known newcageid in fdtable access");
     }
+
+    
 
     // Insert a copy and ensure it didn't exist...
     // BUG: Is this a copy!?!  Am I passing a ref to the same thing!?!?!?
@@ -298,8 +302,8 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
             }
         }
     }
-
-    assert!(FDTABLE.insert(newcageid, hmcopy).is_none());
+    FDTABLE.insert(newcageid, hmcopy);
+    // assert!(FDTABLE.insert(newcageid, hmcopy).is_none());
     Ok(())
     // I'm not going to bother to check the number of fds used overall yet...
     //    Err(threei::Errno::EMFILE as u64),
