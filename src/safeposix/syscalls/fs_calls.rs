@@ -182,6 +182,23 @@ impl Cage {
             libc::stat(c_path.as_ptr(), &mut libc_statbuf)
         };
         
+        if libcret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("errno: {:?}", err);
+            println!("Error message: {:?}", err_msg);
+            println!("c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
+            return -1;
+        }
+        
         if libcret == 0 {
             rposix_statbuf.st_atim = libc_statbuf.st_atime;
             rposix_statbuf.st_blksize = libc_statbuf.st_blksize;
