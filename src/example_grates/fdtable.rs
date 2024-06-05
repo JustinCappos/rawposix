@@ -294,7 +294,18 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
     // Insert a copy and ensure it didn't exist...
     // BUG: Is this a copy!?!  Am I passing a ref to the same thing!?!?!?
     let srccage_fdtable = FDTABLE.get(&srccageid).unwrap();
-    let hmcopy = srccage_fdtable.clone();
+    
+    // let hmcopy = srccage_fdtable.clone();
+    let mut hmcopy: [Option<FDTableEntry>; FD_PER_PROCESS_MAX as usize] = [None; FD_PER_PROCESS_MAX as usize];
+    for (i, entry) in srccage_fdtable.iter().enumerate() {
+        if let Some(ref e) = entry {
+            hmcopy[i] = Some(FDTableEntry {
+                realfd: e.realfd,
+                should_cloexec: e.should_cloexec,
+                optionalinfo: e.optionalinfo,
+            });
+        }
+    }
 
     // Increment copied items
     for entry in hmcopy.iter() {
