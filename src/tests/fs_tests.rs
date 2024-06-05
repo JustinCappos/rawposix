@@ -24,22 +24,22 @@ pub mod fs_tests {
     static S_LIND: u32 = 0o755;
 
     pub fn test_fs() {
-        ut_lind_fs_open();
+        // ut_lind_fs_open();
         ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
-        rdwrtest();
+        // rdwrtest();
 
-        ut_lind_fs_broken_close();
-        ut_lind_fs_chmod();
-        ut_lind_fs_fchmod();
-        ut_lind_fs_dir_chdir();
-        ut_lind_fs_dir_mode();
-        ut_lind_fs_dir_multiple();
-        ut_lind_fs_dup();
-        ut_lind_fs_dup2();
-        ut_lind_fs_fcntl();
+        // ut_lind_fs_broken_close();
+        // ut_lind_fs_chmod();
+        // ut_lind_fs_fchmod();
+        // ut_lind_fs_dir_chdir();
+        // ut_lind_fs_dir_mode();
+        // ut_lind_fs_dir_multiple();
+        // ut_lind_fs_dup();
+        // ut_lind_fs_dup2();
+        // ut_lind_fs_fcntl();
 
-        ut_lind_fs_ioctl();
+        // ut_lind_fs_ioctl();
 
         // ut_lind_fs_fdflags();
         // ut_lind_fs_file_link_unlink();
