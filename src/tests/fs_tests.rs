@@ -19,14 +19,15 @@ pub mod fs_tests {
     use crate::example_grates::translate_virtual_fd;
 
     use crate::tests::fs_tests::fs_tests::shm::SHM_METADATA;
+    use crate::interface::StatData;
 
     static S_IRWXA: u32 = 0o777;
     static S_LIND: u32 = 0o755;
 
     pub fn test_fs() {
         // ut_lind_fs_open();
-        ut_lind_fs_fork();
-        // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
+        // ut_lind_fs_fork();
+        ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
         // rdwrtest();
 
         // ut_lind_fs_broken_close();
@@ -153,25 +154,25 @@ pub mod fs_tests {
         lindrustfinalize();
     }
 
-    // pub fn ut_lind_fs_simple() {
-    //     lindrustinit(0);
-    //     let cage = interface::cagetable_getref(1);
+    pub fn ut_lind_fs_simple() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-    //     assert_eq!(cage.access_syscall("/", F_OK), 0);
-    //     assert_eq!(cage.access_syscall("/", X_OK | R_OK), 0);
+        assert_eq!(cage.access_syscall("/", F_OK), 0);
+        assert_eq!(cage.access_syscall("/", X_OK | R_OK), 0);
 
-    //     let mut statdata2 = StatData::default();
+        let mut statdata2 = StatData::default();
 
-    //     assert_eq!(cage.stat_syscall("/", &mut statdata2), 0);
-    //     //ensure that there are two hard links
+        assert_eq!(cage.stat_syscall("/", &mut statdata2), 0);
+        //ensure that there are two hard links
 
-    //     assert_eq!(statdata2.st_nlink, 5); //2 for . and .., one for dev, and one so that it can never be removed
+        assert_eq!(statdata2.st_nlink, 5); //2 for . and .., one for dev, and one so that it can never be removed
 
-    //     //ensure that there is no associated size
-    //     assert_eq!(statdata2.st_size, 0);
-    //     assert_eq!(cage.exit_syscall(libc::libc::EXIT_SUCCESS), libc::libc::EXIT_SUCCESS);
-    //     lindrustfinalize();
-    // }
+        //ensure that there is no associated size
+        assert_eq!(statdata2.st_size, 0);
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
 
     pub fn rdwrtest() {
         println!("RDWTEST begin");
