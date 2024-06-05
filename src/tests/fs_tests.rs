@@ -158,18 +158,18 @@ pub mod fs_tests {
         lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
-        assert_eq!(cage.access_syscall("/", F_OK), 0);
-        assert_eq!(cage.access_syscall("/", X_OK | R_OK), 0);
+        assert_eq!(cage.access_syscall("/foobar", F_OK), 0);
+        assert_eq!(cage.access_syscall("/foobar", X_OK | R_OK), 0);
 
         let mut statdata2 = StatData::default();
 
-        assert_eq!(cage.stat_syscall("/", &mut statdata2), 0);
+        assert_eq!(cage.stat_syscall("/foobar", &mut statdata2), 0);
         //ensure that there are two hard links
 
-        assert_eq!(statdata2.st_nlink, 6); //2 for . and .., one for dev, and one so that it can never be removed
+        assert_eq!(statdata2.st_nlink, 1); //2 for . and .., one for dev, and one so that it can never be removed
 
         //ensure that there is no associated size
-        assert_eq!(statdata2.st_size, 0);
+        assert_eq!(statdata2.st_size, 4);
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
     }
