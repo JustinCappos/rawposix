@@ -293,7 +293,7 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
 
     // Insert a copy and ensure it didn't exist...
     // BUG: Is this a copy!?!  Am I passing a ref to the same thing!?!?!?
-    let srccage_fdtable = FDTABLE.get(&srccageid).unwrap();
+    let srccage_fdtable = *FDTABLE.get(&srccageid).unwrap();
     let hmcopy = srccage_fdtable.clone();
 
     // Increment copied items
