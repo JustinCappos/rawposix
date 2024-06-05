@@ -1129,7 +1129,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
 
     interface::cagetable_insert(0, utilcage);
     // let mut fdtable = FDTABLE;
-    FDTABLE.insert(0, [Option::None;FD_PER_PROCESS_MAX as usize]);
+    init_empty_cage(0);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
     get_unused_virtual_fd(0, 0, false, 0).unwrap();
@@ -1161,7 +1161,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
         interval_timer: interface::IntervalTimer::new(1),
     };
     interface::cagetable_insert(1, initcage);
-    FDTABLE.insert(1, [Option::None;FD_PER_PROCESS_MAX as usize]);
+    init_empty_cage(1);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
     get_unused_virtual_fd(1, 0, false, 0).unwrap();

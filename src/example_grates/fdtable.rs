@@ -108,6 +108,15 @@ lazy_static! {
     };
 }
 
+pub fn init_empty_cage(cageid: u64) {
+
+    if FDTABLE.contains_key(&cageid) {
+        panic!("Known cageid in fdtable access");
+    }
+
+    FDTABLE.insert(cageid,[Option::None;FD_PER_PROCESS_MAX as usize]);
+}
+
 
 // #[doc = include_str!("../docs/translate_virtual_fd.md")]
 pub fn translate_virtual_fd(cageid: u64, virtualfd: i32) -> Result<i32, threei::RetVal> {
@@ -294,7 +303,7 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
     // Insert a copy and ensure it didn't exist...
     // BUG: Is this a copy!?!  Am I passing a ref to the same thing!?!?!?
     let srccage_fdtable = FDTABLE.get(&srccageid).unwrap();
-    
+
     // let hmcopy = srccage_fdtable.clone();
     let mut hmcopy: [Option<FDTableEntry>; FD_PER_PROCESS_MAX as usize] = [None; FD_PER_PROCESS_MAX as usize];
     for (i, entry) in srccage_fdtable.iter().enumerate() {
