@@ -261,7 +261,7 @@ impl Cage {
         // io::stdout().flush().unwrap();
 
         //flush anything left in stdout
-        interface::flush_stdout();
+        // interface::flush_stdout();
         self.unmap_shm_mappings();
 
         let _ = remove_cage_from_fdtable(self.cageid);
