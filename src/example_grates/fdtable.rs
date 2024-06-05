@@ -293,11 +293,11 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
 
     // Insert a copy and ensure it didn't exist...
     // BUG: Is this a copy!?!  Am I passing a ref to the same thing!?!?!?
-    let srccage_fdtable = *FDTABLE.get(&srccageid).unwrap();
+    let srccage_fdtable = FDTABLE.get(&srccageid).unwrap();
     let hmcopy = srccage_fdtable.clone();
 
     // Increment copied items
-    for entry in srccage_fdtable.iter() {
+    for entry in hmcopy.iter() {
         if entry.is_some() {
             let thisrealfd = entry.unwrap().realfd;
             if thisrealfd as u64 != NO_REAL_FD {
@@ -309,7 +309,10 @@ pub fn copy_fdtable_for_cage(srccageid: u64, newcageid: u64) -> Result<(), three
     println!("finish increment");
     io::stdout().flush().unwrap();
 
-    assert!(FDTABLE.insert(newcageid, hmcopy).is_none());
+    let insert_ret = FDTABLE.insert(newcageid, hmcopy);
+    println!("insert result: {:?}", insert_ret);
+    io::stdout().flush().unwrap();
+    assert!(insert_ret.is_none());
 
     println!("finish fork fdtable");
     io::stdout().flush().unwrap();
