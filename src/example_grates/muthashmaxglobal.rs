@@ -1,4 +1,8 @@
-use crate::threei;
+
+use crate::safeposix::cage;
+use crate::safeposix::syscalls::fs_calls::*;
+
+use super::threei;
 
 use lazy_static::lazy_static;
 
@@ -601,46 +605,46 @@ fn _do_bitmods(myfdmap:HashMap<u64,FDTableEntry>, nfds:u64, infdset: fd_set, thi
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 // #[doc = include_str!("../docs/get_real_bitmasks_for_select.md")]
-pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set>, writebits:Option<fd_set>, exceptbits:Option<fd_set>) -> Result<(u64, fd_set, fd_set, fd_set, [HashSet<(u64,u64)>;3], HashMap<u64,u64>),threei::RetVal> {
+// pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set>, writebits:Option<fd_set>, exceptbits:Option<fd_set>) -> Result<(u64, fd_set, fd_set, fd_set, [HashSet<(u64,u64)>;3], HashMap<u64,u64>),threei::RetVal> {
 
-    if nfds >= FD_PER_PROCESS_MAX {
-        return Err(threei::Errno::EINVAL as u64);
-    }
+//     if nfds >= FD_PER_PROCESS_MAX {
+//         return Err(threei::Errno::EINVAL as u64);
+//     }
 
-    let globfdtable = GLOBALFDTABLE.lock().unwrap();
+//     let globfdtable = GLOBALFDTABLE.lock().unwrap();
 
-    if !globfdtable.contains_key(&cageid) {
-        panic!("Unknown cageid in fdtable access");
-    }
+//     if !globfdtable.contains_key(&cageid) {
+//         panic!("Unknown cageid in fdtable access");
+//     }
 
-    let mut unrealarray:[HashSet<(u64,u64)>;3] = [HashSet::new(),HashSet::new(),HashSet::new()];
-    let mut mappingtable:HashMap<u64,u64> = HashMap::new();
-    let mut newnfds = 0;
+//     let mut unrealarray:[HashSet<(u64,u64)>;3] = [HashSet::new(),HashSet::new(),HashSet::new()];
+//     let mut mappingtable:HashMap<u64,u64> = HashMap::new();
+//     let mut newnfds = 0;
 
-    // putting results in a vec was the cleanest way I found to do this..
-    let mut resultvec = Vec::new();
+//     // putting results in a vec was the cleanest way I found to do this..
+//     let mut resultvec = Vec::new();
 
-    for (unrealoffset, inset) in [readbits,writebits, exceptbits].into_iter().enumerate() {
-        match inset {
-            Some(virtualbits) => {
-                let mut retset = _init_fd_set();
-                let (thisnfds,myunrealhashset) = _do_bitmods(globfdtable.get(&cageid).unwrap().clone().thisfdtable,nfds,virtualbits, &mut retset,&mut mappingtable)?;
-                resultvec.push(retset);
-                newnfds = cmp::max(thisnfds, newnfds);
-                unrealarray[unrealoffset] = myunrealhashset;
-            }
-            None => {
-                // This item is null.  No unreal items
-                // BUG: Need to actually return null!
-                resultvec.push(_get_null_fd_set());
-                unrealarray[unrealoffset] = HashSet::new();
-            }
-        }
-    }
+//     for (unrealoffset, inset) in [readbits,writebits, exceptbits].into_iter().enumerate() {
+//         match inset {
+//             Some(virtualbits) => {
+//                 let mut retset = _init_fd_set();
+//                 let (thisnfds,myunrealhashset) = _do_bitmods(globfdtable.get(&cageid).unwrap().clone().thisfdtable,nfds,virtualbits, &mut retset,&mut mappingtable)?;
+//                 resultvec.push(retset);
+//                 newnfds = cmp::max(thisnfds, newnfds);
+//                 unrealarray[unrealoffset] = myunrealhashset;
+//             }
+//             None => {
+//                 // This item is null.  No unreal items
+//                 // BUG: Need to actually return null!
+//                 resultvec.push(_get_null_fd_set());
+//                 unrealarray[unrealoffset] = HashSet::new();
+//             }
+//         }
+//     }
 
-    Ok((newnfds, resultvec[0], resultvec[1], resultvec[2], unrealarray, mappingtable))
+//     Ok((newnfds, resultvec[0], resultvec[1], resultvec[2], unrealarray, mappingtable))
 
-}
+// }
 
 
 // helper to call after calling select beneath you.  returns the fd_sets you
