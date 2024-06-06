@@ -245,19 +245,22 @@ impl Cage {
         };
         
         if libcret == 0 {
-            rposix_statbuf.st_atim = libc_statbuf.st_atime;
+            rposix_statbuf.st_atime = libc_statbuf.st_atime;
             rposix_statbuf.st_blksize = libc_statbuf.st_blksize;
             rposix_statbuf.st_blocks = libc_statbuf.st_blocks;
-            rposix_statbuf.st_ctim = libc_statbuf.st_ctime;
+            rposix_statbuf.st_ctime = libc_statbuf.st_ctime;
             rposix_statbuf.st_dev = libc_statbuf.st_dev;
             rposix_statbuf.st_gid = libc_statbuf.st_gid;
             rposix_statbuf.st_ino = libc_statbuf.st_ino;
             rposix_statbuf.st_mode = libc_statbuf.st_mode;
-            rposix_statbuf.st_mtim = libc_statbuf.st_mtime;
+            rposix_statbuf.st_mtime = libc_statbuf.st_mtime;
             rposix_statbuf.st_nlink = libc_statbuf.st_nlink;
             rposix_statbuf.st_rdev = libc_statbuf.st_rdev;
             rposix_statbuf.st_size = libc_statbuf.st_size;
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
+            rposix_statbuf.st_atime_nsec = libc_statbuf.st_atime_nsec;
+            rposix_statbuf.st_ctime_nsec = libc_statbuf.st_ctime_nsec;
+            rposix_statbuf.st_mtime_nsec = libc_statbuf.st_mtime_nsec;
         }
         libcret
     }
