@@ -6,7 +6,7 @@ use super::net_constants::*;
 use crate::{interface::FdSet, safeposix::cage::*};
 use crate::interface;
 
-use crate::example_grates::fdtablesvec::*;
+use crate::example_grates::dashmapvecglobal::*;
 
 use std::io::Write;
 use std::io;

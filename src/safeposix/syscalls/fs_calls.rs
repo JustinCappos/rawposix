@@ -25,7 +25,7 @@ use std::ffi::CString;
 use std::ptr;
 use std::mem;
 
-use crate::example_grates::fdtablesvec::*;
+use crate::example_grates::dashmapvecglobal::*;
 
 static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
 
