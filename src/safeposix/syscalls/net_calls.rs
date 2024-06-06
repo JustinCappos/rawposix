@@ -428,18 +428,34 @@ impl Cage {
         return -1;
     }
 
-    // pub fn getifaddrs_syscall(&self, buf: *mut u8, count: usize) -> i32 {
-    //     if NET_IFADDRS_STR.len() < count {
-    //         interface::fill(
-    //             buf,
-    //             NET_IFADDRS_STR.len(),
-    //             &NET_IFADDRS_STR.as_bytes().to_vec(),
-    //         );
-    //         0 // return success
-    //     } else {
-    //         return syscall_error(Errno::EOPNOTSUPP, "getifaddrs", "invalid ifaddrs length");
-    //     }
-    // }
+    /*
+    *   Get result back from libc::getifaddrs and fill the content of name field into a buf 
+    *   as rustposix, so that i don’t need to change the dispatcher interface
+    */
+    pub fn getifaddrs_syscall(&self, buf: *mut u8, count: usize) -> i32 {
+        let mut ifaddr: *mut ifaddrs = ptr::null_mut();
+
+        unsafe {
+            if getifaddrs(&mut ifaddr) == -1 {
+                return -1;
+            }
+            let ifa = ifaddr;
+            if !ifa.is_null() {
+                let ifa_ref = &*ifa;
+                if !!ifa_ref.ifa_name.is_null() {
+                    let name = CStr::from_ptr(ifa_ref.ifa_name).to_bytes();
+                    let name_vec = name.to_vec();
+                    // let count = name.len().min(buf.len());
+                    interface::fill(buf, count, &name_vec);
+                    freeifaddrs(ifaddr);
+                    return 0;
+                }
+                
+            }
+        }
+        
+        -1
+    }
 
     pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
