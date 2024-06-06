@@ -273,7 +273,7 @@ impl Cage {
             rposix_databuf.f_files = libc_databuf.f_files;
             /* TODO: different from libc struct */
             rposix_databuf.f_fsid = 0; 
-            rposix_databuf.f_type = 0xBEEFC0DE; //unassigned
+            rposix_databuf.f_type = libc_databuf.f_type as u64;
             rposix_databuf.f_ffiles = 1024 * 1024 * 515;
             rposix_databuf.f_namelen = 254;
             rposix_databuf.f_frsize = 4096;
@@ -302,7 +302,7 @@ impl Cage {
             rposix_databuf.f_files = libc_databuf.f_files;
             /* TODO: different from libc struct */
             rposix_databuf.f_fsid = 0; 
-            rposix_databuf.f_type = 0xBEEFC0DE; //unassigned
+            rposix_databuf.f_type = libc_databuf.f_type as u64;
             rposix_databuf.f_ffiles = 1024 * 1024 * 515;
             rposix_databuf.f_namelen = 254;
             rposix_databuf.f_frsize = 4096;
