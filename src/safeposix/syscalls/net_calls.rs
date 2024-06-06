@@ -452,15 +452,11 @@ impl Cage {
                 let name_cstr = CStr::from_ptr(ifa_ref.ifa_name);
                 println!("Name: {:?}", name_cstr);
                 io::stdout().flush().unwrap();
-                if !!ifa_ref.ifa_name.is_null() {
-                    let name = CStr::from_ptr(ifa_ref.ifa_name).to_bytes();
-                    let name_vec = name.to_vec();
-                    // let count = name.len().min(buf.len());
-                    interface::fill(buf, count, &name_vec);
-                    freeifaddrs(ifaddr);
-                    return 0;
-                }
-                
+                let name_vec = name_cstr.to_bytes().to_vec();
+                // let count = name.len().min(buf.len());
+                interface::fill(buf, count, &name_vec);
+                freeifaddrs(ifaddr);
+                return 0;
             }
         }
         
