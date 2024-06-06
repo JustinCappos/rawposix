@@ -454,7 +454,7 @@ impl Cage {
                 io::stdout().flush().unwrap();
                 let name_vec = name_cstr.to_bytes().to_vec();
                 // let count = name.len().min(buf.len());
-                interface::fill(buf, count, &name_vec);
+                interface::fill(buf, name_vec.len(), &name_vec);
                 freeifaddrs(ifaddr);
                 return 0;
             }
