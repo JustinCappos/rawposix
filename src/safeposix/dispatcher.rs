@@ -652,7 +652,7 @@ pub extern "C" fn dispatcher(
             //     Ok::<i32, i32>(sockval)
             // )
             check_and_dispatch!(
-                cage.getsockopt_syscall,
+                cage.setsockopt_syscall,
                 interface::get_int(arg1),
                 interface::get_int(arg2),
                 interface::get_int(arg3),
