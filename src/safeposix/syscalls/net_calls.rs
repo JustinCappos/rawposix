@@ -256,7 +256,23 @@ impl Cage {
         optlen: u32,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::setsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen) }
+        let ret = unsafe { 
+            libc::setsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Socket] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+        }
+        ret
     }
 
     /*  
@@ -472,7 +488,7 @@ impl Cage {
             0
         }
     }
-    
+
     pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd, buf as *mut c_void, nbytes) as i32 }
