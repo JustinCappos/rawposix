@@ -6,8 +6,8 @@ use super::net_constants::*;
 use crate::{interface::FdSet, safeposix::cage::*};
 use crate::interface;
 
-use crate::example_grates::vanillaglobal::*;
-// use crate::example_grates::dashmapvecglobal::*;
+// use crate::example_grates::vanillaglobal::*;
+use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::muthashmaxglobal::*;
 
 use std::io::Write;
