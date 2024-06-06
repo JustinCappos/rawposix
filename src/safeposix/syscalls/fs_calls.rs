@@ -218,6 +218,8 @@ impl Cage {
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
             
         }
+        println!("rposix_statbuf: {:?}", rposix_statbuf);
+        io::stdout().flush().unwrap();
         libcret
     }
 
