@@ -437,9 +437,7 @@ impl Cage {
 
         unsafe {
             if getifaddrs(&mut ifaddr) < 0 {
-                let err = unsafe {
-                    libc::__errno_location()
-                };
+                let err = libc::__errno_location();
                 let err_str = libc::strerror(*err);
                 let err_msg = CStr::from_ptr(err_str).to_string_lossy().into_owned();
                 println!("Error message: {:?}", err_msg);
@@ -447,18 +445,29 @@ impl Cage {
                 return -1;
             }
             let ifa = ifaddr;
+            let mut offset = 0;
             if !ifa.is_null() {
                 let ifa_ref = &*ifa;
                 let name_cstr = CStr::from_ptr(ifa_ref.ifa_name);
-                println!("Name: {:?}", name_cstr);
-                io::stdout().flush().unwrap();
-                let name_vec = name_cstr.to_bytes().to_vec();
-                // let count = name.len().min(buf.len());
-                interface::fill(buf, name_vec.len(), &name_vec);
-                freeifaddrs(ifaddr);
-                return 0;
+                let name_bytes = name_cstr.to_bytes();
+
+                // Check if there's enough space in the buffer
+                if offset + name_bytes.len() + 1 > count {
+                    println!("Buffer size exceeded");
+                    freeifaddrs(ifaddr);
+                    return -1;
+                }
+
+                let name_vec = name_bytes.to_vec();
+                interface::fill(buf.add(offset), name_vec.len(), &name_vec);
+
+                // Add a null terminator to separate names
+                *buf.add(offset + name_vec.len()) = 0;
+                offset += name_vec.len() + 1; // Move offset past the name and null terminator
+            
+                ifa = ifa_ref.ifa_next;
+            
             }
-        }
         
         -1
     }
