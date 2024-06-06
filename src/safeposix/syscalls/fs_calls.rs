@@ -225,6 +225,12 @@ impl Cage {
             // rposix_statbuf.st_mtime.tv_nsec = libc_statbuf.st_mtime.tv_nsec as i64;
             // rposix_statbuf.st_ctime.tv_sec = libc_statbuf.st_ctime.tv_sec as i64;
             // rposix_statbuf.st_ctime.tv_nsec = libc_statbuf.st_ctime.tv_nsec as i64;
+            rposix_statbuf.st_atime_tv_sec = 0;
+            rposix_statbuf.st_atime_tv_nsec = 0;
+            rposix_statbuf.st_mtime_tv_sec = 0;
+            rposix_statbuf.st_mtime_tv_nsec = 0;
+            rposix_statbuf.st_ctime_tv_sec = 0;
+            rposix_statbuf.st_ctime_tv_nsec = 0;
         }
         println!("rposix_statbuf: {:?}", rposix_statbuf);
         io::stdout().flush().unwrap();
@@ -267,6 +273,12 @@ impl Cage {
             // rposix_statbuf.st_ctime = (0, 0);
             // rposix_statbuf.st_mtime = libc_statbuf.st_mtime;
             // rposix_statbuf.st_mtime = (0, 0);
+            // rposix_statbuf.st_atime_tv_sec = 0;
+            // rposix_statbuf.st_atime_tv_nsec = 0;
+            // rposix_statbuf.st_mtime_tv_sec = 0;
+            // rposix_statbuf.st_mtime_tv_nsec = 0;
+            // rposix_statbuf.st_ctime_tv_sec = 0;
+            // rposix_statbuf.st_ctime_tv_nsec = 0;
         }
         libcret
     }
