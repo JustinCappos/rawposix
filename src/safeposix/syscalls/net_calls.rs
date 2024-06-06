@@ -440,12 +440,8 @@ impl Cage {
                 let err = unsafe {
                     libc::__errno_location()
                 };
-                let err_str = unsafe {
-                    libc::strerror(*err)
-                };
-                let err_msg = unsafe {
-                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
-                };
+                let err_str = libc::strerror(*err);
+                let err_msg = CStr::from_ptr(err_str).to_string_lossy().into_owned();
                 println!("Error message: {:?}", err_msg);
                 io::stdout().flush().unwrap();
                 return -1;
@@ -453,6 +449,7 @@ impl Cage {
             let ifa = ifaddr;
             if !ifa.is_null() {
                 let ifa_ref = &*ifa;
+                let name_cstr = CStr::from_ptr(ifa_ref.ifa_name);
                 if !!ifa_ref.ifa_name.is_null() {
                     let name = CStr::from_ptr(ifa_ref.ifa_name).to_bytes();
                     let name_vec = name.to_vec();
