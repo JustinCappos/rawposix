@@ -25,7 +25,7 @@ use std::ffi::CString;
 use std::ptr;
 use std::mem;
 
-use crate::example_grates::dashmapvecglobal::*;
+use crate::example_grates::vanillaglobal::*;
 
 static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
 
@@ -744,11 +744,11 @@ impl Cage {
         let ret = unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) };
 
         if flags == libc::O_CLOEXEC {
-            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0], true, 0).unwrap() as i32;
-            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1], true, 0).unwrap() as i32;
+            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0] as u64, true, 0).unwrap() as i32;
+            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1] as u64, true, 0).unwrap() as i32;
         } else {
-            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0], false, 0).unwrap() as i32;
-            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1], false, 0).unwrap() as i32;
+            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0] as u64, false, 0).unwrap() as i32;
+            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1] as u64, false, 0).unwrap() as i32;
         }
 
         return ret;

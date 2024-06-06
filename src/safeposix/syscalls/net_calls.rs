@@ -6,7 +6,7 @@ use super::net_constants::*;
 use crate::{interface::FdSet, safeposix::cage::*};
 use crate::interface;
 
-use crate::example_grates::dashmapvecglobal::*;
+use crate::example_grates::vanillaglobal::*;
 
 use std::io::Write;
 use std::io;
@@ -313,7 +313,7 @@ impl Cage {
         timeout: i32,
     ) -> i32 {
         let mut real_fd = virtual_to_real_poll(self.cageid, virtual_fds);
-        unsafe { libc::poll(real_fd.as_mut_ptr(), nfds as u32, timeout) }
+        unsafe { libc::poll(real_fd.as_mut_ptr(), nfds as u64, timeout) }
     }
 
     /*  
@@ -366,7 +366,7 @@ impl Cage {
             u64: kernel_fd as u64,
         };
 
-        unsafe { libc::epoll_ctl(kernel_epfd, op, kernel_fd, &mut epoll_event) }
+        unsafe { libc::epoll_ctl(kernel_epfd as i32, op, kernel_fd as i32, &mut epoll_event) }
     }
 
     /*  
