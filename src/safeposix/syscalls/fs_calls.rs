@@ -203,7 +203,7 @@ impl Cage {
         }
         
         if libcret == 0 {
-            rposix_statbuf.st_blksize = libc_statbuf.st_blksize;
+            rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
             rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
             rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
             rposix_statbuf.st_gid = libc_statbuf.st_gid;
@@ -251,7 +251,7 @@ impl Cage {
         };
         
         if libcret == 0 {
-            rposix_statbuf.st_blksize = libc_statbuf.st_blksize;
+            rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
             rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
             rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
             rposix_statbuf.st_gid = libc_statbuf.st_gid;
