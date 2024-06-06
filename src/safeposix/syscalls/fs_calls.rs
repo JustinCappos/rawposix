@@ -650,8 +650,16 @@ impl Cage {
     *   rename() will return 0 when sucess, -1 when fail 
     */
     pub fn rename_syscall(&self, oldpath: &str, newpath: &str) -> i32 {
-        let old_cpath = CString::new(oldpath).expect("CString::new failed");
-        let new_cpath = CString::new(newpath).expect("CString::new failed");
+        let rel_oldpath = normpath(convpath(oldpath), self);
+        let relative_oldpath = rel_oldpath.to_str().unwrap();
+        let full_oldpath = format!("{}{}", LIND_ROOT, relative_oldpath);
+        let old_cpath = CString::new(full_oldpath).unwrap();
+
+        let rel_newpath = normpath(convpath(newpath), self);
+        let relative_newpath = rel_newpath.to_str().unwrap();
+        let full_newpath = format!("{}{}", LIND_ROOT, relative_newpath);
+        let new_cpath = CString::new(full_newpath).unwrap();
+
         unsafe {
             libc::rename(old_cpath.as_ptr(), new_cpath.as_ptr())
         }
