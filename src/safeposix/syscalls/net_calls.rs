@@ -450,6 +450,8 @@ impl Cage {
             if !ifa.is_null() {
                 let ifa_ref = &*ifa;
                 let name_cstr = CStr::from_ptr(ifa_ref.ifa_name);
+                println!("Name: {:?}", name_cstr);
+                io::stdout().flush().unwrap();
                 if !!ifa_ref.ifa_name.is_null() {
                     let name = CStr::from_ptr(ifa_ref.ifa_name).to_bytes();
                     let name_vec = name.to_vec();
