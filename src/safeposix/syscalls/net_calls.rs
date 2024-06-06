@@ -178,7 +178,21 @@ impl Cage {
         address_len: u32,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        let _ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, addr, address_len as *mut u32) };
+        let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, addr, address_len as *mut u32) };
+        if ret_kernelfd < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Accept] Error message: {:?}", err_msg);
+            println!("kernel_fd: {:?}", kernel_fd);
+            io::stdout().flush().unwrap();
+        }
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         ret_virtualfd as i32
     }
