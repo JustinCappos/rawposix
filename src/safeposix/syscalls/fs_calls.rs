@@ -460,10 +460,8 @@ impl Cage {
             libc::dup(old_kernelfd as i32)
         };
         // Map new kernel fd with provided kernel fd
-        let ret_kernelfd = unsafe{ libc::dup2(old_kernelfd as i32, new_kernelfd) };
+        let _ret_kernelfd = unsafe{ libc::dup2(old_kernelfd as i32, new_kernelfd) };
         let optinfo = get_optionalinfo(self.cageid, old_virtualfd as u64).unwrap();
-        println!("ret_kernelfd: {:?}\nnew_kernelfd: {:?}", ret_kernelfd, new_virtualfd);
-        io::stdout().flush().unwrap();
         let _ = get_specific_virtual_fd(self.cageid, new_virtualfd as u64, new_kernelfd as u64, false, optinfo).unwrap();
         new_virtualfd
     }
