@@ -153,13 +153,13 @@ macro_rules! check_and_dispatch {
     };
 }
 
-macro_rules! check_and_dispatch_socketpair {
-    ( $func:expr, $cage:ident, $($arg:expr),* ) => {
-        match (|| Ok($func( $cage, $($arg?),* )))() {
-            Ok(i) => i, Err(i) => i
-        }
-    };
-}
+// macro_rules! check_and_dispatch_socketpair {
+//     ( $func:expr, $cage:ident, $($arg:expr),* ) => {
+//         match (|| Ok($func( $cage, $($arg?),* )))() {
+//             Ok(i) => i, Err(i) => i
+//         }
+//     };
+// }
 
 // the following "quick" functions are implemented for research purposes
 // to increase I/O performance by bypassing the dispatcher and type checker

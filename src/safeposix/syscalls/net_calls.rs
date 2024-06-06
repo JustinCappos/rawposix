@@ -436,7 +436,18 @@ impl Cage {
         let mut ifaddr: *mut ifaddrs = ptr::null_mut();
 
         unsafe {
-            if getifaddrs(&mut ifaddr) == -1 {
+            if getifaddrs(&mut ifaddr) < 0 {
+                let err = unsafe {
+                    libc::__errno_location()
+                };
+                let err_str = unsafe {
+                    libc::strerror(*err)
+                };
+                let err_msg = unsafe {
+                    CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                };
+                println!("Error message: {:?}", err_msg);
+                io::stdout().flush().unwrap();
                 return -1;
             }
             let ifa = ifaddr;
