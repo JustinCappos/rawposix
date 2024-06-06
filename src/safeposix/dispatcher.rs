@@ -113,7 +113,7 @@ const SYNC_FILE_RANGE: i32 = 164;
 use std::collections::HashMap;
 
 use super::cage::*;
-use crate::example_grates::fdtable::*;
+use crate::example_grates::fdtablesvec::*;
 
 // Chroot
 use std::os::unix::fs;
@@ -1163,6 +1163,9 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     interface::cagetable_insert(1, initcage);
     init_empty_cage(1);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
+    /* TODO:
+    *   change to use get specific one 
+    */
     // STDIN
     get_unused_virtual_fd(1, 0, false, 0).unwrap();
     // STDOUT

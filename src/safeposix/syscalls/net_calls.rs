@@ -6,7 +6,7 @@ use super::net_constants::*;
 use crate::{interface::FdSet, safeposix::cage::*};
 use crate::interface;
 
-use crate::example_grates::fdtable::*;
+use crate::example_grates::fdtablesvec::*;
 
 use std::io::Write;
 use std::io;
@@ -44,7 +44,7 @@ impl Cage {
         /*
             get_unused_virtual_fd(cageid,realfd,is_cloexec,optionalinfo) -> Result<virtualfd, EMFILE>
         */
-        return get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
+        return get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap() as i32;
     }
 
     /* 
@@ -55,8 +55,8 @@ impl Cage {
         /*
             translate_virtual_fd(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetVal>
         */
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::bind(kernel_fd , addr, len) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::bind(kernel_fd as i32, addr, len) }
     }
 
     /*  
@@ -64,8 +64,8 @@ impl Cage {
      *   connect() will return 0 when success and -1 when fail
      */
     pub fn connect_syscall(&self, virtual_fd: i32, addr: *const sockaddr, len: u32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::connect(kernel_fd, addr, len) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::connect(kernel_fd as i32, addr, len) }
     }
 
     /*  
@@ -81,10 +81,10 @@ impl Cage {
         dest_addr: *const sockaddr,
         addrlen: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         unsafe {
             libc::sendto(
-                kernel_fd,
+                kernel_fd as i32,
                 buf as *const c_void,
                 buflen as usize,
                 flags as i32,
@@ -105,8 +105,8 @@ impl Cage {
         buflen: usize,
         flags: i32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::send(kernel_fd, buf as *const c_void, buflen, flags) as i32}
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::send(kernel_fd as i32, buf as *const c_void, buflen, flags) as i32}
     }
 
     /*  
@@ -126,8 +126,8 @@ impl Cage {
         addr: *mut sockaddr,
         addrlen: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap(); 
-        unsafe { libc::recvfrom(kernel_fd, buf as *mut c_void, buflen as usize, flags as i32, addr, addrlen as *mut u32) as i32 }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap(); 
+        unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen as usize, flags as i32, addr, addrlen as *mut u32) as i32 }
     }
 
     /*  
@@ -139,8 +139,8 @@ impl Cage {
      *       - Fail: -1
      */
     pub fn recv_syscall(&self, virtual_fd: i32, buf: *mut u8, len: usize, flags: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::recv(kernel_fd, buf as *mut c_void, len, flags) as i32 }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::recv(kernel_fd as i32, buf as *mut c_void, len, flags) as i32 }
     }
 
     /*  
@@ -148,8 +148,8 @@ impl Cage {
      *   listen() will return 0 when success and -1 when fail
      */
     pub fn listen_syscall(&self, virtual_fd: i32, backlog: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::listen(kernel_fd, backlog) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::listen(kernel_fd as i32, backlog) }
     }
 
     /*  
@@ -157,8 +157,8 @@ impl Cage {
      *   shutdown() will return 0 when success and -1 when fail
      */
     pub fn shutdown_syscall(&self, virtual_fd: i32, how: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::shutdown(kernel_fd, how) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::shutdown(kernel_fd as i32, how) }
     }
 
     /*  
@@ -174,10 +174,10 @@ impl Cage {
         addr: *mut sockaddr,
         address_len: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        let _ret_kernelfd = unsafe { libc::accept(kernel_fd, addr, address_len as *mut u32) };
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let _ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, addr, address_len as *mut u32) };
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
-        ret_virtualfd
+        ret_virtualfd as i32
     }
 
     /* 
@@ -236,8 +236,8 @@ impl Cage {
         optval: *mut u8,
         optlen: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::getsockopt(kernel_fd, level, optname, optval as *mut c_void, optlen as *mut u32) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) }
     }
 
     /*  
@@ -252,8 +252,8 @@ impl Cage {
         optval: *mut u8,
         optlen: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::setsockopt(kernel_fd, level, optname, optval as *mut c_void, optlen) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::setsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen) }
     }
 
     /*  
@@ -266,8 +266,8 @@ impl Cage {
         address: *mut sockaddr,
         address_len: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::getpeername(kernel_fd, address, address_len as *mut u32) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::getpeername(kernel_fd as i32, address, address_len as *mut u32) }
     }
 
     /*  
@@ -280,8 +280,8 @@ impl Cage {
         address: *mut sockaddr,
         address_len: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-        unsafe { libc::getsockname(kernel_fd, address, address_len as *mut u32) }
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        unsafe { libc::getsockname(kernel_fd as i32, address, address_len as *mut u32) }
     }
 
     /*  
@@ -313,7 +313,7 @@ impl Cage {
         timeout: i32,
     ) -> i32 {
         let mut real_fd = virtual_to_real_poll(self.cageid, virtual_fds);
-        unsafe { libc::poll(real_fd.as_mut_ptr(), nfds, timeout) }
+        unsafe { libc::poll(real_fd.as_mut_ptr(), nfds as u32, timeout) }
     }
 
     /*  
@@ -339,7 +339,7 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
-        return get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap() as i32;
+        return get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap() as i32;
     }
 
     /*  
@@ -357,8 +357,8 @@ impl Cage {
         virtual_fd: i32,
         epollevent: &EpollEvent,
     ) -> i32 {
-        let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd).unwrap();
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+        let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         // EpollEvent conversion
         let event = epollevent.events;
         let mut epoll_event = epoll_event {
@@ -383,11 +383,11 @@ impl Cage {
         maxevents: i32,
         timeout: i32,
     ) -> i32 {
-        let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd).unwrap();
+        let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
         for epollevent in events.iter() {
             let virtual_fd = epollevent.fd;
-            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
+            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
             kernel_events.push(
                 epoll_event {
                     events: epollevent.events,
@@ -395,7 +395,7 @@ impl Cage {
                 }
             );
         }
-        unsafe { libc::epoll_wait(kernel_epfd, kernel_events.as_mut_ptr(), maxevents, timeout) }
+        unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout) }
     }
 
     /*  
@@ -416,10 +416,10 @@ impl Cage {
         if ret == 0 {
             let ksv_1 = kernel_socket_vector[0];
             let ksv_2 = kernel_socket_vector[1];
-            let vsv_1 = get_unused_virtual_fd(self.cageid, ksv_1, false, 0).unwrap();
-            let vsv_2 = get_unused_virtual_fd(self.cageid, ksv_2, false, 0).unwrap();
-            virtual_socket_vector.sock1 = vsv_1;
-            virtual_socket_vector.sock2 = vsv_2;
+            let vsv_1 = get_unused_virtual_fd(self.cageid, ksv_1 as u64, false, 0).unwrap();
+            let vsv_2 = get_unused_virtual_fd(self.cageid, ksv_2 as u64, false, 0).unwrap();
+            virtual_socket_vector.sock1 = vsv_1 as i32;
+            virtual_socket_vector.sock2 = vsv_2 as i32;
             return 0;
         }
         return -1;
@@ -439,7 +439,7 @@ impl Cage {
     // }
 
     pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd);
+        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd, buf as *mut c_void, nbytes) as i32 }
     }
 }
@@ -454,7 +454,7 @@ pub fn virtual_to_real_set(cageid: u64, virtualfds: *mut BitSet) -> Option<fd_se
     let virtualfds = unsafe { &*virtualfds };
     let mut real_set = unsafe { std::mem::zeroed::<fd_set>() };
     for virtualfd in virtualfds.iter() {
-        let real_fd = translate_virtual_fd(cageid, virtualfd as i32).unwrap() as RawFd;
+        let real_fd = translate_virtual_fd(cageid, virtualfd as u64).unwrap() as RawFd;
         unsafe { FD_SET(real_fd, &mut real_set) };
     }
 
@@ -470,10 +470,10 @@ pub fn virtual_to_real_poll(cageid: u64, virtual_poll: *mut [PollStruct]) -> Vec
     let mut real_fds = Vec::with_capacity(virtual_fds.len());
 
     for vfd in virtual_fds.iter() {
-        let real_fd = translate_virtual_fd(cageid, vfd.fd as i32).unwrap();
+        let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
         real_fds.push(
             pollfd {
-                fd: real_fd,
+                fd: real_fd as i32,
                 events: vfd.events,
                 revents: vfd.revents,
             }

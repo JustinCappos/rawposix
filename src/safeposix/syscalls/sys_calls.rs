@@ -9,7 +9,7 @@ use crate::safeposix::cage;
 use crate::safeposix::cage::*;
 use crate::safeposix::shm::*;
 
-use crate::example_grates::fdtable::*;
+use crate::example_grates::fdtablesvec::*;
 use libc::*;
 
 use std::io::Write;
