@@ -446,7 +446,7 @@ impl Cage {
             }
             let mut ifa = ifaddr;
             let mut offset = 0;
-            if !ifa.is_null() {
+            while !ifa.is_null() {
                 let ifa_ref = &*ifa;
                 let name_cstr = CStr::from_ptr(ifa_ref.ifa_name);
                 let name_bytes = name_cstr.to_bytes();
@@ -468,10 +468,11 @@ impl Cage {
                 ifa = ifa_ref.ifa_next;
             
             }
-        
-            -1
+            freeifaddrs(ifaddr);
+            0
         }
     }
+    
     pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd, buf as *mut c_void, nbytes) as i32 }
