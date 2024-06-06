@@ -205,14 +205,14 @@ impl Cage {
     *   exec() will only return if error happens 
     */
     pub fn exec_syscall(&self, child_cageid: u64) -> i32 {
+        // Add the new one to fdtable
+        let _ = copy_fdtable_for_cage(self.cageid, child_cageid);
+        // Delete the original one
+        let _newfdtable = remove_cage_from_fdtable(self.cageid);
+
         interface::cagetable_remove(self.cageid);
 
         self.unmap_shm_mappings();
-
-        // Delete the original one
-        let _newfdtable = remove_cage_from_fdtable(self.cageid);
-        // Add the new one to fdtable
-        let _ = copy_fdtable_for_cage(self.cageid, child_cageid);
 
         // we grab the parent cages main threads sigset and store it at 0
         // this way the child can initialize the sigset properly when it establishes its own mainthreadid
