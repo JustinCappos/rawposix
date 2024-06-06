@@ -214,11 +214,11 @@ impl Cage {
             rposix_statbuf.st_size = libc_statbuf.st_size;
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
             // rposix_statbuf.st_atime = libc_statbuf.st_atime;
-            rposix_statbuf.st_atime = (0, 0);
+            // rposix_statbuf.st_atime = (0, 0);
             // rposix_statbuf.st_ctime = libc_statbuf.st_ctime;
-            rposix_statbuf.st_ctime = (0, 0);
+            // rposix_statbuf.st_ctime = (0, 0);
             // rposix_statbuf.st_mtime = libc_statbuf.st_mtime;
-            rposix_statbuf.st_mtime = (0, 0);
+            // rposix_statbuf.st_mtime = (0, 0);
             // rposix_statbuf.st_atime.tv_sec = libc_statbuf.st_atime.tv_sec as i64;
             // rposix_statbuf.st_atime.tv_nsec = libc_statbuf.st_atime.tv_nsec as i64;
             // rposix_statbuf.st_mtime.tv_sec = libc_statbuf.st_mtime.tv_sec as i64;
@@ -262,11 +262,11 @@ impl Cage {
             rposix_statbuf.st_size = libc_statbuf.st_size;
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
             // rposix_statbuf.st_atime = libc_statbuf.st_atime;
-            rposix_statbuf.st_atime = (0, 0);
+            // rposix_statbuf.st_atime = (0, 0);
             // rposix_statbuf.st_ctime = libc_statbuf.st_ctime;
-            rposix_statbuf.st_ctime = (0, 0);
+            // rposix_statbuf.st_ctime = (0, 0);
             // rposix_statbuf.st_mtime = libc_statbuf.st_mtime;
-            rposix_statbuf.st_mtime = (0, 0);
+            // rposix_statbuf.st_mtime = (0, 0);
         }
         libcret
     }
