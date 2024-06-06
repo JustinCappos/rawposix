@@ -26,8 +26,9 @@ use std::ptr;
 use std::mem;
 
 // use crate::example_grates::vanillaglobal::*;
-use crate::example_grates::dashmapvecglobal::*;
+// use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::muthashmaxglobal::*;
+use crate::example_grates::dashmaparrayglobal::*;
 
 static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
 
