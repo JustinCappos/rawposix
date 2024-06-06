@@ -216,7 +216,9 @@ impl Cage {
             rposix_statbuf.st_rdev = libc_statbuf.st_rdev;
             rposix_statbuf.st_size = libc_statbuf.st_size;
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
-            
+            rposix_statbuf.st_atime_nsec = libc_statbuf.st_atime_nsec;
+            rposix_statbuf.st_ctime_nsec = libc_statbuf.st_ctime_nsec;
+            rposix_statbuf.st_mtime_nsec = libc_statbuf.st_mtime_nsec;
         }
         println!("rposix_statbuf: {:?}", rposix_statbuf);
         io::stdout().flush().unwrap();

@@ -48,9 +48,15 @@ pub struct StatData {
     // pub st_atim: (u64, u64),
     // pub st_mtim: (u64, u64),
     // pub st_ctim: (u64, u64),
-    pub st_atim: i64,
-    pub st_mtim: i64,
-    pub st_ctim: i64,
+    // pub st_atim: i64,
+    // pub st_mtim: i64,
+    // pub st_ctim: i64,
+    pub st_atime: i64,
+    pub st_atime_nsec: i64,
+    pub st_mtime: i64,
+    pub st_mtime_nsec: i64,
+    pub st_ctime: i64,
+    pub st_ctime_nsec: i64,
 }
 
 //R Limit for getrlimit system call
