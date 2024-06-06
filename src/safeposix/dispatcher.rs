@@ -114,8 +114,8 @@ use std::collections::HashMap;
 
 use super::cage::*;
 // use crate::example_grates::vanillaglobal::*;
-use crate::example_grates::dashmapvecglobal::*;
-// use crate::example_grates::muthashmaxglobal::*;
+// use crate::example_grates::dashmapvecglobal::*;
+use crate::example_grates::muthashmaxglobal::*;
 
 // Chroot
 use std::os::unix::fs;
