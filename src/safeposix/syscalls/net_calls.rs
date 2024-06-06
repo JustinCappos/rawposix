@@ -469,9 +469,9 @@ impl Cage {
             
             }
         
-        -1
+            -1
+        }
     }
-
     pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd, buf as *mut c_void, nbytes) as i32 }
