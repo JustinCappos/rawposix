@@ -213,21 +213,7 @@ impl Cage {
             rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
             rposix_statbuf.st_size = libc_statbuf.st_size as usize;
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
-            // rposix_statbuf.st_atime = libc_statbuf.st_atime;
-            // rposix_statbuf.st_atime = (0, 0);
-            // rposix_statbuf.st_ctime = libc_statbuf.st_ctime;
-            // rposix_statbuf.st_ctime = (0, 0);
-            // rposix_statbuf.st_mtime = libc_statbuf.st_mtime;
-            // rposix_statbuf.st_mtime = (0, 0);
-            // rposix_statbuf.st_atime.tv_sec = libc_statbuf.st_atime.tv_sec as i64;
-            // rposix_statbuf.st_atime.tv_nsec = libc_statbuf.st_atime.tv_nsec as i64;
-            // rposix_statbuf.st_mtime.tv_sec = libc_statbuf.st_mtime.tv_sec as i64;
-            // rposix_statbuf.st_mtime.tv_nsec = libc_statbuf.st_mtime.tv_nsec as i64;
-            // rposix_statbuf.st_ctime.tv_sec = libc_statbuf.st_ctime.tv_sec as i64;
-            // rposix_statbuf.st_ctime.tv_nsec = libc_statbuf.st_ctime.tv_nsec as i64;
         }
-        println!("rposix_statbuf: {:?}", rposix_statbuf);
-        io::stdout().flush().unwrap();
         libcret
     }
 
@@ -261,18 +247,6 @@ impl Cage {
             rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
             rposix_statbuf.st_size = libc_statbuf.st_size as usize;
             rposix_statbuf.st_uid = libc_statbuf.st_uid;
-            // rposix_statbuf.st_atime = libc_statbuf.st_atime;
-            // rposix_statbuf.st_atime = (0, 0);
-            // rposix_statbuf.st_ctime = libc_statbuf.st_ctime;
-            // rposix_statbuf.st_ctime = (0, 0);
-            // rposix_statbuf.st_mtime = libc_statbuf.st_mtime;
-            // rposix_statbuf.st_mtime = (0, 0);
-            // rposix_statbuf.st_atime_tv_sec = 0;
-            // rposix_statbuf.st_atime_tv_nsec = 0;
-            // rposix_statbuf.st_mtime_tv_sec = 0;
-            // rposix_statbuf.st_mtime_tv_nsec = 0;
-            // rposix_statbuf.st_ctime_tv_sec = 0;
-            // rposix_statbuf.st_ctime_tv_nsec = 0;
         }
         libcret
     }
@@ -295,10 +269,15 @@ impl Cage {
             rposix_databuf.f_bavail = libc_databuf.f_bavail;
             rposix_databuf.f_bfree = libc_databuf.f_bfree;
             rposix_databuf.f_blocks = libc_databuf.f_blocks;
-            rposix_databuf.f_bsize = libc_databuf.f_bsize;
-            rposix_databuf.f_ffiles = libc_databuf.f_ffree;
+            rposix_databuf.f_bsize = libc_databuf.f_bsize as u64;
             rposix_databuf.f_files = libc_databuf.f_files;
-            rposix_databuf.f_fsid = libc_databuf.f_fsid;
+            /* TODO: different from libc struct */
+            rposix_databuf.f_fsid = 0; 
+            rposix_databuf.f_type = 0xBEEFC0DE; //unassigned
+            rposix_databuf.f_ffiles = 1024 * 1024 * 515;
+            rposix_databuf.f_namelen = 254;
+            rposix_databuf.f_frsize = 4096;
+            rposix_databuf.f_spare = [0; 32];
         }
         libcret
     }
@@ -319,10 +298,15 @@ impl Cage {
             rposix_databuf.f_bavail = libc_databuf.f_bavail;
             rposix_databuf.f_bfree = libc_databuf.f_bfree;
             rposix_databuf.f_blocks = libc_databuf.f_blocks;
-            rposix_databuf.f_bsize = libc_databuf.f_bsize;
-            rposix_databuf.f_ffiles = libc_databuf.f_ffree;
+            rposix_databuf.f_bsize = libc_databuf.f_bsize as u64;
             rposix_databuf.f_files = libc_databuf.f_files;
-            rposix_databuf.f_fsid = libc_databuf.f_fsid;
+            /* TODO: different from libc struct */
+            rposix_databuf.f_fsid = 0; 
+            rposix_databuf.f_type = 0xBEEFC0DE; //unassigned
+            rposix_databuf.f_ffiles = 1024 * 1024 * 515;
+            rposix_databuf.f_namelen = 254;
+            rposix_databuf.f_frsize = 4096;
+            rposix_databuf.f_spare = [0; 32];
         }
         libcret
     }
