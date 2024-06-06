@@ -444,7 +444,7 @@ impl Cage {
                 io::stdout().flush().unwrap();
                 return -1;
             }
-            let ifa = ifaddr;
+            let mut ifa = ifaddr;
             let mut offset = 0;
             if !ifa.is_null() {
                 let ifa_ref = &*ifa;
