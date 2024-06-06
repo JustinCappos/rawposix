@@ -9,7 +9,9 @@ use crate::safeposix::cage;
 use crate::safeposix::cage::*;
 use crate::safeposix::shm::*;
 
-use crate::example_grates::vanillaglobal::*;
+// use crate::example_grates::vanillaglobal::*;
+use crate::example_grates::dashmapvecglobal::*;
+
 use libc::*;
 
 use std::io::Write;
