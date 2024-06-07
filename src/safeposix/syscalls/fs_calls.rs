@@ -333,8 +333,7 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            println!("errno: {:?}", err);
-            println!("Error message: {:?}", err_msg);
+            println!("[READ] Error message: {:?}", err_msg);
             println!("kernel_fd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
             return -1;
