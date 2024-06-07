@@ -75,7 +75,22 @@ impl Cage {
             }
         };
 
-        unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) }
+        let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Bind] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
@@ -227,7 +242,22 @@ impl Cage {
      */
     pub fn listen_syscall(&self, virtual_fd: i32, backlog: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::listen(kernel_fd as i32, backlog) }
+        let ret = unsafe { libc::listen(kernel_fd as i32, backlog) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Listen] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
@@ -375,8 +405,9 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            println!("[Socket] Error message: {:?}", err_msg);
+            println!("[Setsockopt] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
+            panic!();
         }
         ret
     }
