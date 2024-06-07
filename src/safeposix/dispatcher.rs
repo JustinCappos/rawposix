@@ -508,8 +508,12 @@ pub extern "C" fn dispatcher(
         }
         ACCEPT_SYSCALL => {
             let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
+            
             let nullity1 = interface::arg_nullity(&arg2);
             let nullity2 = interface::arg_nullity(&arg3);
+
+            let addrlen = get_onearg!(interface::get_uint(arg3));
+            let mut sentaddr = get_onearg!(interface::get_sockaddr(arg2, addrlen));
 
             if nullity1 && nullity2 {
                 check_and_dispatch!(
@@ -526,7 +530,7 @@ pub extern "C" fn dispatcher(
                     interface::get_int(arg1),
                     // Ok::<&mut interface::GenSockaddr, i32>(&mut addr)
                     Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
-                        &mut addr
+                        &mut sentaddr
                     ))
                 );
                 if rv >= 0 {
