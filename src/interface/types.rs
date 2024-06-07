@@ -50,34 +50,6 @@ pub struct FSData {
 //derive eq attributes for testing whether the structs equal other statdata structs from stat/fstat
 #[derive(Eq, PartialEq, Default, Debug)]
 #[repr(C)]
-// pub struct StatData {
-//     pub st_dev: u64,
-//     pub st_ino: u64,
-//     pub st_mode: u32,
-//     pub st_nlink: u64,
-//     pub st_uid: u32,
-//     pub st_gid: u32,
-//     pub st_rdev: u64,
-//     pub st_size: i64,
-//     pub st_blksize: i64,
-//     pub st_blocks: i64,
-//     //currently we don't populate or care about the time bits here
-//     // pub st_atim: (u64, u64),
-//     // pub st_mtim: (u64, u64),
-//     // pub st_ctim: (u64, u64),
-//     // pub st_atim: i64,
-//     // pub st_mtim: i64,
-//     // pub st_ctim: i64,
-//     // pub st_atime: (u64, u64),
-//     // pub st_mtime: (u64, u64),
-//     // pub st_ctime: (u64, u64),
-//     pub st_atime_tv_sec: i64,
-//     pub st_atime_tv_nsec: i64,
-//     pub st_mtime_tv_sec: i64,
-//     pub st_mtime_tv_nsec: i64,
-//     pub st_ctime_tv_sec: i64,
-//     pub st_ctime_tv_nsec: i64,
-// }
 pub struct StatData {
     pub st_dev: u64,
     pub st_ino: usize,
@@ -133,11 +105,11 @@ pub struct PollStruct {
     pub revents: i16,
 }
 
-// #[repr(C)]
-// pub struct SockaddrDummy {
-//     pub sa_family: u16,
-//     pub _sa_data: [u16; 14],
-// }
+#[repr(C)]
+pub struct SockaddrDummy {
+    pub sa_family: u16,
+    pub _sa_data: [u16; 14],
+}
 
 #[repr(C)]
 pub struct TimeVal {
@@ -223,8 +195,10 @@ pub union Arg {
     // pub dispatch_fsdatastruct: *mut statfs,
     pub dispatch_fsdatastruct: *mut FSData,
     pub dispatch_shmidstruct: *mut ShmidsStruct,
-    pub dispatch_constsockaddrstruct: *const sockaddr,
-    pub dispatch_sockaddrstruct: *mut sockaddr,
+    pub dispatch_constsockaddrstruct: *const SockaddrDummy,
+    pub dispatch_sockaddrstruct: *mut SockaddrDummy,
+    // pub dispatch_constsockaddrstruct: *const sockaddr,
+    // pub dispatch_sockaddrstruct: *mut sockaddr,
     pub dispatch_socklen_t_ptr: *mut u32,
     pub dispatch_intptr: *mut i32,
     pub dispatch_pollstructarray: *mut PollStruct,
@@ -574,19 +548,19 @@ pub fn get_sockpair<'a>(union_argument: Arg) -> Result<&'a mut SockPair, i32> {
     ));
 }
 
-pub fn get_sockaddr<'a>(union_argument: Arg) -> Result<&'a mut sockaddr, i32> {
-    let pointer = unsafe { union_argument.dispatch_sockaddrstruct };
-    if !pointer.is_null() {
-        return Ok(unsafe { &mut *pointer });
-    }
-    return Err(syscall_error(
-        Errno::EFAULT,
-        "dispatcher",
-        "input data not valid",
-    ));
-}
+// pub fn get_sockaddr<'a>(union_argument: Arg) -> Result<&'a mut SockaddrDummy, i32> {
+//     let pointer = unsafe { union_argument.dispatch_sockaddrstruct };
+//     if !pointer.is_null() {
+//         return Ok(unsafe { &mut *pointer });
+//     }
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
 
-pub fn get_constsockaddr<'a>(union_argument: Arg) -> Result<&'a sockaddr, i32> {
+pub fn get_constsockaddr<'a>(union_argument: Arg) -> Result<&'a SockaddrDummy, i32> {
     let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
     if !pointer.is_null() {
         return Ok(unsafe { & *pointer });
@@ -598,122 +572,122 @@ pub fn get_constsockaddr<'a>(union_argument: Arg) -> Result<&'a sockaddr, i32> {
     ));
 }
 
-// pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenSockaddr, i32> {
-//     let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
-//     if !pointer.is_null() {
-//         let tmpsock = unsafe { &*pointer };
-//         match tmpsock.sa_family {
-//             /*AF_UNIX*/
-//             1 => {
-//                 if addrlen < SIZEOF_SOCKADDR
-//                     || addrlen > size_of::<interface::SockaddrUnix>() as u32
-//                 {
-//                     return Err(syscall_error(
-//                         Errno::EINVAL,
-//                         "dispatcher",
-//                         "input length incorrect for family of sockaddr",
-//                     ));
-//                 }
-//                 let unix_ptr = pointer as *const interface::SockaddrUnix;
-//                 return Ok(interface::GenSockaddr::Unix(unsafe { *unix_ptr }));
-//             }
-//             /*AF_INET*/
-//             2 => {
-//                 if addrlen < size_of::<interface::SockaddrV4>() as u32 {
-//                     return Err(syscall_error(
-//                         Errno::EINVAL,
-//                         "dispatcher",
-//                         "input length too small for family of sockaddr",
-//                     ));
-//                 }
-//                 let v4_ptr = pointer as *const interface::SockaddrV4;
-//                 return Ok(interface::GenSockaddr::V4(unsafe { *v4_ptr }));
-//             }
-//             /*AF_INET6*/
-//             30 => {
-//                 if addrlen < size_of::<interface::SockaddrV6>() as u32 {
-//                     return Err(syscall_error(
-//                         Errno::EINVAL,
-//                         "dispatcher",
-//                         "input length too small for family of sockaddr",
-//                     ));
-//                 }
-//                 let v6_ptr = pointer as *const interface::SockaddrV6;
-//                 return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
-//             }
-//             _ => {
-//                 return Err(syscall_error(
-//                     Errno::EOPNOTSUPP,
-//                     "dispatcher",
-//                     "sockaddr family not supported",
-//                 ))
-//             }
-//         }
-//     }
-//     return Err(syscall_error(
-//         Errno::EFAULT,
-//         "dispatcher",
-//         "input data not valid",
-//     ));
-// }
+pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenSockaddr, i32> {
+    let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
+    if !pointer.is_null() {
+        let tmpsock = unsafe { &*pointer };
+        match tmpsock.sa_family {
+            /*AF_UNIX*/
+            1 => {
+                if addrlen < SIZEOF_SOCKADDR
+                    || addrlen > size_of::<interface::SockaddrUnix>() as u32
+                {
+                    return Err(syscall_error(
+                        Errno::EINVAL,
+                        "dispatcher",
+                        "input length incorrect for family of sockaddr",
+                    ));
+                }
+                let unix_ptr = pointer as *const interface::SockaddrUnix;
+                return Ok(interface::GenSockaddr::Unix(unsafe { *unix_ptr }));
+            }
+            /*AF_INET*/
+            2 => {
+                if addrlen < size_of::<interface::SockaddrV4>() as u32 {
+                    return Err(syscall_error(
+                        Errno::EINVAL,
+                        "dispatcher",
+                        "input length too small for family of sockaddr",
+                    ));
+                }
+                let v4_ptr = pointer as *const interface::SockaddrV4;
+                return Ok(interface::GenSockaddr::V4(unsafe { *v4_ptr }));
+            }
+            /*AF_INET6*/
+            30 => {
+                if addrlen < size_of::<interface::SockaddrV6>() as u32 {
+                    return Err(syscall_error(
+                        Errno::EINVAL,
+                        "dispatcher",
+                        "input length too small for family of sockaddr",
+                    ));
+                }
+                let v6_ptr = pointer as *const interface::SockaddrV6;
+                return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
+            }
+            _ => {
+                return Err(syscall_error(
+                    Errno::EOPNOTSUPP,
+                    "dispatcher",
+                    "sockaddr family not supported",
+                ))
+            }
+        }
+    }
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
+}
 
-// pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interface::GenSockaddr) {
-//     let copyoutaddr = unsafe { union_argument.dispatch_sockaddrstruct } as *mut u8;
-//     let addrlen = unsafe { len_argument.dispatch_socklen_t_ptr };
-//     assert!(!copyoutaddr.is_null());
-//     assert!(!addrlen.is_null());
-//     let initaddrlen = unsafe { *addrlen };
-//     let mut mutgensock = gensock;
-//     match mutgensock {
-//         interface::GenSockaddr::Unix(ref mut unixa) => {
-//             let unixlen = size_of::<interface::SockaddrUnix>() as u32;
+pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interface::GenSockaddr) {
+    let copyoutaddr = unsafe { union_argument.dispatch_sockaddrstruct } as *mut u8;
+    let addrlen = unsafe { len_argument.dispatch_socklen_t_ptr };
+    assert!(!copyoutaddr.is_null());
+    assert!(!addrlen.is_null());
+    let initaddrlen = unsafe { *addrlen };
+    let mut mutgensock = gensock;
+    match mutgensock {
+        interface::GenSockaddr::Unix(ref mut unixa) => {
+            let unixlen = size_of::<interface::SockaddrUnix>() as u32;
 
-//             let fullcopylen = interface::rust_min(initaddrlen, unixlen);
-//             unsafe {
-//                 std::ptr::copy(
-//                     (unixa) as *mut interface::SockaddrUnix as *mut u8,
-//                     copyoutaddr,
-//                     fullcopylen as usize,
-//                 )
-//             };
-//             unsafe {
-//                 *addrlen = interface::rust_max(unixlen, fullcopylen);
-//             }
-//         }
+            let fullcopylen = interface::rust_min(initaddrlen, unixlen);
+            unsafe {
+                std::ptr::copy(
+                    (unixa) as *mut interface::SockaddrUnix as *mut u8,
+                    copyoutaddr,
+                    fullcopylen as usize,
+                )
+            };
+            unsafe {
+                *addrlen = interface::rust_max(unixlen, fullcopylen);
+            }
+        }
 
-//         interface::GenSockaddr::V4(ref mut v4a) => {
-//             let v4len = size_of::<interface::SockaddrV4>() as u32;
+        interface::GenSockaddr::V4(ref mut v4a) => {
+            let v4len = size_of::<interface::SockaddrV4>() as u32;
 
-//             let fullcopylen = interface::rust_min(initaddrlen, v4len);
-//             unsafe {
-//                 std::ptr::copy(
-//                     (v4a) as *mut interface::SockaddrV4 as *mut u8,
-//                     copyoutaddr,
-//                     fullcopylen as usize,
-//                 )
-//             };
-//             unsafe {
-//                 *addrlen = interface::rust_max(v4len, fullcopylen);
-//             }
-//         }
+            let fullcopylen = interface::rust_min(initaddrlen, v4len);
+            unsafe {
+                std::ptr::copy(
+                    (v4a) as *mut interface::SockaddrV4 as *mut u8,
+                    copyoutaddr,
+                    fullcopylen as usize,
+                )
+            };
+            unsafe {
+                *addrlen = interface::rust_max(v4len, fullcopylen);
+            }
+        }
 
-//         interface::GenSockaddr::V6(ref mut v6a) => {
-//             let v6len = size_of::<interface::SockaddrV6>() as u32;
+        interface::GenSockaddr::V6(ref mut v6a) => {
+            let v6len = size_of::<interface::SockaddrV6>() as u32;
 
-//             let fullcopylen = interface::rust_min(initaddrlen, v6len);
-//             unsafe {
-//                 std::ptr::copy(
-//                     (v6a) as *mut interface::SockaddrV6 as *mut u8,
-//                     copyoutaddr,
-//                     fullcopylen as usize,
-//                 )
-//             };
-//             unsafe {
-//                 *addrlen = interface::rust_max(v6len, fullcopylen);
-//             }
-//         }
-//     }
-// }
+            let fullcopylen = interface::rust_min(initaddrlen, v6len);
+            unsafe {
+                std::ptr::copy(
+                    (v6a) as *mut interface::SockaddrV6 as *mut u8,
+                    copyoutaddr,
+                    fullcopylen as usize,
+                )
+            };
+            unsafe {
+                *addrlen = interface::rust_max(v6len, fullcopylen);
+            }
+        }
+    }
+}
 
 pub fn get_pollstruct_slice<'a>(
     union_argument: Arg,

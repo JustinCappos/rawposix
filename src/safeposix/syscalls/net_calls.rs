@@ -4,7 +4,7 @@
 
 use super::net_constants::*;
 use crate::{interface::FdSet, safeposix::cage::*};
-use crate::interface;
+use crate::interface::*;
 
 // use crate::example_grates::vanillaglobal::*;
 use crate::example_grates::dashmapvecglobal::*;
@@ -13,6 +13,7 @@ use crate::example_grates::dashmapvecglobal::*;
 
 use std::io::Write;
 use std::io;
+use std::mem::size_of;
 use libc::*;
 use std::ffi::CString;
 use std::ffi::CStr;
@@ -54,21 +55,51 @@ impl Cage {
      *   Get the kernel fd with provided virtual fd first
      *   bind() will return 0 when success and -1 when fail
      */
-    pub fn bind_syscall(&self, virtual_fd: i32, addr: *const sockaddr, len: u32) -> i32 {
+    pub fn bind_syscall(&self, virtual_fd: i32, addr: &GenSockaddr) -> i32 {
         /*
             translate_virtual_fd(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetVal>
         */
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::bind(kernel_fd as i32, addr, len) }
+
+        let (finalsockaddr, addrlen) = match addr {
+            GenSockaddr::V6(addrref6) => (
+                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV6>(),
+            ),
+            GenSockaddr::V4(addrref) => (
+                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV4>(),
+            ),
+            _ => {
+                unreachable!()
+            }
+        };
+
+        unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) }
     }
 
     /*  
      *   Get the kernel fd with provided virtual fd first
      *   connect() will return 0 when success and -1 when fail
      */
-    pub fn connect_syscall(&self, virtual_fd: i32, addr: *const sockaddr, len: u32) -> i32 {
+    pub fn connect_syscall(&self, virtual_fd: i32, addr: &GenSockaddr) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::connect(kernel_fd as i32, addr, len) }
+
+        let (finalsockaddr, addrlen) = match addr {
+            GenSockaddr::V6(addrref6) => (
+                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV6>(),
+            ),
+            GenSockaddr::V4(addrref) => (
+                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV4>(),
+            ),
+            _ => {
+                unreachable!()
+            }
+        };
+
+        unsafe { libc::connect(kernel_fd as i32, finalsockaddr, addrlen as u32) }
     }
 
     /*  
@@ -81,17 +112,31 @@ impl Cage {
         buf: *const u8,
         buflen: usize,
         flags: i32,
-        dest_addr: *const sockaddr,
-        addrlen: u32,
+        dest_addr: &GenSockaddr,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+
+        let (finalsockaddr, addrlen) = match dest_addr {
+            GenSockaddr::V6(addrref6) => (
+                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV6>(),
+            ),
+            GenSockaddr::V4(addrref) => (
+                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV4>(),
+            ),
+            _ => {
+                unreachable!()
+            }
+        };
+
         unsafe {
             libc::sendto(
                 kernel_fd as i32,
                 buf as *const c_void,
-                buflen as usize,
-                flags as i32,
-                dest_addr,
+                buflen,
+                flags,
+                finalsockaddr,
                 addrlen as u32,
             ) as i32
         }
@@ -126,11 +171,26 @@ impl Cage {
         buf: *mut u8,
         buflen: usize,
         flags: i32,
-        addr: *mut sockaddr,
-        addrlen: u32,
+        addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap(); 
-        unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen as usize, flags as i32, addr, addrlen as *mut u32) as i32 }
+
+        let (finalsockaddr, addrlen) = match addr {
+            Some(GenSockaddr::V6(ref mut addrref6)) => (
+                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV6>() as u32,
+            ),
+            Some(GenSockaddr::V4(ref mut addrref)) => (
+                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV4>() as u32,
+            ),
+            Some(_) => {
+                unreachable!()
+            }
+            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+        };
+
+        unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, addrlen as *mut u32) as i32 }
     }
 
     /*  
@@ -174,25 +234,27 @@ impl Cage {
     pub fn accept_syscall(
         &self,
         virtual_fd: i32,
-        addr: *mut sockaddr,
-        address_len: u32,
+        addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, addr, address_len as *mut u32) };
-        if ret_kernelfd < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[Accept] Error message: {:?}", err_msg);
-            println!("kernel_fd: {:?}", kernel_fd);
-            io::stdout().flush().unwrap();
-        }
+        
+        let (finalsockaddr, addrlen) = match addr {
+            Some(GenSockaddr::V6(ref mut addrref6)) => (
+                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV6>() as u32,
+            ),
+            Some(GenSockaddr::V4(ref mut addrref)) => (
+                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV4>() as u32,
+            ),
+            Some(_) => {
+                unreachable!()
+            }
+            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+        };
+
+        let _ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
+        
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         ret_virtualfd as i32
     }
@@ -296,11 +358,26 @@ impl Cage {
     pub fn getpeername_syscall(
         &self,
         virtual_fd: i32,
-        address: *mut sockaddr,
-        address_len: u32,
+        address: &mut Option<&mut GenSockaddr>
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::getpeername(kernel_fd as i32, address, address_len as *mut u32) }
+        
+        let (finalsockaddr, addrlen) = match address {
+            Some(GenSockaddr::V6(ref mut addrref6)) => (
+                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV6>() as u32,
+            ),
+            Some(GenSockaddr::V4(ref mut addrref)) => (
+                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV4>() as u32,
+            ),
+            Some(_) => {
+                unreachable!()
+            }
+            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+        };
+
+        unsafe { libc::getpeername(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) }
     }
 
     /*  
@@ -310,11 +387,26 @@ impl Cage {
     pub fn getsockname_syscall(
         &self,
         virtual_fd: i32,
-        address: *mut sockaddr,
-        address_len: u32,
+        address: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::getsockname(kernel_fd as i32, address, address_len as *mut u32) }
+
+        let (finalsockaddr, addrlen) = match address {
+            Some(GenSockaddr::V6(ref mut addrref6)) => (
+                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV6>() as u32,
+            ),
+            Some(GenSockaddr::V4(ref mut addrref)) => (
+                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+                size_of::<SockaddrV4>() as u32,
+            ),
+            Some(_) => {
+                unreachable!()
+            }
+            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+        };
+
+        unsafe { libc::getsockname(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) }
     }
 
     /*  
@@ -439,7 +531,7 @@ impl Cage {
         domain: i32,
         type_: i32,
         protocol: i32,
-        virtual_socket_vector: &mut interface::SockPair,
+        virtual_socket_vector: &mut SockPair,
     ) -> i32 {
         /* TODO: change to translate from kernel - virtual after calling sockpair */
 
@@ -489,7 +581,7 @@ impl Cage {
                 }
 
                 let name_vec = name_bytes.to_vec();
-                interface::fill(buf.add(offset), name_vec.len(), &name_vec);
+                fill(buf.add(offset), name_vec.len(), &name_vec);
 
                 // Add a null terminator to separate names
                 *buf.add(offset + name_vec.len()) = 0;
