@@ -99,7 +99,22 @@ impl Cage {
             }
         };
 
-        unsafe { libc::connect(kernel_fd as i32, finalsockaddr, addrlen as u32) }
+        let ret = unsafe { libc::connect(kernel_fd as i32, finalsockaddr, addrlen as u32) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Socket] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
