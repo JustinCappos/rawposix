@@ -110,7 +110,7 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            println!("[Socket] Error message: {:?}", err_msg);
+            println!("[Connect] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
             panic!();
         }
@@ -268,7 +268,22 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        let _ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
+        let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
+
+        if ret_kernelfd < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Accept] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
         
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         ret_virtualfd as i32
