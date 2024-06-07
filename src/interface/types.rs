@@ -575,63 +575,54 @@ pub fn get_constsockaddr<'a>(union_argument: Arg) -> Result<&'a SockaddrDummy, i
 pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenSockaddr, i32> {
     let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
     if !pointer.is_null() {
-        let _tmpsock = unsafe { &*pointer };
-        // if addrlen < size_of::<interface::SockaddrV6>() as u32 {
-        //     return Err(syscall_error(
-        //         Errno::EINVAL,
-        //         "dispatcher",
-        //         "input length too small for family of sockaddr",
-        //     ));
-        // }
-        let v6_ptr = pointer as *const interface::SockaddrV6;
-        return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
-        // match tmpsock.sa_family {
-        //     /*AF_UNIX*/
-        //     1 => {
-        //         if addrlen < SIZEOF_SOCKADDR
-        //             || addrlen > size_of::<interface::SockaddrUnix>() as u32
-        //         {
-        //             return Err(syscall_error(
-        //                 Errno::EINVAL,
-        //                 "dispatcher",
-        //                 "input length incorrect for family of sockaddr",
-        //             ));
-        //         }
-        //         let unix_ptr = pointer as *const interface::SockaddrUnix;
-        //         return Ok(interface::GenSockaddr::Unix(unsafe { *unix_ptr }));
-        //     }
-        //     /*AF_INET*/
-        //     2 => {
-        //         if addrlen < size_of::<interface::SockaddrV4>() as u32 {
-        //             return Err(syscall_error(
-        //                 Errno::EINVAL,
-        //                 "dispatcher",
-        //                 "input length too small for family of sockaddr",
-        //             ));
-        //         }
-        //         let v4_ptr = pointer as *const interface::SockaddrV4;
-        //         return Ok(interface::GenSockaddr::V4(unsafe { *v4_ptr }));
-        //     }
-        //     /*AF_INET6*/
-        //     30 => {
-        //         if addrlen < size_of::<interface::SockaddrV6>() as u32 {
-        //             return Err(syscall_error(
-        //                 Errno::EINVAL,
-        //                 "dispatcher",
-        //                 "input length too small for family of sockaddr",
-        //             ));
-        //         }
-        //         let v6_ptr = pointer as *const interface::SockaddrV6;
-        //         return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
-        //     }
-        //     _ => {
-        //         return Err(syscall_error(
-        //             Errno::EOPNOTSUPP,
-        //             "dispatcher",
-        //             "sockaddr family not supported",
-        //         ))
-        //     }
-        // }
+        let tmpsock = unsafe { &*pointer };
+        match tmpsock.sa_family {
+            /*AF_UNIX*/
+            1 => {
+                if addrlen < SIZEOF_SOCKADDR
+                    || addrlen > size_of::<interface::SockaddrUnix>() as u32
+                {
+                    return Err(syscall_error(
+                        Errno::EINVAL,
+                        "dispatcher",
+                        "input length incorrect for family of sockaddr",
+                    ));
+                }
+                let unix_ptr = pointer as *const interface::SockaddrUnix;
+                return Ok(interface::GenSockaddr::Unix(unsafe { *unix_ptr }));
+            }
+            /*AF_INET*/
+            2 => {
+                if addrlen < size_of::<interface::SockaddrV4>() as u32 {
+                    return Err(syscall_error(
+                        Errno::EINVAL,
+                        "dispatcher",
+                        "input length too small for family of sockaddr",
+                    ));
+                }
+                let v4_ptr = pointer as *const interface::SockaddrV4;
+                return Ok(interface::GenSockaddr::V4(unsafe { *v4_ptr }));
+            }
+            /*AF_INET6*/
+            30 => {
+                if addrlen < size_of::<interface::SockaddrV6>() as u32 {
+                    return Err(syscall_error(
+                        Errno::EINVAL,
+                        "dispatcher",
+                        "input length too small for family of sockaddr",
+                    ));
+                }
+                let v6_ptr = pointer as *const interface::SockaddrV6;
+                return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
+            }
+            _ => {
+                return Err(syscall_error(
+                    Errno::EOPNOTSUPP,
+                    "dispatcher",
+                    "sockaddr family not supported",
+                ))
+            }
+        }
     }
     return Err(syscall_error(
         Errno::EFAULT,

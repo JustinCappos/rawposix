@@ -90,6 +90,10 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
+
+        println!("[Bind] GenSockaddr: {:?}", finalsockaddr);
+        io::stdout().flush().unwrap();
+
         ret
     }
 
