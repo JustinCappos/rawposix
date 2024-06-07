@@ -576,13 +576,13 @@ pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenS
     let pointer = unsafe { union_argument.dispatch_constsockaddrstruct };
     if !pointer.is_null() {
         let _tmpsock = unsafe { &*pointer };
-        if addrlen < size_of::<interface::SockaddrV6>() as u32 {
-            return Err(syscall_error(
-                Errno::EINVAL,
-                "dispatcher",
-                "input length too small for family of sockaddr",
-            ));
-        }
+        // if addrlen < size_of::<interface::SockaddrV6>() as u32 {
+        //     return Err(syscall_error(
+        //         Errno::EINVAL,
+        //         "dispatcher",
+        //         "input length too small for family of sockaddr",
+        //     ));
+        // }
         let v6_ptr = pointer as *const interface::SockaddrV6;
         return Ok(interface::GenSockaddr::V6(unsafe { *v6_ptr }));
         // match tmpsock.sa_family {
