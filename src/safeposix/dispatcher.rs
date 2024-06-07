@@ -538,7 +538,7 @@ pub extern "C" fn dispatcher(
                 cage.accept_syscall,
                 interface::get_int(arg1),
                 interface::get_sockaddr(arg2),
-                interface::get_uint(arg3)
+                interface::get_socklen_t_ptr(arg3)
             )
         }
         GETPEERNAME_SYSCALL => {
