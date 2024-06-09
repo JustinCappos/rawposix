@@ -90,8 +90,8 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
-        println!("[Bind] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.addr(), addr.port(), addr.get_family());
-        println!("[Bind] GenSockaddr: {:?}", finalsockaddr);
+        // println!("[Bind] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.addr(), addr.port(), addr.get_family());
+        println!("[Bind] GenSockaddr after: {:?}", addr);
         io::stdout().flush().unwrap();
 
         ret
