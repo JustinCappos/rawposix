@@ -288,6 +288,7 @@ impl Cage {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         
         /* !!!!NEED to be refactored!!!! */
+        let debug: &GenSockaddr = addr.unwrap();
         let (finalsockaddr, addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
@@ -316,7 +317,7 @@ impl Cage {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
             println!("[Accept] Error message: {:?}", err_msg);
-            println!("[Accept] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.unwrap().addr(), addr.unwrap().port(), addr.unwrap().get_family());
+            println!("[Accept] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", debug.addr(), debug.port(), debug.get_family());
             println!("[Accept] GenSockaddr: {:?}", finalsockaddr);
             io::stdout().flush().unwrap();
             panic!();
