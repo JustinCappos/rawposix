@@ -304,6 +304,10 @@ impl Cage {
         //     None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         // };
         let mut inneraddrbuf = SockaddrV4::default();
+
+        println!("[Accept] NEW GenSockaddr before: {:?}", inneraddrbuf);
+        io::stdout().flush().unwrap();
+
         let mut sadlen = size_of::<SockaddrV4>() as u32;
         let ret_kernelfd = unsafe {
             libc::accept(
