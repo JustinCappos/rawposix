@@ -316,6 +316,7 @@ impl Cage {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
             println!("[Accept] Error message: {:?}", err_msg);
+            println!("[Accept] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.unwrap().addr(), addr.unwrap().port(), addr.unwrap().get_family());
             println!("[Accept] GenSockaddr: {:?}", finalsockaddr);
             io::stdout().flush().unwrap();
             panic!();
