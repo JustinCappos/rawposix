@@ -90,7 +90,7 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
-
+        println!("[Bind] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.addr(), addr.port(), addr.get_family());
         println!("[Bind] GenSockaddr: {:?}", finalsockaddr);
         io::stdout().flush().unwrap();
 
@@ -287,6 +287,7 @@ impl Cage {
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         
+        /* !!!!NEED to be refactored!!!! */
         let (finalsockaddr, addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),

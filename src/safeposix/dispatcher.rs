@@ -512,8 +512,8 @@ pub extern "C" fn dispatcher(
             let nullity1 = interface::arg_nullity(&arg2);
             let nullity2 = interface::arg_nullity(&arg3);
 
-            let addrlen = get_onearg!(interface::get_socklen_t_ptr(arg3));
-            let mut sentaddr = get_onearg!(interface::get_sockaddr(arg2, addrlen));
+            // let addrlen = get_onearg!(interface::get_socklen_t_ptr(arg3));
+            // let mut sentaddr = get_onearg!(interface::get_sockaddr(arg2, addrlen));
 
             if nullity1 && nullity2 {
                 check_and_dispatch!(
@@ -530,7 +530,7 @@ pub extern "C" fn dispatcher(
                     interface::get_int(arg1),
                     // Ok::<&mut interface::GenSockaddr, i32>(&mut addr)
                     Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
-                        &mut sentaddr
+                        &mut addr
                     ))
                 );
                 if rv >= 0 {
