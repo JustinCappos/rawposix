@@ -288,23 +288,32 @@ impl Cage {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         
         /* !!!!NEED to be refactored!!!! */
-        let debug: &GenSockaddr = addr.unwrap();
-        let (finalsockaddr, addrlen) = match addr {
-            Some(GenSockaddr::V6(ref mut addrref6)) => (
-                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>() as u32,
-            ),
-            Some(GenSockaddr::V4(ref mut addrref)) => (
-                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>() as u32,
-            ),
-            Some(_) => {
-                unreachable!()
-            }
-            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+        // let debug: &GenSockaddr = addr.unwrap();
+        // let (finalsockaddr, addrlen) = match addr {
+        //     Some(GenSockaddr::V6(ref mut addrref6)) => (
+        //         (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+        //         size_of::<SockaddrV6>() as u32,
+        //     ),
+        //     Some(GenSockaddr::V4(ref mut addrref)) => (
+        //         (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+        //         size_of::<SockaddrV4>() as u32,
+        //     ),
+        //     Some(_) => {
+        //         unreachable!()
+        //     }
+        //     None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+        // };
+        let mut inneraddrbuf = SockaddrV4::default();
+        let mut sadlen = size_of::<SockaddrV4>() as u32;
+        let ret_kernelfd = unsafe {
+            libc::accept(
+                kernel_fd as i32,
+                (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
+                &mut sadlen as *mut u32,
+            )
         };
 
-        let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
+        // let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
 
         if ret_kernelfd < 0 {
             let err = unsafe {
