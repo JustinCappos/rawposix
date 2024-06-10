@@ -463,7 +463,7 @@ impl Cage {
     let unreal_notused: HashSet<u64> = HashSet::new();
 
     // Revert result
-    let (newnfds, mut retreadfds, mut retwritefds, mut reterrorfds) = get_virtual_bitmasks_from_select_result(
+    let (newnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
         ret as u64,
         real_readfds,
         real_writefds,
@@ -475,15 +475,15 @@ impl Cage {
     ).unwrap();
     
     if let Some(rfds) = readfds.as_mut() {
-        *rfds = &mut retreadfds;
+        **rfds = retreadfds;
     }
 
     if let Some(wfds) = writefds.as_mut() {
-        *wfds = &mut retwritefds;
+        **wfds = retwritefds;
     }
 
     if let Some(efds) = errorfds.as_mut() {
-        *efds = &mut reterrorfds;
+        **efds = reterrorfds;
     }
 
     ret
