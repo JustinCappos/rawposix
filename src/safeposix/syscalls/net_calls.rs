@@ -133,6 +133,9 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
+
+        println!("[Connect] kernel fd: {:?}", kernel_fd);
+        io::stdout().flush().unwrap();
         ret
     }
 
@@ -336,6 +339,7 @@ impl Cage {
             panic!();
         }
         println!("[Accept] GenSockaddr: {:?}", addr);
+        println!("[Accept] kernel fd: {:?}", ret_kernelfd);
         io::stdout().flush().unwrap();
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         ret_virtualfd as i32
