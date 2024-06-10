@@ -512,9 +512,6 @@ pub extern "C" fn dispatcher(
             let nullity1 = interface::arg_nullity(&arg2);
             let nullity2 = interface::arg_nullity(&arg3);
 
-            // let addrlen = get_onearg!(interface::get_socklen_t_ptr(arg3));
-            // let mut sentaddr = get_onearg!(interface::get_sockaddr(arg2, addrlen));
-
             if nullity1 && nullity2 {
                 check_and_dispatch!(
                     cage.accept_syscall,

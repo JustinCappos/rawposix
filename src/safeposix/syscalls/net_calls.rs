@@ -261,6 +261,7 @@ impl Cage {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
             println!("[Recvfrom] Error message: {:?}", err_msg);
+            println!("[Recvfrom] addr: {:?}", addr);
             io::stdout().flush().unwrap();
             panic!();
         }
