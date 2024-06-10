@@ -761,6 +761,11 @@ pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec
     let mut real_fds = Vec::with_capacity(virtual_poll.len());
 
     for vfd in virtual_poll.iter() {
+        // get unused fd
+        // 
+        println!("[POLL]: {:?}", vfd.fd);
+        io::stdout().flush().unwrap();
+
         let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
         real_fds.push(
             pollfd {
