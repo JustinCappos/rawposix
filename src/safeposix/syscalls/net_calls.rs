@@ -376,11 +376,12 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            println!("[Accept] Error message: {:?}", err_msg);
-            println!("[Accept] GenSockaddr: {:?}", addr);
-            io::stdout().flush().unwrap();
+            
             let errno = err as i32;
-            if errno == EAGAIN {
+            if errno == EWOULDBLOCK {
+                println!("[Accept] Error message: {:?}", err_msg);
+                println!("[Accept] GenSockaddr: {:?}", addr);
+                io::stdout().flush().unwrap();
                 return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
             }
         }
