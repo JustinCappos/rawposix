@@ -3,6 +3,9 @@
 //      Static DashMap.  Let's see if having the FDTableEntries be in a Vector
 //      matters...
 
+use std::io::Write;
+use std::io;
+
 use crate::safeposix::cage;
 use crate::safeposix::syscalls::fs_calls::*;
 
@@ -596,6 +599,10 @@ pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:fd_set, writeb
         panic!("This shouldn't be possible because we shouldn't have returned this previously")
     }
 
+    println!("[Select - FD] before: {:?}", readbits);
+    println!("[Select - FD] mappingtable: {:?}", mappingtable);
+    io::stdout().flush().unwrap();
+
     let mut flagsset = 0;
     let mut retvec = Vec::new();
 
@@ -617,6 +624,8 @@ pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:fd_set, writeb
         retvec.push(retbits);
     }
 
+    println!("[Select - FD]: retvec[0] {:?}", retvec[0]);
+    io::stdout().flush().unwrap();
     Ok((flagsset,retvec[0],retvec[1],retvec[2]))
 }
 
