@@ -368,7 +368,7 @@ impl Cage {
 
         if ret_kernelfd < 0 {
             let err = unsafe {
-                libc::__errno_location() as i32
+                libc::__errno_location()
             };
             let err_str = unsafe {
                 libc::strerror(*err)
@@ -379,7 +379,8 @@ impl Cage {
             println!("[Accept] Error message: {:?}", err_msg);
             println!("[Accept] GenSockaddr: {:?}", addr);
             io::stdout().flush().unwrap();
-            if err == EAGAIN {
+            let errno = err as i32;
+            if errno == EAGAIN {
                 return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
             }
         }
