@@ -420,7 +420,7 @@ impl Cage {
         errorfds: Option<&mut fd_set>,
         timeout: *mut timeval,
     ) -> i32 {
-        let (newnfds, real_readfds, real_writefds, real_errorfds, unrealset, mappingtable) = get_real_bitmasks_for_select(
+        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) = get_real_bitmasks_for_select(
             self.cageid,
             nfds as u64,
             readfds,

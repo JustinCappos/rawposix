@@ -560,7 +560,8 @@ pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<&mut f
         match inset {
             Some(virtualbits) => {
                 let mut retset = _init_fd_set();
-                let (thisnfds,myunrealhashset) = _do_bitmods(thefdvec.clone(),nfds,virtualbits, &mut retset,&mut mappingtable)?;
+                // let (thisnfds,myunrealhashset) = _do_bitmods(thefdvec.clone(),nfds,virtualbits, &mut retset,&mut mappingtable)?;
+                let (thisnfds,myunrealhashset) = _do_bitmods(thefdvec.clone(),nfds,**virtualbits, &mut retset,&mut mappingtable)?;
                 resultvec.push(retset);
                 newnfds = cmp::max(thisnfds, newnfds);
                 unrealarray[unrealoffset] = myunrealhashset;
