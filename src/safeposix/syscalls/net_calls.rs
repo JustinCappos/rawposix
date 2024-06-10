@@ -425,13 +425,17 @@ impl Cage {
         mut errorfds: Option<&mut fd_set>,
         timeout: *mut timeval,
     ) -> i32 {
-        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) = get_real_bitmasks_for_select(
-            self.cageid,
-            nfds as u64,
-            readfds,
-            writefds,
-            errorfds,
-        ).unwrap();
+        let orfds = readfds.cloned();
+        let owfds = writefds.cloned();
+        let oefds = errorfds.cloned();
+        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) 
+            = get_real_bitmasks_for_select(
+                self.cageid,
+                nfds as u64,
+                orfds,
+                owfds,
+                oefds,
+            ).unwrap();
 
         let ret = unsafe { 
             libc::select(

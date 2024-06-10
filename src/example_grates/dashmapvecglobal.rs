@@ -534,7 +534,7 @@ fn _do_bitmods(myfdvec:Vec<Option<FDTableEntry>>, nfds:u64, infdset: fd_set, thi
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 // #[doc = include_str!("../docs/get_real_bitmasks_for_select.md")]
-pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<&mut fd_set>, writebits:Option<&mut fd_set>, exceptbits:Option<&mut fd_set>) -> Result<(u64, fd_set, fd_set, fd_set, [HashSet<(u64,u64)>;3], HashMap<u64,u64>),threei::RetVal> {
+pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set>, writebits:Option<fd_set>, exceptbits:Option<fd_set>) -> Result<(u64, fd_set, fd_set, fd_set, [HashSet<(u64,u64)>;3], HashMap<u64,u64>),threei::RetVal> {
 
     if nfds >= FD_PER_PROCESS_MAX {
         return Err(threei::Errno::EINVAL as u64);
