@@ -429,8 +429,8 @@ impl Cage {
         io::stdout().flush().unwrap();
 
         let mut timeout = libc::timeval { 
-            tv_sec: rposix_timeout.unwrap().as_secs(), 
-            tv_usec: rposix_timeout.unwrap().subsec_micros(),
+            tv_sec: rposix_timeout.unwrap().as_secs() as i64, 
+            tv_usec: rposix_timeout.unwrap().subsec_micros() as i64,
         };
 
         let orfds = readfds.as_mut().map(|fds| &mut **fds);
