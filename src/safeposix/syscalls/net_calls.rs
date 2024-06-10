@@ -477,7 +477,7 @@ impl Cage {
 
         // Revert result
         let (newnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
-            ret as u64,
+            nfds as u64,
             real_readfds,
             real_writefds,
             real_errorfds,
