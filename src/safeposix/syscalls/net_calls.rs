@@ -73,10 +73,7 @@ impl Cage {
             GenSockaddr::Unix(addrrefu) => (
                 (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
                 size_of::<SockaddrUnix>(),
-            ),
-            _ => {
-                unreachable!()
-            }
+            )
         };
 
         let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
@@ -120,10 +117,7 @@ impl Cage {
             GenSockaddr::Unix(addrrefu) => (
                 (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
                 size_of::<SockaddrUnix>(),
-            ),
-            _ => {
-                unreachable!()
-            }
+            )
         };
 
         let ret = unsafe { libc::connect(kernel_fd as i32, finalsockaddr, addrlen as u32) };
@@ -170,9 +164,10 @@ impl Cage {
                 (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV4>(),
             ),
-            _ => {
-                unreachable!()
-            }
+            GenSockaddr::Unix(addrrefu) => (
+                (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                size_of::<SockaddrUnix>(),
+            )
         };
 
         unsafe {
@@ -251,7 +246,10 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, addrlen as *mut u32) as i32 };
+        let mut sadlen = size_of::<SockaddrV4>() as u32;
+
+        // let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, addrlen as *mut u32) as i32 };
+        let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, sadlen as *mut u32) as i32 };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
