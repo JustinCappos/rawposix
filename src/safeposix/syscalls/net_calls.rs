@@ -382,8 +382,8 @@ impl Cage {
             } as i32;
             println!("[Accept] errno: {:?}", errno);
             io::stdout().flush().unwrap();
-            panic!();
-            if errno == EWOULDBLOCK {
+            // panic!();
+            if errno == EAGAIN {
                 println!("[Accept] Error message: {:?}", err_msg);
                 println!("[Accept] GenSockaddr: {:?}", addr);
                 io::stdout().flush().unwrap();
