@@ -457,38 +457,38 @@ impl Cage {
         };
         println!("[Select] Error message: {:?}", err_msg);
         io::stdout().flush().unwrap();
-    }
+        }
 
-    let unreal_notused: HashSet<u64> = HashSet::new();
+        let unreal_notused: HashSet<u64> = HashSet::new();
 
-    // Revert result
-    let (newnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
-        ret as u64,
-        real_readfds,
-        real_writefds,
-        real_errorfds,
-        unreal_notused.clone(),
-        unreal_notused.clone(),
-        unreal_notused.clone(),
-        &mappingtable,
-    ).unwrap();
-    
-    if let Some(rfds) = readfds.as_mut() {
-        **rfds = retreadfds;
-    }
+        // Revert result
+        let (newnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
+            ret as u64,
+            real_readfds,
+            real_writefds,
+            real_errorfds,
+            unreal_notused.clone(),
+            unreal_notused.clone(),
+            unreal_notused.clone(),
+            &mappingtable,
+        ).unwrap();
+        
+        if let Some(rfds) = readfds.as_mut() {
+            **rfds = retreadfds;
+        }
 
-    if let Some(wfds) = writefds.as_mut() {
-        **wfds = retwritefds;
-    }
+        if let Some(wfds) = writefds.as_mut() {
+            **wfds = retwritefds;
+        }
 
-    if let Some(efds) = errorfds.as_mut() {
-        **efds = reterrorfds;
-    }
+        if let Some(efds) = errorfds.as_mut() {
+            **efds = reterrorfds;
+        }
 
-    println!("[Select] timeout: {:?}", timeout);
-    io::stdout().flush().unwrap();
+        println!("[Select] ret: {:?}", ret);
+        io::stdout().flush().unwrap();
 
-    ret
+        ret
     }
 
     /*  
