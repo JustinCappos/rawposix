@@ -787,18 +787,18 @@ pub fn copy_out_intptr(union_argument: Arg, intval: i32) {
     }
 }
 
-// pub fn duration_fromtimeval(union_argument: Arg) -> Result<Option<interface::RustDuration>, i32> {
-//     let pointer = unsafe { union_argument.dispatch_structtimeval };
-//     if !pointer.is_null() {
-//         let times = unsafe { &mut *pointer };
-//         return Ok(Some(interface::RustDuration::new(
-//             times.tv_sec as u64,
-//             times.tv_usec as u32 * 1000,
-//         )));
-//     } else {
-//         return Ok(None);
-//     }
-// }
+pub fn duration_fromtimeval(union_argument: Arg) -> Result<Option<interface::RustDuration>, i32> {
+    let pointer = unsafe { union_argument.dispatch_structtimeval };
+    if !pointer.is_null() {
+        let times = unsafe { &mut *pointer };
+        return Ok(Some(interface::RustDuration::new(
+            times.tv_sec as u64,
+            times.tv_usec as u32 * 1000,
+        )));
+    } else {
+        return Ok(None);
+    }
+}
 
 pub fn get_timerval<'a>(union_argument: Arg) -> Result<&'a mut timeval, i32> {
     let pointer = unsafe { union_argument.dispatch_structtimeval };

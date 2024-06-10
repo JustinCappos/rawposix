@@ -695,7 +695,8 @@ pub extern "C" fn dispatcher(
                 interface::get_fdset(arg2),
                 interface::get_fdset(arg3),
                 interface::get_fdset(arg4),
-                interface::get_timerval(arg5)
+                // interface::get_timerval(arg5)
+                interface::duration_fromtimeval(arg5)
             )
         }
         POLL_SYSCALL => {

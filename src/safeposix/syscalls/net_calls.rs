@@ -422,10 +422,17 @@ impl Cage {
         mut readfds: Option<&mut fd_set>,
         mut writefds: Option<&mut fd_set>,
         mut errorfds: Option<&mut fd_set>,
-        timeout: *mut timeval,
+        // timeout: *mut timeval,
+        rposix_timeout: Option<RustDuration>,
     ) -> i32 {
         println!("[Select] readfds: {:?}", readfds);
         io::stdout().flush().unwrap();
+
+        let mut timeout = libc::timeval { 
+            tv_sec: rposix_timeout.unwrap().as_secs(), 
+            tv_usec: rposix_timeout.unwrap().subsec_micros(),
+        };
+
         let orfds = readfds.as_mut().map(|fds| &mut **fds);
         let owfds = writefds.as_mut().map(|fds| &mut **fds);
         let oefds = errorfds.as_mut().map(|fds| &mut **fds);
@@ -438,6 +445,9 @@ impl Cage {
                 oefds.copied(),
             ).unwrap();
 
+        println!("[Select] Before kernel select real_readfds: {:?}", real_readfds);
+        io::stdout().flush().unwrap();
+
         let ret = unsafe { 
             libc::select(
                 newnfds as i32, 
@@ -447,18 +457,21 @@ impl Cage {
                 timeout)
         };
 
-        if ret < 0 {
-        let err = unsafe {
-            libc::__errno_location()
-        };
-        let err_str = unsafe {
-            libc::strerror(*err)
-        };
-        let err_msg = unsafe {
-            CStr::from_ptr(err_str).to_string_lossy().into_owned()
-        };
-        println!("[Select] Error message: {:?}", err_msg);
+        println!("[Select] After kernel select real_readfds: {:?}", real_readfds);
         io::stdout().flush().unwrap();
+
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Select] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
         }
 
         let unreal_notused: HashSet<u64> = HashSet::new();
