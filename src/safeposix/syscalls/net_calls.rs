@@ -415,25 +415,43 @@ impl Cage {
     pub fn select_syscall(
         &self,
         nfds: i32,
-        readfds: *mut BitSet,
-        writefds: *mut BitSet,
-        errorfds: *mut BitSet,
+        readfds: Option<&mut fd_set>,
+        writefds: Option<&mut fd_set>,
+        errorfds: Option<&mut fd_set>,
         timeout: *mut timeval,
     ) -> i32 {
-        // Translate from virtual fd_set to real fd_set and then get the *mut potiner for fd_set structure
-        let real_readfds = match virtual_to_real_set(self.cageid, readfds) {
-            Some(real_set) => &real_set as *const _ as *mut _,
-            None => ptr::null_mut(),
+        let (newnfds, real_readfds, real_writefds, real_errorfds, unrealset, mappingtable) = get_real_bitmasks_for_select(
+            self.cageid,
+            nfds as u64,
+            readfds,
+            writefds,
+            errorfds,
+        ).unwrap();
+
+        let ret = unsafe { 
+            libc::select(
+                newnfds as i32, 
+                &mut real_readfds as *mut fd_set, 
+                &mut real_writefds as *mut fd_set, 
+                &mut real_errorfds as *mut fd_set, 
+                timeout)
         };
-        let real_writefds = match virtual_to_real_set(self.cageid, writefds) {
-            Some(real_set) => &real_set as *const _ as *mut _,
-            None => ptr::null_mut(),
+
+        if ret < 0 {
+        let err = unsafe {
+            libc::__errno_location()
         };
-        let real_errorfds = match virtual_to_real_set(self.cageid, errorfds) {
-            Some(real_set) => &real_set as *const _ as *mut _,
-            None => ptr::null_mut(),
+        let err_str = unsafe {
+            libc::strerror(*err)
         };
-        unsafe { libc::select(nfds as i32, real_readfds, real_writefds, real_errorfds, timeout) }
+        let err_msg = unsafe {
+            CStr::from_ptr(err_str).to_string_lossy().into_owned()
+        };
+        println!("[Select] Error message: {:?}", err_msg);
+        io::stdout().flush().unwrap();
+        panic!();
+    }
+    ret
     }
 
     /*  
@@ -449,7 +467,22 @@ impl Cage {
         optlen: u32,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) }
+        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Getsockopt] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
@@ -785,24 +818,14 @@ pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec
     let mut real_fds = Vec::with_capacity(virtual_poll.len());
 
     for vfd in &mut *virtual_poll {
-        println!("[POLL]: {:?}", vfd.fd);
-        println!("[POLL]: {:?}", vfd);
-        io::stdout().flush().unwrap();
 
         let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
-        // let mut real_event;
-
-        // if vfd.events == POLLIN {
-
-        // }
         let kernel_poll = pollfd {
             fd: real_fd as i32,
             events: vfd.events,
             revents: vfd.revents,
         };
         real_fds.push(kernel_poll);
-        println!("[POLL] kernel poll: {:?}", kernel_poll);
-        io::stdout().flush().unwrap();
     }
 
     real_fds

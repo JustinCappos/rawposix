@@ -2,7 +2,6 @@
 use crate::interface;
 use crate::interface::errnos::{syscall_error, Errno};
 
-use bit_set::BitSet;
 use libc::*;
 
 const SIZEOF_SOCKADDR: u32 = 16;
@@ -220,7 +219,8 @@ pub union Arg {
     pub dispatch_structitimerval: *mut itimerval,
     // pub dispatch_conststructitimerval: *const ITimerVal,
     pub dispatch_conststructitimerval: *const itimerval,
-    pub dispatch_fdset: *mut BitSet,
+    // pub dispatch_fdset: *mut BitSet,
+    pub dispatch_fdset: *mut libc::fd_set,
     // pub dispatch_structsem: *mut sem_t,
     // pub dispatch_ifaddrs: *mut ifaddrs,
 }
@@ -319,6 +319,16 @@ pub fn get_mutcbuf_null(union_argument: Arg) -> Result<Option<*mut u8>, i32> {
     return Ok(None);
 }
 
+pub fn get_fdset(union_argument: Arg) -> Result<Option<&'static mut fd_set>, i32> {
+    let data: *mut libc::fd_set = unsafe { union_argument.dispatch_fdset };
+    if !data.is_null() {
+        // let internal_fds: &mut interface::FdSet = interface::FdSet::new_from_ptr(data);
+        let internal_fds = unsafe { &mut *(data as *mut fd_set) };
+        return Ok(Some(internal_fds));
+    }
+    return Ok(None);
+}
+
 // pub fn get_fdset(union_argument: Arg) -> Result<Option<&'static mut interface::FdSet>, i32> {
 //     let data: *mut libc::fd_set = unsafe { union_argument.dispatch_fdset };
 //     if !data.is_null() {
@@ -328,13 +338,13 @@ pub fn get_mutcbuf_null(union_argument: Arg) -> Result<Option<*mut u8>, i32> {
 //     return Ok(None);
 // }
 
-pub fn get_fdset<'a>(union_argument: Arg) -> Result<*mut BitSet, i32> {
-    let pointer = unsafe { union_argument.dispatch_fdset };
-    // if !pointer.is_null() {
-    //     return Ok(pointer);
-    // }
-    return Ok(pointer);
-}
+// pub fn get_fdset<'a>(union_argument: Arg) -> Result<*mut BitSet, i32> {
+//     let pointer = unsafe { union_argument.dispatch_fdset };
+//     // if !pointer.is_null() {
+//     //     return Ok(pointer);
+//     // }
+//     return Ok(pointer);
+// }
 
 pub fn get_cstr<'a>(union_argument: Arg) -> Result<&'a str, i32> {
     //first we check that the pointer is not null

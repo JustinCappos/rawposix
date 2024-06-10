@@ -224,311 +224,311 @@ pub struct SockaddrV6 {
     pub sin6_scope_id: u32,
 }
 
-#[derive(Debug)]
-pub struct Socket {
-    pub raw_sys_fd: i32,
-}
+// #[derive(Debug)]
+// pub struct Socket {
+//     pub raw_sys_fd: i32,
+// }
 
-impl Socket {
-    pub fn new(domain: i32, socktype: i32, protocol: i32) -> Socket {
-        let fd = unsafe { libc::socket(domain, socktype, protocol) };
+// impl Socket {
+//     pub fn new(domain: i32, socktype: i32, protocol: i32) -> Socket {
+//         let fd = unsafe { libc::socket(domain, socktype, protocol) };
 
-        //we make every socket have a recieve timeout of one second
-        //This is in order to allow the socket to process and recieve
-        //shutdowns while blocked on blocking recv syscalls.
-        let timeoutval = libc::timeval {
-            tv_sec: 1,
-            tv_usec: 0,
-        };
-        unsafe {
-            libc::setsockopt(
-                fd,
-                libc::SOL_SOCKET,
-                libc::SO_RCVTIMEO,
-                (&timeoutval as *const libc::timeval) as *const libc::c_void,
-                size_of::<libc::timeval>() as u32,
-            )
-        };
-        if fd < 0 {
-            panic!("Socket creation failed when it should never fail");
-        }
-        Self { raw_sys_fd: fd }
-    }
+//         //we make every socket have a recieve timeout of one second
+//         //This is in order to allow the socket to process and recieve
+//         //shutdowns while blocked on blocking recv syscalls.
+//         let timeoutval = libc::timeval {
+//             tv_sec: 1,
+//             tv_usec: 0,
+//         };
+//         unsafe {
+//             libc::setsockopt(
+//                 fd,
+//                 libc::SOL_SOCKET,
+//                 libc::SO_RCVTIMEO,
+//                 (&timeoutval as *const libc::timeval) as *const libc::c_void,
+//                 size_of::<libc::timeval>() as u32,
+//             )
+//         };
+//         if fd < 0 {
+//             panic!("Socket creation failed when it should never fail");
+//         }
+//         Self { raw_sys_fd: fd }
+//     }
 
-    pub fn bind(&self, addr: &GenSockaddr) -> i32 {
-        let (finalsockaddr, addrlen) = match addr {
-            GenSockaddr::V6(addrref6) => (
-                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>(),
-            ),
-            GenSockaddr::V4(addrref) => (
-                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>(),
-            ),
-            _ => {
-                unreachable!()
-            }
-        };
-        unsafe { libc::bind(self.raw_sys_fd, finalsockaddr, addrlen as u32) }
-    }
+//     pub fn bind(&self, addr: &GenSockaddr) -> i32 {
+//         let (finalsockaddr, addrlen) = match addr {
+//             GenSockaddr::V6(addrref6) => (
+//                 (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV6>(),
+//             ),
+//             GenSockaddr::V4(addrref) => (
+//                 (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV4>(),
+//             ),
+//             _ => {
+//                 unreachable!()
+//             }
+//         };
+//         unsafe { libc::bind(self.raw_sys_fd, finalsockaddr, addrlen as u32) }
+//     }
 
-    pub fn connect(&self, addr: &GenSockaddr) -> i32 {
-        let (finalsockaddr, addrlen) = match addr {
-            GenSockaddr::V6(addrref6) => (
-                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>(),
-            ),
-            GenSockaddr::V4(addrref) => (
-                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>(),
-            ),
-            _ => {
-                unreachable!()
-            }
-        };
-        unsafe { libc::connect(self.raw_sys_fd, finalsockaddr, addrlen as u32) }
-    }
+//     pub fn connect(&self, addr: &GenSockaddr) -> i32 {
+//         let (finalsockaddr, addrlen) = match addr {
+//             GenSockaddr::V6(addrref6) => (
+//                 (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV6>(),
+//             ),
+//             GenSockaddr::V4(addrref) => (
+//                 (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV4>(),
+//             ),
+//             _ => {
+//                 unreachable!()
+//             }
+//         };
+//         unsafe { libc::connect(self.raw_sys_fd, finalsockaddr, addrlen as u32) }
+//     }
 
-    pub fn sendto(&self, buf: *const u8, len: usize, addr: Option<&GenSockaddr>) -> i32 {
-        let (finalsockaddr, addrlen) = match addr {
-            Some(GenSockaddr::V6(addrref6)) => (
-                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>(),
-            ),
-            Some(GenSockaddr::V4(addrref)) => (
-                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>(),
-            ),
-            Some(_) => {
-                unreachable!()
-            }
-            None => (
-                std::ptr::null::<libc::sockaddr>() as *const libc::sockaddr,
-                0,
-            ),
-        };
-        unsafe {
-            libc::sendto(
-                self.raw_sys_fd,
-                buf as *const libc::c_void,
-                len,
-                0,
-                finalsockaddr,
-                addrlen as u32,
-            ) as i32
-        }
-    }
+//     pub fn sendto(&self, buf: *const u8, len: usize, addr: Option<&GenSockaddr>) -> i32 {
+//         let (finalsockaddr, addrlen) = match addr {
+//             Some(GenSockaddr::V6(addrref6)) => (
+//                 (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV6>(),
+//             ),
+//             Some(GenSockaddr::V4(addrref)) => (
+//                 (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV4>(),
+//             ),
+//             Some(_) => {
+//                 unreachable!()
+//             }
+//             None => (
+//                 std::ptr::null::<libc::sockaddr>() as *const libc::sockaddr,
+//                 0,
+//             ),
+//         };
+//         unsafe {
+//             libc::sendto(
+//                 self.raw_sys_fd,
+//                 buf as *const libc::c_void,
+//                 len,
+//                 0,
+//                 finalsockaddr,
+//                 addrlen as u32,
+//             ) as i32
+//         }
+//     }
 
-    pub fn recvfrom(&self, buf: *mut u8, len: usize, addr: &mut Option<&mut GenSockaddr>) -> i32 {
-        let (finalsockaddr, mut addrlen) = match addr {
-            Some(GenSockaddr::V6(ref mut addrref6)) => (
-                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>() as u32,
-            ),
-            Some(GenSockaddr::V4(ref mut addrref)) => (
-                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>() as u32,
-            ),
-            Some(_) => {
-                unreachable!()
-            }
-            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
-        };
-        unsafe {
-            libc::recvfrom(
-                self.raw_sys_fd,
-                buf as *mut libc::c_void,
-                len,
-                0,
-                finalsockaddr,
-                &mut addrlen as *mut u32,
-            ) as i32
-        }
-    }
+//     pub fn recvfrom(&self, buf: *mut u8, len: usize, addr: &mut Option<&mut GenSockaddr>) -> i32 {
+//         let (finalsockaddr, mut addrlen) = match addr {
+//             Some(GenSockaddr::V6(ref mut addrref6)) => (
+//                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV6>() as u32,
+//             ),
+//             Some(GenSockaddr::V4(ref mut addrref)) => (
+//                 (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV4>() as u32,
+//             ),
+//             Some(_) => {
+//                 unreachable!()
+//             }
+//             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+//         };
+//         unsafe {
+//             libc::recvfrom(
+//                 self.raw_sys_fd,
+//                 buf as *mut libc::c_void,
+//                 len,
+//                 0,
+//                 finalsockaddr,
+//                 &mut addrlen as *mut u32,
+//             ) as i32
+//         }
+//     }
 
-    pub fn recvfrom_nonblocking(
-        &self,
-        buf: *mut u8,
-        len: usize,
-        addr: &mut Option<&mut GenSockaddr>,
-    ) -> i32 {
-        let (finalsockaddr, mut addrlen) = match addr {
-            Some(GenSockaddr::V6(ref mut addrref6)) => (
-                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>() as u32,
-            ),
-            Some(GenSockaddr::V4(ref mut addrref)) => (
-                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>() as u32,
-            ),
-            Some(_) => {
-                unreachable!()
-            }
-            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
-        };
-        self.set_nonblocking();
-        let retval = unsafe {
-            libc::recvfrom(
-                self.raw_sys_fd,
-                buf as *mut libc::c_void,
-                len,
-                0,
-                finalsockaddr,
-                &mut addrlen as *mut u32,
-            ) as i32
-        };
-        self.set_blocking();
-        retval
-    }
+//     pub fn recvfrom_nonblocking(
+//         &self,
+//         buf: *mut u8,
+//         len: usize,
+//         addr: &mut Option<&mut GenSockaddr>,
+//     ) -> i32 {
+//         let (finalsockaddr, mut addrlen) = match addr {
+//             Some(GenSockaddr::V6(ref mut addrref6)) => (
+//                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV6>() as u32,
+//             ),
+//             Some(GenSockaddr::V4(ref mut addrref)) => (
+//                 (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+//                 size_of::<SockaddrV4>() as u32,
+//             ),
+//             Some(_) => {
+//                 unreachable!()
+//             }
+//             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+//         };
+//         self.set_nonblocking();
+//         let retval = unsafe {
+//             libc::recvfrom(
+//                 self.raw_sys_fd,
+//                 buf as *mut libc::c_void,
+//                 len,
+//                 0,
+//                 finalsockaddr,
+//                 &mut addrlen as *mut u32,
+//             ) as i32
+//         };
+//         self.set_blocking();
+//         retval
+//     }
 
-    pub fn listen(&self, backlog: i32) -> i32 {
-        unsafe { libc::listen(self.raw_sys_fd, backlog) }
-    }
+//     pub fn listen(&self, backlog: i32) -> i32 {
+//         unsafe { libc::listen(self.raw_sys_fd, backlog) }
+//     }
 
-    pub fn set_blocking(&self) -> i32 {
-        unsafe { libc::fcntl(self.raw_sys_fd, libc::F_SETFL, 0) }
-    }
+//     pub fn set_blocking(&self) -> i32 {
+//         unsafe { libc::fcntl(self.raw_sys_fd, libc::F_SETFL, 0) }
+//     }
 
-    pub fn set_nonblocking(&self) -> i32 {
-        unsafe { libc::fcntl(self.raw_sys_fd, libc::F_SETFL, libc::O_NONBLOCK) }
-    }
+//     pub fn set_nonblocking(&self) -> i32 {
+//         unsafe { libc::fcntl(self.raw_sys_fd, libc::F_SETFL, libc::O_NONBLOCK) }
+//     }
 
-    pub fn accept(&self, isv4: bool) -> (Result<Self, i32>, GenSockaddr) {
-        return if isv4 {
-            let mut inneraddrbuf = SockaddrV4::default();
-            let mut sadlen = size_of::<SockaddrV4>() as u32;
-            let newfd = unsafe {
-                libc::accept(
-                    self.raw_sys_fd,
-                    (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
-                    &mut sadlen as *mut u32,
-                )
-            };
+//     pub fn accept(&self, isv4: bool) -> (Result<Self, i32>, GenSockaddr) {
+//         return if isv4 {
+//             let mut inneraddrbuf = SockaddrV4::default();
+//             let mut sadlen = size_of::<SockaddrV4>() as u32;
+//             let newfd = unsafe {
+//                 libc::accept(
+//                     self.raw_sys_fd,
+//                     (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
+//                     &mut sadlen as *mut u32,
+//                 )
+//             };
 
-            if newfd < 0 {
-                (Err(newfd), GenSockaddr::V4(inneraddrbuf))
-            } else {
-                (
-                    Ok(Self { raw_sys_fd: newfd }),
-                    GenSockaddr::V4(inneraddrbuf),
-                )
-            }
-        } else {
-            let mut inneraddrbuf = SockaddrV6::default();
-            let mut sadlen = size_of::<SockaddrV6>() as u32;
-            let newfd = unsafe {
-                libc::accept(
-                    self.raw_sys_fd,
-                    (&mut inneraddrbuf as *mut SockaddrV6).cast::<libc::sockaddr>(),
-                    &mut sadlen as *mut u32,
-                )
-            };
+//             if newfd < 0 {
+//                 (Err(newfd), GenSockaddr::V4(inneraddrbuf))
+//             } else {
+//                 (
+//                     Ok(Self { raw_sys_fd: newfd }),
+//                     GenSockaddr::V4(inneraddrbuf),
+//                 )
+//             }
+//         } else {
+//             let mut inneraddrbuf = SockaddrV6::default();
+//             let mut sadlen = size_of::<SockaddrV6>() as u32;
+//             let newfd = unsafe {
+//                 libc::accept(
+//                     self.raw_sys_fd,
+//                     (&mut inneraddrbuf as *mut SockaddrV6).cast::<libc::sockaddr>(),
+//                     &mut sadlen as *mut u32,
+//                 )
+//             };
 
-            if newfd < 0 {
-                (Err(newfd), GenSockaddr::V6(inneraddrbuf))
-            } else {
-                (
-                    Ok(Self { raw_sys_fd: newfd }),
-                    GenSockaddr::V6(inneraddrbuf),
-                )
-            }
-        };
-    }
+//             if newfd < 0 {
+//                 (Err(newfd), GenSockaddr::V6(inneraddrbuf))
+//             } else {
+//                 (
+//                     Ok(Self { raw_sys_fd: newfd }),
+//                     GenSockaddr::V6(inneraddrbuf),
+//                 )
+//             }
+//         };
+//     }
 
-    pub fn nonblock_accept(&self, isv4: bool) -> (Result<Self, i32>, GenSockaddr) {
-        return if isv4 {
-            let mut inneraddrbuf = SockaddrV4::default();
-            let mut sadlen = size_of::<SockaddrV4>() as u32;
-            self.set_nonblocking();
-            let newfd = unsafe {
-                libc::accept(
-                    self.raw_sys_fd,
-                    (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
-                    &mut sadlen as *mut u32,
-                )
-            };
-            self.set_blocking();
+//     pub fn nonblock_accept(&self, isv4: bool) -> (Result<Self, i32>, GenSockaddr) {
+//         return if isv4 {
+//             let mut inneraddrbuf = SockaddrV4::default();
+//             let mut sadlen = size_of::<SockaddrV4>() as u32;
+//             self.set_nonblocking();
+//             let newfd = unsafe {
+//                 libc::accept(
+//                     self.raw_sys_fd,
+//                     (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
+//                     &mut sadlen as *mut u32,
+//                 )
+//             };
+//             self.set_blocking();
 
-            if newfd < 0 {
-                (Err(newfd), GenSockaddr::V4(inneraddrbuf))
-            } else {
-                (
-                    Ok(Self { raw_sys_fd: newfd }),
-                    GenSockaddr::V4(inneraddrbuf),
-                )
-            }
-        } else {
-            let mut inneraddrbuf = SockaddrV6::default();
-            let mut sadlen = size_of::<SockaddrV6>() as u32;
-            self.set_nonblocking();
-            let newfd = unsafe {
-                libc::accept(
-                    self.raw_sys_fd,
-                    (&mut inneraddrbuf as *mut SockaddrV6).cast::<libc::sockaddr>(),
-                    &mut sadlen as *mut u32,
-                )
-            };
-            self.set_blocking();
+//             if newfd < 0 {
+//                 (Err(newfd), GenSockaddr::V4(inneraddrbuf))
+//             } else {
+//                 (
+//                     Ok(Self { raw_sys_fd: newfd }),
+//                     GenSockaddr::V4(inneraddrbuf),
+//                 )
+//             }
+//         } else {
+//             let mut inneraddrbuf = SockaddrV6::default();
+//             let mut sadlen = size_of::<SockaddrV6>() as u32;
+//             self.set_nonblocking();
+//             let newfd = unsafe {
+//                 libc::accept(
+//                     self.raw_sys_fd,
+//                     (&mut inneraddrbuf as *mut SockaddrV6).cast::<libc::sockaddr>(),
+//                     &mut sadlen as *mut u32,
+//                 )
+//             };
+//             self.set_blocking();
 
-            if newfd < 0 {
-                (Err(newfd), GenSockaddr::V6(inneraddrbuf))
-            } else {
-                (
-                    Ok(Self { raw_sys_fd: newfd }),
-                    GenSockaddr::V6(inneraddrbuf),
-                )
-            }
-        };
-    }
+//             if newfd < 0 {
+//                 (Err(newfd), GenSockaddr::V6(inneraddrbuf))
+//             } else {
+//                 (
+//                     Ok(Self { raw_sys_fd: newfd }),
+//                     GenSockaddr::V6(inneraddrbuf),
+//                 )
+//             }
+//         };
+//     }
 
-    pub fn setsockopt(&self, level: i32, optname: i32, optval: i32) -> i32 {
-        let valbuf = optval;
-        let ret = unsafe {
-            libc::setsockopt(
-                self.raw_sys_fd,
-                level,
-                optname,
-                (&valbuf as *const i32).cast::<libc::c_void>(),
-                size_of::<i32>() as u32,
-            )
-        };
-        ret
-    }
+//     pub fn setsockopt(&self, level: i32, optname: i32, optval: i32) -> i32 {
+//         let valbuf = optval;
+//         let ret = unsafe {
+//             libc::setsockopt(
+//                 self.raw_sys_fd,
+//                 level,
+//                 optname,
+//                 (&valbuf as *const i32).cast::<libc::c_void>(),
+//                 size_of::<i32>() as u32,
+//             )
+//         };
+//         ret
+//     }
 
-    pub fn shutdown(&self, how: i32) -> i32 {
-        let ret = unsafe { libc::shutdown(self.raw_sys_fd, how) };
-        ret
-    }
+//     pub fn shutdown(&self, how: i32) -> i32 {
+//         let ret = unsafe { libc::shutdown(self.raw_sys_fd, how) };
+//         ret
+//     }
 
-    pub fn check_rawconnection(&self) -> bool {
-        let mut valbuf = 0;
-        let mut len = size_of::<i32>() as u32;
-        let ret = unsafe {
-            libc::getsockopt(
-                self.raw_sys_fd,
-                libc::SOL_SOCKET,
-                libc::SO_ERROR,
-                (&mut valbuf as *mut i32).cast::<libc::c_void>(),
-                &mut len as *mut u32,
-            )
-        };
-        (ret == 0) && (valbuf == 0) // if return val is 0 and error is 0 it's connected
-    }
-}
+//     pub fn check_rawconnection(&self) -> bool {
+//         let mut valbuf = 0;
+//         let mut len = size_of::<i32>() as u32;
+//         let ret = unsafe {
+//             libc::getsockopt(
+//                 self.raw_sys_fd,
+//                 libc::SOL_SOCKET,
+//                 libc::SO_ERROR,
+//                 (&mut valbuf as *mut i32).cast::<libc::c_void>(),
+//                 &mut len as *mut u32,
+//             )
+//         };
+//         (ret == 0) && (valbuf == 0) // if return val is 0 and error is 0 it's connected
+//     }
+// }
 
-impl Drop for Socket {
-    fn drop(&mut self) {
-        unsafe {
-            libc::close(self.raw_sys_fd);
-        }
-    }
-}
+// impl Drop for Socket {
+//     fn drop(&mut self) {
+//         unsafe {
+//             libc::close(self.raw_sys_fd);
+//         }
+//     }
+// }
 
-pub fn getifaddrs_from_file() -> String {
-    read_to_string(NET_DEV_FILENAME)
-        .expect("No net_devices file present!")
-        .to_owned()
-}
+// pub fn getifaddrs_from_file() -> String {
+//     read_to_string(NET_DEV_FILENAME)
+//         .expect("No net_devices file present!")
+//         .to_owned()
+// }
 
 // Implementations of select related FD_SET structure
 pub struct FdSet(libc::fd_set);
