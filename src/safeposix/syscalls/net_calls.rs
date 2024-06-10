@@ -91,8 +91,8 @@ impl Cage {
             panic!();
         }
         // println!("[Bind] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.addr(), addr.port(), addr.get_family());
-        println!("[Bind] GenSockaddr after: {:?}", addr);
-        io::stdout().flush().unwrap();
+        // println!("[Bind] GenSockaddr after: {:?}", addr);
+        // io::stdout().flush().unwrap();
 
         ret
     }
@@ -134,8 +134,8 @@ impl Cage {
             panic!();
         }
 
-        println!("[Connect] kernel fd: {:?}", kernel_fd);
-        io::stdout().flush().unwrap();
+        // println!("[Connect] kernel fd: {:?}", kernel_fd);
+        // io::stdout().flush().unwrap();
         ret
     }
 
@@ -380,9 +380,9 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
-        println!("[Accept] GenSockaddr: {:?}", addr);
-        println!("[Accept] ret kernel fd: {:?}", ret_kernelfd);
-        io::stdout().flush().unwrap();
+        // println!("[Accept] GenSockaddr: {:?}", addr);
+        // println!("[Accept] ret kernel fd: {:?}", ret_kernelfd);
+        // io::stdout().flush().unwrap();
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
         ret_virtualfd as i32
     }
