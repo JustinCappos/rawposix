@@ -475,17 +475,15 @@ impl Cage {
             io::stdout().flush().unwrap();
         }
 
-        let unreal_notused: HashSet<u64> = HashSet::new();
-
         // Revert result
         let (newnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
             ret as u64,
             real_readfds,
             real_writefds,
             real_errorfds,
-            unreal_notused.clone(),
-            unreal_notused.clone(),
-            unreal_notused.clone(),
+            HashSet::new(),
+            HashSet::new(),
+            HashSet::new(),
             &mappingtable,
         ).unwrap();
         
