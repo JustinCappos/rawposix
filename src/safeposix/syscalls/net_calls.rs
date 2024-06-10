@@ -255,7 +255,23 @@ impl Cage {
      */
     pub fn recv_syscall(&self, virtual_fd: i32, buf: *mut u8, len: usize, flags: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::recv(kernel_fd as i32, buf as *mut c_void, len, flags) as i32 }
+        let ret = unsafe { libc::recv(kernel_fd as i32, buf as *mut c_void, len, flags) as i32 };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Recv] Error message: {:?}", err_msg);
+            println!("[Recv] kernel fd: {:?}", kernel_fd);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
@@ -354,7 +370,7 @@ impl Cage {
             panic!();
         }
         println!("[Accept] GenSockaddr: {:?}", addr);
-        println!("[Accept] kernel fd: {:?}", ret_kernelfd);
+        println!("[Accept] ret kernel fd: {:?}", ret_kernelfd);
         io::stdout().flush().unwrap();
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
         ret_virtualfd as i32
