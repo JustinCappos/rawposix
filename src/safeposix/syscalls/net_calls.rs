@@ -117,6 +117,10 @@ impl Cage {
                 (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV4>(),
             ),
+            GenSockaddr::Unix(addrrefu) => (
+                (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                size_of::<SockaddrUnix>(),
+            ),
             _ => {
                 unreachable!()
             }
