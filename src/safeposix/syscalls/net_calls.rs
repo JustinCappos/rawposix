@@ -377,7 +377,7 @@ impl Cage {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
             
-            let errno = err as i32;
+            let errno = *err as i32;
             println!("[Accept] errno: {:?}", errno);
             io::stdout().flush().unwrap();
             panic!();
