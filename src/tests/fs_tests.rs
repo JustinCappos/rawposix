@@ -27,7 +27,7 @@ pub mod fs_tests {
     pub fn test_fs() {
         // ut_lind_fs_open();
         // ut_lind_fs_fork();
-        ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
+        // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
         // rdwrtest();
 
         // ut_lind_fs_broken_close();
@@ -65,7 +65,7 @@ pub mod fs_tests {
         // ut_lind_fs_exec_cloexec();
         // ut_lind_fs_shm();
         // ut_lind_fs_getpid_getppid();
-        // ut_lind_fs_sem_fork();
+        ut_lind_fs_sem_fork();
         // ut_lind_fs_sem_trytimed();
         // ut_lind_fs_sem_test();
         // ut_lind_fs_tmp_file_test();
