@@ -11,6 +11,7 @@ use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::muthashmaxglobal::*;
 // use crate::example_grates::dashmaparrayglobal::*;
 
+use std::collections::HashSet;
 use std::io::Write;
 use std::io;
 use std::mem::size_of;
@@ -362,6 +363,7 @@ impl Cage {
         };
         // let mut inneraddrbuf = SockaddrV4::default();
 
+        // let mut inneraddrbuf = GenSockaddr::Unix(SockaddrUnix::default());
         let mut sadlen = size_of::<SockaddrV4>() as u32;
         // let ret_kernelfd = unsafe {
         //     libc::accept(
@@ -452,8 +454,34 @@ impl Cage {
         };
         println!("[Select] Error message: {:?}", err_msg);
         io::stdout().flush().unwrap();
-        panic!();
     }
+
+    let unreal_notused: HashSet<u64> = HashSet::new();
+
+    // Revert result
+    let (newnfds, mut retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
+        ret as u64,
+        real_readfds,
+        real_writefds,
+        real_errorfds,
+        unreal_notused,
+        unreal_notused,
+        unreal_notused,
+        &mappingtable,
+    ).unwrap();
+    
+    if let Some(rfds) = readfds.as_mut() {
+        *rfds = &mut retreadfds;
+    }
+
+    if let Some(wfds) = writefds.as_mut() {
+        *wfds = &mut retwritefds;
+    }
+
+    if let Some(efds) = errorfds.as_mut() {
+        *efds = &mut reterrorfds;
+    }
+
     ret
     }
 
