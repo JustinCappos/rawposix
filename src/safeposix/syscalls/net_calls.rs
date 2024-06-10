@@ -782,14 +782,18 @@ pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec
         io::stdout().flush().unwrap();
 
         let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
-        real_fds.push(
-            pollfd {
-                fd: real_fd as i32,
-                events: vfd.events,
-                revents: vfd.revents,
-            }
-        );
-        println!("[POLL] real_fd: {:?}", real_fd);
+        // let mut real_event;
+
+        // if vfd.events == POLLIN {
+
+        // }
+        let kernel_poll = pollfd {
+            fd: real_fd as i32,
+            events: vfd.events,
+            revents: vfd.revents,
+        };
+        real_fds.push(kernel_poll);
+        println!("[POLL] real_fd: {:?}", kernel_poll);
         io::stdout().flush().unwrap();
     }
 
