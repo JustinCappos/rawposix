@@ -1152,13 +1152,10 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
     get_specific_virtual_fd(0, 0, 0, false, 0).unwrap();
-    // get_unused_virtual_fd(0, 0, false, 0).unwrap();
     // STDOUT
     get_specific_virtual_fd(0, 1, 1, false, 0).unwrap();
-    // get_unused_virtual_fd(0, 1, false, 0).unwrap();
     // STDERR
     get_specific_virtual_fd(0, 2, 2, false, 0).unwrap();
-    // get_unused_virtual_fd(0, 2, false, 0).unwrap();
 
     //init cage is its own parent
     let initcage = Cage {
@@ -1185,18 +1182,12 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     interface::cagetable_insert(1, initcage);
     init_empty_cage(1);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
-    /* TODO:
-    *   change to use get specific one 
-    */
     // STDIN
     get_specific_virtual_fd(1, 0, 0, false, 0).unwrap();
-    // get_unused_virtual_fd(1, 0, false, 0).unwrap();
     // STDOUT
     get_specific_virtual_fd(1, 1, 1, false, 0).unwrap();
-    // get_unused_virtual_fd(1, 1, false, 0).unwrap();
     // STDERR
     get_specific_virtual_fd(1, 2, 2, false, 0).unwrap();
-    // get_unused_virtual_fd(1, 2, false, 0).unwrap();
     // make sure /tmp is clean
     // cleartmp(true);
 }
