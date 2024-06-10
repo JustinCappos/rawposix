@@ -424,6 +424,8 @@ impl Cage {
         mut errorfds: Option<&mut fd_set>,
         timeout: *mut timeval,
     ) -> i32 {
+        println!("[Select] readfds: {:?}", readfds);
+        io::stdout().flush().unwrap();
         let orfds = readfds.as_mut().map(|fds| &mut **fds);
         let owfds = writefds.as_mut().map(|fds| &mut **fds);
         let oefds = errorfds.as_mut().map(|fds| &mut **fds);
@@ -484,7 +486,8 @@ impl Cage {
         if let Some(efds) = errorfds.as_mut() {
             **efds = reterrorfds;
         }
-
+        println!("[Select] readfds: {:?}", readfds);
+        io::stdout().flush().unwrap();
         println!("[Select] ret: {:?}", ret);
         io::stdout().flush().unwrap();
 
