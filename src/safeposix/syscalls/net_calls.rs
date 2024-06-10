@@ -191,7 +191,23 @@ impl Cage {
         flags: i32,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::send(kernel_fd as i32, buf as *const c_void, buflen, flags) as i32}
+        let ret = unsafe { libc::send(kernel_fd as i32, buf as *const c_void, buflen, flags) as i32};
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Send] Error message: {:?}", err_msg);
+            println!("[Send] kernel fd: {:?}", kernel_fd);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
@@ -338,9 +354,6 @@ impl Cage {
         };
         // let mut inneraddrbuf = SockaddrV4::default();
 
-        println!("[Accept] GenSockaddr before: {:?}", addr);
-        io::stdout().flush().unwrap();
-
         let mut sadlen = size_of::<SockaddrV4>() as u32;
         // let ret_kernelfd = unsafe {
         //     libc::accept(
@@ -363,8 +376,6 @@ impl Cage {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
             println!("[Accept] Error message: {:?}", err_msg);
-            // println!("[Accept] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", debug.addr(), debug.port(), debug.get_family());
-            // println!("[Accept] NEW GenSockaddr: {:?}", inneraddrbuf);
             println!("[Accept] GenSockaddr: {:?}", addr);
             io::stdout().flush().unwrap();
             panic!();
@@ -372,7 +383,7 @@ impl Cage {
         println!("[Accept] GenSockaddr: {:?}", addr);
         println!("[Accept] ret kernel fd: {:?}", ret_kernelfd);
         io::stdout().flush().unwrap();
-        let ret_virtualfd = get_unused_virtual_fd(self.cageid, kernel_fd, false, 0).unwrap();
+        let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
         ret_virtualfd as i32
     }
 
