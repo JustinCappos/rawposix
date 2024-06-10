@@ -588,6 +588,14 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
+
+        // Convert back to PollStruct
+        for (i, libcpoll) in real_fd.iter().enumerate() {
+            if let Some(rposix_poll) = virtual_fds.get_mut(i) {
+                rposix_poll.revents = libcpoll.revents;
+            }
+        }
+        
         ret
     }
 
@@ -784,28 +792,17 @@ pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec
         let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
         // let mut real_event;
 
-        let kernel_poll;
-        if vfd.events == libc::POLLIN {
-            kernel_poll = pollfd {
-                fd: real_fd as i32,
-                events: libc::POLLIN,
-                revents: vfd.revents,
-            };
-            real_fds.push(kernel_poll);
-            println!("[POLL]: {:?}", kernel_poll);
-            io::stdout().flush().unwrap();
-        } else if vfd.events == libc::POLLOUT {
-            kernel_poll = pollfd {
-                fd: real_fd as i32,
-                events: libc::POLLOUT,
-                revents: vfd.revents,
-            };
-            real_fds.push(kernel_poll);
-            println!("[POLL]: {:?}", kernel_poll);
-            io::stdout().flush().unwrap();
-        }
-    
-        
+        // if vfd.events == POLLIN {
+
+        // }
+        let kernel_poll = pollfd {
+            fd: real_fd as i32,
+            events: vfd.events,
+            revents: vfd.revents,
+        };
+        real_fds.push(kernel_poll);
+        println!("[POLL] kernel poll: {:?}", kernel_poll);
+        io::stdout().flush().unwrap();
     }
 
     real_fds
