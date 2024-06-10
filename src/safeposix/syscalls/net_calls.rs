@@ -343,26 +343,28 @@ impl Cage {
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         
-        let (finalsockaddr, addrlen) = match addr {
-            Some(GenSockaddr::V6(ref mut addrref6)) => (
-                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>() as *mut u32,
-            ),
-            Some(GenSockaddr::V4(ref mut addrref)) => (
-                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>() as *mut u32,
-            ),
-            Some(GenSockaddr::Unix(ref mut addrrefu)) => (
-                (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
-                size_of::<SockaddrUnix>() as *mut u32,
-            ),
-            Some(_) => {
-                unreachable!()
-            }
-            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0 as *mut u32),
-        };
+        // let (finalsockaddr, addrlen) = match addr {
+        //     Some(GenSockaddr::V6(ref mut addrref6)) => (
+        //         (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+        //         size_of::<SockaddrV6>() as *mut u32,
+        //     ),
+        //     Some(GenSockaddr::V4(ref mut addrref)) => (
+        //         (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+        //         size_of::<SockaddrV4>() as *mut u32,
+        //     ),
+        //     Some(GenSockaddr::Unix(ref mut addrrefu)) => (
+        //         (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
+        //         size_of::<SockaddrUnix>() as *mut u32,
+        //     ),
+        //     Some(_) => {
+        //         unreachable!()
+        //     }
+        //     None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0 as *mut u32),
+        // };
 
-        let mut sadlen = size_of::<SockaddrV4>() as u32;
+        let finalsockaddr = std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr;
+        // let mut sadlen = size_of::<SockaddrV4>() as u32;
+        let mut sadlen = 0 as u32;
 
         let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, &mut sadlen as *mut u32) };
 
@@ -429,10 +431,19 @@ impl Cage {
         // println!("[Select] readfds: {:?}", readfds);
         // io::stdout().flush().unwrap();
 
-        let mut timeout = libc::timeval { 
-            tv_sec: rposix_timeout.unwrap().as_secs() as i64, 
-            tv_usec: rposix_timeout.unwrap().subsec_micros() as i64,
-        };
+        let mut timeout;
+        if rposix_timeout.is_none() {
+            timeout = libc::timeval { 
+                tv_sec: 0, 
+                tv_usec: 0,
+            };
+        } else {
+            timeout = libc::timeval { 
+                tv_sec: rposix_timeout.unwrap().as_secs() as i64, 
+                tv_usec: rposix_timeout.unwrap().subsec_micros() as i64,
+            };
+        }
+        
 
         let orfds = readfds.as_mut().map(|fds| &mut **fds);
         let owfds = writefds.as_mut().map(|fds| &mut **fds);
