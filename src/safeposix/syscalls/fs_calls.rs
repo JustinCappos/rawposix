@@ -1460,6 +1460,8 @@ impl Cage {
                     }
                 }
             }
+            println!("[Sem_init]: {:?}", semtable);
+            io::stdout().flush().unwrap();
             return 0;
         }
 
