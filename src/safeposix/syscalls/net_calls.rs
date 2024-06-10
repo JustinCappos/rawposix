@@ -572,7 +572,23 @@ impl Cage {
         timeout: i32,
     ) -> i32 {
         let mut real_fd = virtual_to_real_poll(self.cageid, virtual_fds);
-        unsafe { libc::poll(real_fd.as_mut_ptr(), nfds as u64, timeout) }
+        let ret = unsafe { libc::poll(real_fd.as_mut_ptr(), nfds as u64, timeout) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[POLL] Error message: {:?}", err_msg);
+            println!("[POLL] kernel fd: {:?}", real_fd);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
