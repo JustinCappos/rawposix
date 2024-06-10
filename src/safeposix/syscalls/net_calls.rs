@@ -789,7 +789,8 @@ pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec
                 revents: vfd.revents,
             }
         );
-
+        println!("[POLL] real_fd: {:?}", real_fd);
+        io::stdout().flush().unwrap();
     }
 
     real_fds
