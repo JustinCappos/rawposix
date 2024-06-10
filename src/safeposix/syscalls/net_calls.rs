@@ -246,10 +246,13 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
+        let mut inneraddrbuf = SockaddrV4::default();
         let mut sadlen = size_of::<SockaddrV4>() as u32;
 
         // let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, addrlen as *mut u32) as i32 };
-        let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, sadlen as *mut u32) as i32 };
+        // let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, sadlen as *mut u32) as i32 };
+        let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
+            &mut sadlen as *mut u32,) as i32 };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
