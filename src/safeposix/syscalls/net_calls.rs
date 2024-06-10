@@ -342,7 +342,6 @@ impl Cage {
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         
-        /* !!!!NEED to be refactored!!!! */
         let (finalsockaddr, addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
@@ -351,6 +350,10 @@ impl Cage {
             Some(GenSockaddr::V4(ref mut addrref)) => (
                 (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV4>() as *mut u32,
+            ),
+            Some(GenSockaddr::Unix(ref mut addrrefu)) => (
+                (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
+                size_of::<SockaddrUnix>() as *mut u32,
             ),
             Some(_) => {
                 unreachable!()
