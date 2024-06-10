@@ -231,7 +231,7 @@ impl Cage {
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap(); 
 
-        let (finalsockaddr, addrlen) = match addr {
+        let (finalsockaddr, mut addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV6>() as u32,
@@ -249,10 +249,10 @@ impl Cage {
         let mut inneraddrbuf = SockaddrV4::default();
         let mut sadlen = size_of::<SockaddrV4>() as u32;
 
-        // let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, addrlen as *mut u32) as i32 };
+        let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, &mut addrlen as *mut u32) as i32 };
         // let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, sadlen as *mut u32) as i32 };
-        let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
-            &mut sadlen as *mut u32,) as i32 };
+        // let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
+        //     &mut sadlen as *mut u32,) as i32 };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
