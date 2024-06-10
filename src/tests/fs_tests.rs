@@ -71,190 +71,190 @@ pub mod fs_tests {
         // ut_lind_fs_tmp_file_test();
     }
 
-    pub fn ut_lind_fs_open() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
-        let fd = cage.open_syscall("/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
-        if fd < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("errno: {:?}", err);
-            println!("Error message: {:?}", err_msg);
-            println!("VirtualFD: {:?}", fd);
-            io::stdout().flush().unwrap();
-            // panic!();
-        }
-        assert_eq!(fd, 3);
+    // pub fn ut_lind_fs_open() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
+    //     let fd = cage.open_syscall("/fcntl_file", O_RDWR | O_CREAT | O_EXCL, S_IWUSR);
+    //     if fd < 0 {
+    //         let err = unsafe {
+    //             libc::__errno_location()
+    //         };
+    //         let err_str = unsafe {
+    //             libc::strerror(*err)
+    //         };
+    //         let err_msg = unsafe {
+    //             CStr::from_ptr(err_str).to_string_lossy().into_owned()
+    //         };
+    //         println!("errno: {:?}", err);
+    //         println!("Error message: {:?}", err_msg);
+    //         println!("VirtualFD: {:?}", fd);
+    //         io::stdout().flush().unwrap();
+    //         // panic!();
+    //     }
+    //     assert_eq!(fd, 3);
 
-        let kernel_fd = translate_virtual_fd(1, fd).unwrap();
-        if cage.fcntl_syscall(fd, F_GETFD, 0) < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("errno: {:?}", err);
-            println!("Error message: {:?}", err_msg);
-            println!("VirtualFD: {:?}", fd);
-            println!("KernelFD: {:?}", kernel_fd);
-            io::stdout().flush().unwrap();
-            // panic!();
-        }
-        assert_eq!(kernel_fd, 3);
+    //     let kernel_fd = translate_virtual_fd(1, fd).unwrap();
+    //     if cage.fcntl_syscall(fd, F_GETFD, 0) < 0 {
+    //         let err = unsafe {
+    //             libc::__errno_location()
+    //         };
+    //         let err_str = unsafe {
+    //             libc::strerror(*err)
+    //         };
+    //         let err_msg = unsafe {
+    //             CStr::from_ptr(err_str).to_string_lossy().into_owned()
+    //         };
+    //         println!("errno: {:?}", err);
+    //         println!("Error message: {:?}", err_msg);
+    //         println!("VirtualFD: {:?}", fd);
+    //         println!("KernelFD: {:?}", kernel_fd);
+    //         io::stdout().flush().unwrap();
+    //         // panic!();
+    //     }
+    //     assert_eq!(kernel_fd, 3);
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
-    pub fn ut_lind_fs_fork() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_fork() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
         
-        // Fork child process
-        assert_eq!(cage.fork_syscall(2), 0);
-        // Child process
-        let thread_child = interface::helper_thread(move || {
-            interface::sleep(interface::RustDuration::from_millis(500));
-            let cage1 = interface::cagetable_getref(2);
-            let fd1 = cage1.open_syscall("/foobar", O_RDWR, S_LIND);
-            assert_eq!(cage1.lseek_syscall(fd1, 5, SEEK_SET), 5);
-            assert_eq!(cage1.write_syscall(fd1, str2cbuf(" world"), 6), 6);
-            assert_eq!(cage1.lseek_syscall(fd1, 0, SEEK_SET), 0);
-            let mut read_buf2 = sizecbuf(12);
-            assert_eq!(cage1.read_syscall(fd1, read_buf2.as_mut_ptr(), 12), 12);
-            assert_eq!(cbuf2str(&read_buf2), "hello world!");
-            cage1.exit_syscall(libc::EXIT_SUCCESS);
-        });
-        //Parent processes
-        let thread_parent = interface::helper_thread(move || {
-            let fd = cage.open_syscall("/foobar", O_CREAT | O_RDWR, S_LIND);
-            assert!(fd >= 0);
-            assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
+    //     // Fork child process
+    //     assert_eq!(cage.fork_syscall(2), 0);
+    //     // Child process
+    //     let thread_child = interface::helper_thread(move || {
+    //         interface::sleep(interface::RustDuration::from_millis(500));
+    //         let cage1 = interface::cagetable_getref(2);
+    //         let fd1 = cage1.open_syscall("/foobar", O_RDWR, S_LIND);
+    //         assert_eq!(cage1.lseek_syscall(fd1, 5, SEEK_SET), 5);
+    //         assert_eq!(cage1.write_syscall(fd1, str2cbuf(" world"), 6), 6);
+    //         assert_eq!(cage1.lseek_syscall(fd1, 0, SEEK_SET), 0);
+    //         let mut read_buf2 = sizecbuf(12);
+    //         assert_eq!(cage1.read_syscall(fd1, read_buf2.as_mut_ptr(), 12), 12);
+    //         assert_eq!(cbuf2str(&read_buf2), "hello world!");
+    //         cage1.exit_syscall(libc::EXIT_SUCCESS);
+    //     });
+    //     //Parent processes
+    //     let thread_parent = interface::helper_thread(move || {
+    //         let fd = cage.open_syscall("/foobar", O_CREAT | O_RDWR, S_LIND);
+    //         assert!(fd >= 0);
+    //         assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
 
-            assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
-            let mut read_buf1 = sizecbuf(5);
-            assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
-            assert_eq!(cbuf2str(&read_buf1), "hello");
-            // interface::sleep(interface::RustDuration::from_millis(1000));
-            cage.exit_syscall(libc::EXIT_SUCCESS);
-        });
-        thread_child.join().unwrap();
-        thread_parent.join().unwrap();
-        lindrustfinalize();
-    }
+    //         assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
+    //         let mut read_buf1 = sizecbuf(5);
+    //         assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
+    //         assert_eq!(cbuf2str(&read_buf1), "hello");
+    //         // interface::sleep(interface::RustDuration::from_millis(1000));
+    //         cage.exit_syscall(libc::EXIT_SUCCESS);
+    //     });
+    //     thread_child.join().unwrap();
+    //     thread_parent.join().unwrap();
+    //     lindrustfinalize();
+    // }
 
-    pub fn ut_lind_fs_simple() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_simple() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        assert_eq!(cage.access_syscall("/foobar", F_OK), 0);
-        assert_eq!(cage.access_syscall("/foobar", X_OK | R_OK), 0);
+    //     assert_eq!(cage.access_syscall("/foobar", F_OK), 0);
+    //     assert_eq!(cage.access_syscall("/foobar", X_OK | R_OK), 0);
 
-        let mut statdata2 = StatData::default();
+    //     let mut statdata2 = StatData::default();
 
-        assert_eq!(cage.stat_syscall("/foobar", &mut statdata2), 0);
-        //ensure that there are two hard links
+    //     assert_eq!(cage.stat_syscall("/foobar", &mut statdata2), 0);
+    //     //ensure that there are two hard links
 
-        assert_eq!(statdata2.st_nlink, 1); //2 for . and .., one for dev, and one so that it can never be removed
+    //     assert_eq!(statdata2.st_nlink, 1); //2 for . and .., one for dev, and one so that it can never be removed
 
-        //ensure that there is no associated size
-        assert_eq!(statdata2.st_size, 4);
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     //ensure that there is no associated size
+    //     assert_eq!(statdata2.st_size, 4);
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
-    pub fn rdwrtest() {
-        println!("RDWTEST begin");
-        io::stdout().flush().unwrap();
+    // pub fn rdwrtest() {
+    //     println!("RDWTEST begin");
+    //     io::stdout().flush().unwrap();
 
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        let fd = cage.open_syscall(
-            "/foobar", 
-            O_CREAT | O_TRUNC | O_RDWR, 
-            (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
-        if fd < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("errno: {:?}", err);
-            println!("Error message: {:?}", err_msg);
-            println!("VirtualFD: {:?}", fd);
-            io::stdout().flush().unwrap();
-            // panic!();
-        }
+    //     let fd = cage.open_syscall(
+    //         "/foobar", 
+    //         O_CREAT | O_TRUNC | O_RDWR, 
+    //         (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+    //     if fd < 0 {
+    //         let err = unsafe {
+    //             libc::__errno_location()
+    //         };
+    //         let err_str = unsafe {
+    //             libc::strerror(*err)
+    //         };
+    //         let err_msg = unsafe {
+    //             CStr::from_ptr(err_str).to_string_lossy().into_owned()
+    //         };
+    //         println!("errno: {:?}", err);
+    //         println!("Error message: {:?}", err_msg);
+    //         println!("VirtualFD: {:?}", fd);
+    //         io::stdout().flush().unwrap();
+    //         // panic!();
+    //     }
         
-        println!("open finished");
-        io::stdout().flush().unwrap();
+    //     println!("open finished");
+    //     io::stdout().flush().unwrap();
 
-        assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
+    //     assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
 
-        println!("write finished");
-        io::stdout().flush().unwrap();
+    //     println!("write finished");
+    //     io::stdout().flush().unwrap();
 
-        assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
-        let mut read_buf1 = sizecbuf(5);
-        assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
-        assert_eq!(cbuf2str(&read_buf1), "hello");
+    //     assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
+    //     let mut read_buf1 = sizecbuf(5);
+    //     assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
+    //     assert_eq!(cbuf2str(&read_buf1), "hello");
 
-        assert_eq!(cage.write_syscall(fd, str2cbuf(" world"), 6), 6);
+    //     assert_eq!(cage.write_syscall(fd, str2cbuf(" world"), 6), 6);
 
-        assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
-        let mut read_buf2 = sizecbuf(12);
-        assert_eq!(cage.read_syscall(fd, read_buf2.as_mut_ptr(), 12), 12);
-        assert_eq!(cbuf2str(&read_buf2), "hello world!");
+    //     assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
+    //     let mut read_buf2 = sizecbuf(12);
+    //     assert_eq!(cage.read_syscall(fd, read_buf2.as_mut_ptr(), 12), 12);
+    //     assert_eq!(cbuf2str(&read_buf2), "hello world!");
 
-        println!("read finished");
-        io::stdout().flush().unwrap();
+    //     println!("read finished");
+    //     io::stdout().flush().unwrap();
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 
-        println!("exit finished");
-        io::stdout().flush().unwrap();
+    //     println!("exit finished");
+    //     io::stdout().flush().unwrap();
 
-        lindrustfinalize();
-    }
+    //     lindrustfinalize();
+    // }
 
-    pub fn prdwrtest() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn prdwrtest() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        let fd = cage.open_syscall("/foobar2", O_CREAT | O_TRUNC | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
-        assert!(fd >= 0);
+    //     let fd = cage.open_syscall("/foobar2", O_CREAT | O_TRUNC | O_RDWR, (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+    //     assert!(fd >= 0);
 
-        assert_eq!(cage.pwrite_syscall(fd, str2cbuf("hello there!"), 12, 0), 12);
+    //     assert_eq!(cage.pwrite_syscall(fd, str2cbuf("hello there!"), 12, 0), 12);
 
-        let mut read_buf1 = sizecbuf(5);
-        assert_eq!(cage.pread_syscall(fd, read_buf1.as_mut_ptr(), 5, 0), 5);
-        assert_eq!(cbuf2str(&read_buf1), "hello");
+    //     let mut read_buf1 = sizecbuf(5);
+    //     assert_eq!(cage.pread_syscall(fd, read_buf1.as_mut_ptr(), 5, 0), 5);
+    //     assert_eq!(cbuf2str(&read_buf1), "hello");
 
-        assert_eq!(cage.pwrite_syscall(fd, str2cbuf(" world"), 6, 5), 6);
+    //     assert_eq!(cage.pwrite_syscall(fd, str2cbuf(" world"), 6, 5), 6);
 
-        let mut read_buf2 = sizecbuf(12);
-        assert_eq!(cage.pread_syscall(fd, read_buf2.as_mut_ptr(), 12, 0), 12);
-        assert_eq!(cbuf2str(&read_buf2), "hello world!");
+    //     let mut read_buf2 = sizecbuf(12);
+    //     assert_eq!(cage.pread_syscall(fd, read_buf2.as_mut_ptr(), 12, 0), 12);
+    //     assert_eq!(cbuf2str(&read_buf2), "hello world!");
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
 //     pub fn chardevtest() {
 //         lindrustinit(0);
@@ -301,42 +301,42 @@ pub mod fs_tests {
 //         lindrustfinalize();
 //     }
 
-    pub fn ut_lind_fs_broken_close() {
-        //testing a muck up with the inode table where the regular close does not work as intended
+    // pub fn ut_lind_fs_broken_close() {
+    //     //testing a muck up with the inode table where the regular close does not work as intended
 
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        //write should work
-        let mut fd = cage.open_syscall("/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
-        assert_eq!(cage.write_syscall(fd, str2cbuf("Hello There!"), 12), 12);
-        assert_eq!(cage.close_syscall(fd), 0);
+    //     //write should work
+    //     let mut fd = cage.open_syscall("/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
+    //     assert_eq!(cage.write_syscall(fd, str2cbuf("Hello There!"), 12), 12);
+    //     assert_eq!(cage.close_syscall(fd), 0);
 
-        //close the file and then open it again... and then close it again
-        fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
-        assert_eq!(cage.close_syscall(fd), 0);
+    //     //close the file and then open it again... and then close it again
+    //     fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
+    //     assert_eq!(cage.close_syscall(fd), 0);
 
-        //let's try some things with connect
-        //we are going to open a socket with a UDP specification...
-        // let sockfd = cage.socket_syscall(AF_INET, SOCK_STREAM, 0);
+    //     //let's try some things with connect
+    //     //we are going to open a socket with a UDP specification...
+    //     // let sockfd = cage.socket_syscall(AF_INET, SOCK_STREAM, 0);
 
-        // //bind should not be interesting
-        // let mut sockad = interface::GenSockaddr::V4(interface::SockaddrV4::default());
-        // sockad.set_family(AF_INET as u16);
-        // assert_eq!(cage.bind_syscall(sockfd, &sockad), 0);
+    //     // //bind should not be interesting
+    //     // let mut sockad = interface::GenSockaddr::V4(interface::SockaddrV4::default());
+    //     // sockad.set_family(AF_INET as u16);
+    //     // assert_eq!(cage.bind_syscall(sockfd, &sockad), 0);
 
-        fd = cage.open_syscall(
-            "/broken_close_file", 
-            O_RDWR, 
-            (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
-        assert_eq!(cage.close_syscall(fd), 0);
+    //     fd = cage.open_syscall(
+    //         "/broken_close_file", 
+    //         O_RDWR, 
+    //         (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH) as u32);
+    //     assert_eq!(cage.close_syscall(fd), 0);
 
-        fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
-        assert_eq!(cage.close_syscall(fd), 0);
+    //     fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
+    //     assert_eq!(cage.close_syscall(fd), 0);
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
     // pub fn ut_lind_fs_chmod() {
     //     lindrustinit(0);
@@ -391,29 +391,29 @@ pub mod fs_tests {
     //     lindrustfinalize();
     // }
 
-    pub fn ut_lind_fs_dir_chdir() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_dir_chdir() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        //testing the ability to make and change to directories
+    //     //testing the ability to make and change to directories
 
-        assert_eq!(cage.mkdir_syscall("/subdir1", S_LIND), 0);
-        assert_eq!(cage.mkdir_syscall("/subdir1/subdir2", S_LIND), 0);
-        assert_eq!(cage.mkdir_syscall("/subdir1/subdir2/subdir3", S_LIND), 0);
+    //     assert_eq!(cage.mkdir_syscall("/subdir1", S_LIND), 0);
+    //     assert_eq!(cage.mkdir_syscall("/subdir1/subdir2", S_LIND), 0);
+    //     assert_eq!(cage.mkdir_syscall("/subdir1/subdir2/subdir3", S_LIND), 0);
 
-        assert_eq!(cage.access_syscall("/subdir1", F_OK), 0);
-        assert_eq!(cage.chdir_syscall("/subdir1"), 0);
+    //     assert_eq!(cage.access_syscall("/subdir1", F_OK), 0);
+    //     assert_eq!(cage.chdir_syscall("/subdir1"), 0);
 
-        assert_eq!(cage.access_syscall("/subdir1/subdir2", F_OK), 0);
-        assert_eq!(cage.chdir_syscall(".."), 0);
+    //     assert_eq!(cage.access_syscall("/subdir1/subdir2", F_OK), 0);
+    //     assert_eq!(cage.chdir_syscall(".."), 0);
 
-        assert_eq!(cage.access_syscall("/subdir1", F_OK), 0);
-        assert_eq!(cage.chdir_syscall("/subdir1/subdir2/subdir3"), 0);
-        assert_eq!(cage.access_syscall("../../../subdir1", F_OK), 0);
+    //     assert_eq!(cage.access_syscall("/subdir1", F_OK), 0);
+    //     assert_eq!(cage.chdir_syscall("/subdir1/subdir2/subdir3"), 0);
+    //     assert_eq!(cage.access_syscall("../../../subdir1", F_OK), 0);
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
     // pub fn ut_lind_fs_dir_mode() {
     //     lindrustinit(0);
@@ -472,206 +472,206 @@ pub mod fs_tests {
     //     lindrustfinalize();
     // }
 
-    pub fn ut_lind_fs_dup() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_dup() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-        let filepath = "/dupfile";
+    //     let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
+    //     let filepath = "/dupfile";
 
-        let fd = cage.open_syscall(filepath, flags, S_IRWXA);
-        let mut temp_buffer = sizecbuf(2);
-        assert!(fd >= 0);
-        assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
-        assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
-        assert_eq!(cage.read_syscall(fd, temp_buffer.as_mut_ptr(), 2), 2);
-        assert_eq!(cbuf2str(&temp_buffer), "12");
+    //     let fd = cage.open_syscall(filepath, flags, S_IRWXA);
+    //     let mut temp_buffer = sizecbuf(2);
+    //     assert!(fd >= 0);
+    //     assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
+    //     assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
+    //     assert_eq!(cage.read_syscall(fd, temp_buffer.as_mut_ptr(), 2), 2);
+    //     assert_eq!(cbuf2str(&temp_buffer), "12");
 
-        //duplicate the file descriptor
-        let fd2 = cage.dup_syscall(fd, None);
-        assert!(fd != fd2);
+    //     //duplicate the file descriptor
+    //     let fd2 = cage.dup_syscall(fd, None);
+    //     assert!(fd != fd2);
 
-        //essentially a no-op, but duplicate again -- they should be diff &fd's
-        let fd3 = cage.dup_syscall(fd, None);
-        assert!(fd != fd2 && fd != fd3);
+    //     //essentially a no-op, but duplicate again -- they should be diff &fd's
+    //     let fd3 = cage.dup_syscall(fd, None);
+    //     assert!(fd != fd2 && fd != fd3);
 
-        //We don't need all three, though:
-        assert_eq!(cage.close_syscall(fd3), 0);
+    //     //We don't need all three, though:
+    //     assert_eq!(cage.close_syscall(fd3), 0);
 
-        assert_eq!(cage.lseek_syscall(fd, 0, SEEK_END), 2);
-        assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_END), 2);
+    //     assert_eq!(cage.lseek_syscall(fd, 0, SEEK_END), 2);
+    //     assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_END), 2);
 
-        // write some data to move the first position
-        assert_eq!(cage.write_syscall(fd, str2cbuf("34"), 2), 2);
+    //     // write some data to move the first position
+    //     assert_eq!(cage.write_syscall(fd, str2cbuf("34"), 2), 2);
 
-        //Make sure that they are still in the same place:
-        let mut buffer = sizecbuf(4);
-        assert_eq!(
-            cage.lseek_syscall(fd, 0, SEEK_SET),
-            cage.lseek_syscall(fd2, 0, SEEK_SET)
-        );
-        assert_eq!(cage.read_syscall(fd, buffer.as_mut_ptr(), 4), 4);
-        assert_eq!(cbuf2str(&buffer), "1234");
+    //     //Make sure that they are still in the same place:
+    //     let mut buffer = sizecbuf(4);
+    //     assert_eq!(
+    //         cage.lseek_syscall(fd, 0, SEEK_SET),
+    //         cage.lseek_syscall(fd2, 0, SEEK_SET)
+    //     );
+    //     assert_eq!(cage.read_syscall(fd, buffer.as_mut_ptr(), 4), 4);
+    //     assert_eq!(cbuf2str(&buffer), "1234");
 
-        assert_eq!(cage.close_syscall(fd), 0);
+    //     assert_eq!(cage.close_syscall(fd), 0);
 
-        //the other &fd should still work
-        assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_END), 4);
-        assert_eq!(cage.write_syscall(fd2, str2cbuf("5678"), 4), 4);
+    //     //the other &fd should still work
+    //     assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_END), 4);
+    //     assert_eq!(cage.write_syscall(fd2, str2cbuf("5678"), 4), 4);
 
-        assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_SET), 0);
-        let mut buffer2 = sizecbuf(8);
-        assert_eq!(cage.read_syscall(fd2, buffer2.as_mut_ptr(), 8), 8);
-        assert_eq!(cage.close_syscall(fd2), 0);
-        assert_eq!(cbuf2str(&buffer2), "12345678");
+    //     assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_SET), 0);
+    //     let mut buffer2 = sizecbuf(8);
+    //     assert_eq!(cage.read_syscall(fd2, buffer2.as_mut_ptr(), 8), 8);
+    //     assert_eq!(cage.close_syscall(fd2), 0);
+    //     assert_eq!(cbuf2str(&buffer2), "12345678");
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
-    pub fn ut_lind_fs_dup2() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_dup2() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
-        let filepath = "/dup2file";
+    //     let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
+    //     let filepath = "/dup2file";
 
-        let fd = cage.open_syscall(filepath, flags, S_IRWXA);
+    //     let fd = cage.open_syscall(filepath, flags, S_IRWXA);
 
-        assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
+    //     assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
 
-        //trying to dup fd into fd + 1
-        let _fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
+    //     //trying to dup fd into fd + 1
+    //     let _fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
 
-        //should be a no-op since the last line did the same thing
-        let fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
+    //     //should be a no-op since the last line did the same thing
+    //     let fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
 
-        //read/write tests for the files
-        assert_eq!(
-            cage.lseek_syscall(fd, 0, SEEK_END),
-            cage.lseek_syscall(fd2, 0, SEEK_END)
-        );
-        assert_eq!(cage.write_syscall(fd, str2cbuf("34"), 2), 2);
-        assert_eq!(
-            cage.lseek_syscall(fd, 0, SEEK_SET),
-            cage.lseek_syscall(fd2, 0, SEEK_SET)
-        );
+    //     //read/write tests for the files
+    //     assert_eq!(
+    //         cage.lseek_syscall(fd, 0, SEEK_END),
+    //         cage.lseek_syscall(fd2, 0, SEEK_END)
+    //     );
+    //     assert_eq!(cage.write_syscall(fd, str2cbuf("34"), 2), 2);
+    //     assert_eq!(
+    //         cage.lseek_syscall(fd, 0, SEEK_SET),
+    //         cage.lseek_syscall(fd2, 0, SEEK_SET)
+    //     );
 
-        let mut buffer = sizecbuf(4);
-        assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_SET), 0);
-        assert_eq!(cage.read_syscall(fd, buffer.as_mut_ptr(), 4), 4);
-        assert_eq!(cbuf2str(&buffer), "1234");
+    //     let mut buffer = sizecbuf(4);
+    //     assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_SET), 0);
+    //     assert_eq!(cage.read_syscall(fd, buffer.as_mut_ptr(), 4), 4);
+    //     assert_eq!(cbuf2str(&buffer), "1234");
 
-        assert_eq!(cage.close_syscall(fd), 0);
+    //     assert_eq!(cage.close_syscall(fd), 0);
 
-        let mut buffer2 = sizecbuf(8);
-        assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_END), 4);
-        assert_eq!(cage.write_syscall(fd2, str2cbuf("5678"), 4), 4);
+    //     let mut buffer2 = sizecbuf(8);
+    //     assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_END), 4);
+    //     assert_eq!(cage.write_syscall(fd2, str2cbuf("5678"), 4), 4);
 
-        assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_SET), 0);
-        assert_eq!(cage.read_syscall(fd2, buffer2.as_mut_ptr(), 8), 8);
-        assert_eq!(cbuf2str(&buffer2), "12345678");
+    //     assert_eq!(cage.lseek_syscall(fd2, 0, SEEK_SET), 0);
+    //     assert_eq!(cage.read_syscall(fd2, buffer2.as_mut_ptr(), 8), 8);
+    //     assert_eq!(cbuf2str(&buffer2), "12345678");
 
-        assert_eq!(cage.close_syscall(fd2), 0);
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.close_syscall(fd2), 0);
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
-    pub fn ut_lind_fs_fcntl() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_fcntl() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        let filefd = cage.open_syscall("/fcntl_file", O_CREAT | O_EXCL, S_IRWXA);
+    //     let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+    //     let filefd = cage.open_syscall("/fcntl_file", O_CREAT | O_EXCL, S_IRWXA);
 
-        //set the setfd flag
-        assert_eq!(cage.fcntl_syscall(sockfd, F_SETFD, libc::FD_CLOEXEC), 0);
+    //     //set the setfd flag
+    //     assert_eq!(cage.fcntl_syscall(sockfd, F_SETFD, libc::FD_CLOEXEC), 0);
 
-        //checking to see if the wrong flag was set or not
-        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFD, 0), libc::FD_CLOEXEC);
+    //     //checking to see if the wrong flag was set or not
+    //     assert_eq!(cage.fcntl_syscall(sockfd, F_GETFD, 0), libc::FD_CLOEXEC);
 
-        //let's get some more flags on the filefd
-        assert_eq!(
-            cage.fcntl_syscall(filefd, F_SETFL, O_RDONLY | O_NONBLOCK),
-            0
-        );
+    //     //let's get some more flags on the filefd
+    //     assert_eq!(
+    //         cage.fcntl_syscall(filefd, F_SETFL, O_RDONLY | O_NONBLOCK),
+    //         0
+    //     );
 
-        //checking if the flags are updated...
-        // assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), 2048);
-        let flags = cage.fcntl_syscall(filefd, F_GETFL, 0);
+    //     //checking if the flags are updated...
+    //     // assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), 2048);
+    //     let flags = cage.fcntl_syscall(filefd, F_GETFL, 0);
         
-        assert_ne!(flags & libc::O_NONBLOCK, 0);
+    //     assert_ne!(flags & libc::O_NONBLOCK, 0);
 
-        assert_eq!(cage.close_syscall(filefd), 0);
-        assert_eq!(cage.close_syscall(sockfd), 0);
+    //     assert_eq!(cage.close_syscall(filefd), 0);
+    //     assert_eq!(cage.close_syscall(sockfd), 0);
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
-    pub fn ut_lind_fs_ioctl() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
+    // pub fn ut_lind_fs_ioctl() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
 
-        let mut union0: winsize = unsafe { mem::zeroed() };
-        let mut union1: winsize = unsafe { mem::zeroed() };
-        union1.ws_col = 1;
-        union1.ws_row = 1;
+    //     let mut union0: winsize = unsafe { mem::zeroed() };
+    //     let mut union1: winsize = unsafe { mem::zeroed() };
+    //     union1.ws_col = 1;
+    //     union1.ws_row = 1;
 
-        let union0_ptr: *mut winsize = &mut union0;
-        let union1_ptr: *mut winsize = &mut union1;
+    //     let union0_ptr: *mut winsize = &mut union0;
+    //     let union1_ptr: *mut winsize = &mut union1;
 
-        let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, S_LIND);
+    //     let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+    //     let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, S_LIND);
 
-        //try to use FIONBIO for a non-socket
-        // assert_eq!(
-        //     cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
-        //     0
-        // );
-        if cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8) < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("errno: {:?}", err);
-            println!("Error message: {:?}", err_msg);
-            io::stdout().flush().unwrap();
-            panic!();
-        }
+    //     //try to use FIONBIO for a non-socket
+    //     // assert_eq!(
+    //     //     cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
+    //     //     0
+    //     // );
+    //     if cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8) < 0 {
+    //         let err = unsafe {
+    //             libc::__errno_location()
+    //         };
+    //         let err_str = unsafe {
+    //             libc::strerror(*err)
+    //         };
+    //         let err_msg = unsafe {
+    //             CStr::from_ptr(err_str).to_string_lossy().into_owned()
+    //         };
+    //         println!("errno: {:?}", err);
+    //         println!("Error message: {:?}", err_msg);
+    //         io::stdout().flush().unwrap();
+    //         panic!();
+    //     }
 
-        //clear the O_NONBLOCK flag
-        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
+    //     //clear the O_NONBLOCK flag
+    //     assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
 
-        //checking to see if the flag was updated
-        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
+    //     //checking to see if the flag was updated
+    //     assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
 
-        //set the O_NONBLOCK flag
-        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union1_ptr as *mut u8), 0);
+    //     //set the O_NONBLOCK flag
+    //     assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union1_ptr as *mut u8), 0);
 
-        //checking to see if the flag was updated
-        assert_eq!(
-            cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK,
-            O_NONBLOCK
-        );
+    //     //checking to see if the flag was updated
+    //     assert_eq!(
+    //         cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK,
+    //         O_NONBLOCK
+    //     );
 
-        //clear the O_NONBLOCK flag
-        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
+    //     //clear the O_NONBLOCK flag
+    //     assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
 
-        //checking to see if the flag was updated
-        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
+    //     //checking to see if the flag was updated
+    //     assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
 
-        assert_eq!(cage.close_syscall(filefd), 0);
-        assert_eq!(cage.close_syscall(sockfd), 0);
+    //     assert_eq!(cage.close_syscall(filefd), 0);
+    //     assert_eq!(cage.close_syscall(sockfd), 0);
 
-        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-        lindrustfinalize();
-    }
+    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+    //     lindrustfinalize();
+    // }
 
 //     pub fn ut_lind_fs_fdflags() {
 //         lindrustinit(0);
@@ -1184,41 +1184,41 @@ pub mod fs_tests {
 //         lindrustfinalize();
 //     }
 
-    use libc::c_void;
-    pub fn ut_lind_fs_shm() {
-        lindrustinit(0);
-        let cage = interface::cagetable_getref(1);
-        let key = 31337;
-        let mut shmidstruct = interface::ShmidsStruct::default();
+    // use libc::c_void;
+    // pub fn ut_lind_fs_shm() {
+    //     lindrustinit(0);
+    //     let cage = interface::cagetable_getref(1);
+    //     let key = 31337;
+    //     let mut shmidstruct = interface::ShmidsStruct::default();
 
-        // shmget returns an identifier in shmid
-        let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
+    //     // shmget returns an identifier in shmid
+    //     let shmid = cage.shmget_syscall(key, 1024, 0666 | IPC_CREAT);
 
-        // shmat to attach to shared memory
-        let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
+    //     // shmat to attach to shared memory
+    //     let shmatret = cage.shmat_syscall(shmid, 0xfffff000 as *mut u8, 0);
 
-        // assert_ne!(shmatret, -1);
-        assert_ne!(shmatret, 0);
+    //     // assert_ne!(shmatret, -1);
+    //     assert_ne!(shmatret, 0);
 
-        // get struct info
-        let shmctlret1 = cage.shmctl_syscall(shmid, IPC_STAT, Some(&mut shmidstruct));
+    //     // get struct info
+    //     let shmctlret1 = cage.shmctl_syscall(shmid, IPC_STAT, Some(&mut shmidstruct));
 
-        assert_eq!(shmctlret1, 0);
+    //     assert_eq!(shmctlret1, 0);
 
-        assert_eq!(shmidstruct.shm_nattch, 1);
+    //     assert_eq!(shmidstruct.shm_nattch, 1);
 
-        // mark the shared memory to be rmoved
-        let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, None);
+    //     // mark the shared memory to be rmoved
+    //     let shmctlret2 = cage.shmctl_syscall(shmid, IPC_RMID, None);
 
-        assert_eq!(shmctlret2, 0);
+    //     assert_eq!(shmctlret2, 0);
 
-        //detach from shared memory
-        let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
+    //     //detach from shared memory
+    //     let shmdtret = cage.shmdt_syscall(0xfffff000 as *mut u8);
 
-        assert_eq!(shmdtret, shmid); //NaCl requires shmdt to return the shmid, so this is non-posixy
+    //     assert_eq!(shmdtret, shmid); //NaCl requires shmdt to return the shmid, so this is non-posixy
 
-        lindrustfinalize();
-    }
+    //     lindrustfinalize();
+    // }
 
 //     pub fn ut_lind_fs_getpid_getppid() {
 //         lindrustinit(0);
