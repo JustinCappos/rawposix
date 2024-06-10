@@ -611,12 +611,13 @@ pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:fd_set, writeb
         let mut retbits = _init_fd_set();
         for bit in 0..nfds as usize {
             let pos = bit as u64;
-            println!("[Select - FD]: pos {:?}", pos);
-            // println!("[Select - FD]: *mappingtable.get(&pos) {:?}", *mappingtable.get(&pos).unwrap());
-            println!("[Select - FD]: _fd_isset(pos,&inset) {:?}", _fd_isset(pos,&inset));
-            println!("[Select - FD]: !_fd_isset(*mappingtable.get(&pos).unwrap(),&retbits) {:?}", !_fd_isset(*mappingtable.get(&pos).unwrap(),&retbits));
-            io::stdout().flush().unwrap();
+            
             if _fd_isset(pos,&inset)&& !_fd_isset(*mappingtable.get(&pos).unwrap(),&retbits) {
+                println!("[Select - FD]: pos {:?}", pos);
+                println!("[Select - FD]: *mappingtable.get(&pos) {:?}", *mappingtable.get(&pos).unwrap());
+                println!("[Select - FD]: _fd_isset(pos,&inset) {:?}", _fd_isset(pos,&inset));
+                println!("[Select - FD]: !_fd_isset(*mappingtable.get(&pos).unwrap(),&retbits) {:?}", !_fd_isset(*mappingtable.get(&pos).unwrap(),&retbits));
+                io::stdout().flush().unwrap();
                 flagsset+=1;
                 _fd_set(*mappingtable.get(&pos).unwrap(),&mut retbits);
             }
