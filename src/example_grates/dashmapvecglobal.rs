@@ -609,6 +609,7 @@ pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:fd_set, writeb
 
     for (inset,unrealset) in [(readbits,unrealreadset), (writebits,unrealwriteset), (exceptbits,unrealexceptset)] {
         let mut retbits = _init_fd_set();
+        //should be
         for bit in 0..nfds as usize {
             let pos = bit as u64;
             println!("[Select - FD]: _fd_isset(pos,&inset) {:?}", _fd_isset(pos,&inset));
