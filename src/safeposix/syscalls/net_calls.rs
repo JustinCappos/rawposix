@@ -361,23 +361,14 @@ impl Cage {
             }
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0 as *mut u32),
         };
-        // let mut inneraddrbuf = SockaddrV4::default();
 
-        // let mut inneraddrbuf = GenSockaddr::Unix(SockaddrUnix::default());
         let mut sadlen = size_of::<SockaddrV4>() as u32;
-        // let ret_kernelfd = unsafe {
-        //     libc::accept(
-        //         kernel_fd as i32,
-        //         (&mut inneraddrbuf as *mut SockaddrV4).cast::<libc::sockaddr>(),
-        //         &mut sadlen as *mut u32,
-        //     )
-        // };
 
         let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, &mut sadlen as *mut u32) };
 
         if ret_kernelfd < 0 {
             let err = unsafe {
-                libc::__errno_location()
+                libc::__errno_location() as i32
             };
             let err_str = unsafe {
                 libc::strerror(*err)
@@ -388,6 +379,9 @@ impl Cage {
             println!("[Accept] Error message: {:?}", err_msg);
             println!("[Accept] GenSockaddr: {:?}", addr);
             io::stdout().flush().unwrap();
+            if err == EAGAIN {
+                return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
+            }
         }
         // println!("[Accept] GenSockaddr: {:?}", addr);
         // println!("[Accept] ret kernel fd: {:?}", ret_kernelfd);
@@ -425,8 +419,8 @@ impl Cage {
         // timeout: *mut timeval,
         rposix_timeout: Option<RustDuration>,
     ) -> i32 {
-        println!("[Select] readfds: {:?}", readfds);
-        io::stdout().flush().unwrap();
+        // println!("[Select] readfds: {:?}", readfds);
+        // io::stdout().flush().unwrap();
 
         let mut timeout = libc::timeval { 
             tv_sec: rposix_timeout.unwrap().as_secs() as i64, 
@@ -445,9 +439,9 @@ impl Cage {
                 oefds.copied(),
             ).unwrap();
 
-        println!("[Select] Before kernel select real_readfds: {:?}", real_readfds);
-        println!("[Select] Before kernel select timeout: {:?}\nrposix_timeout: {:?}", timeout, rposix_timeout);
-        io::stdout().flush().unwrap();
+        // println!("[Select] Before kernel select real_readfds: {:?}", real_readfds);
+        // println!("[Select] Before kernel select timeout: {:?}\nrposix_timeout: {:?}", timeout, rposix_timeout);
+        // io::stdout().flush().unwrap();
 
         let ret = unsafe { 
             libc::select(
@@ -458,8 +452,8 @@ impl Cage {
                 &mut timeout as *mut timeval)
         };
 
-        println!("[Select] After kernel select real_readfds: {:?}", real_readfds);
-        io::stdout().flush().unwrap();
+        // println!("[Select] After kernel select real_readfds: {:?}", real_readfds);
+        // io::stdout().flush().unwrap();
 
         if ret < 0 {
             let err = unsafe {
@@ -487,9 +481,9 @@ impl Cage {
             &mappingtable,
         ).unwrap();
         
-        println!("[Select] retreadfds: {:?}", retreadfds);
-        println!("[Select] mappingtable: {:?}", mappingtable);
-        io::stdout().flush().unwrap();
+        // println!("[Select] retreadfds: {:?}", retreadfds);
+        // println!("[Select] mappingtable: {:?}", mappingtable);
+        // io::stdout().flush().unwrap();
 
         if let Some(rfds) = readfds.as_mut() {
             **rfds = retreadfds;
@@ -502,10 +496,10 @@ impl Cage {
         if let Some(efds) = errorfds.as_mut() {
             **efds = reterrorfds;
         }
-        println!("[Select] readfds: {:?}", readfds);
-        io::stdout().flush().unwrap();
-        println!("[Select] ret: {:?}", ret);
-        io::stdout().flush().unwrap();
+        // println!("[Select] readfds: {:?}", readfds);
+        // io::stdout().flush().unwrap();
+        // println!("[Select] ret: {:?}", ret);
+        // io::stdout().flush().unwrap();
 
         ret
     }
