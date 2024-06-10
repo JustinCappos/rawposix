@@ -16,9 +16,6 @@ use std::collections::HashMap;
 
 use std::sync::Mutex;
 
-use std::io::Write;
-use std::io;
-
 // This uses a Dashmap (for cages) with a vector of FDTableEntry items.
 
 // Get constants about the fd table sizes, etc.
@@ -28,16 +25,6 @@ pub use super::commonconstants::*;
 #[doc(hidden)]
 pub const ALGONAME: &str = "DashMapVecGlobal";
 
-
-// These are the values we look up with at the end...
-// #[doc = include_str!("../docs/fdtableentry.md")]
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct FDTableEntry {
-    pub realfd: u64, // underlying fd (may be a virtual fd below us or
-    // a kernel fd)
-    pub should_cloexec: bool, // should I close this when exec is called?
-    pub optionalinfo: u64,    // user specified / controlled data
-}
 
 // It's fairly easy to check the fd count on a per-process basis (I just check
 // when I would add a new fd).
@@ -88,10 +75,6 @@ struct CloseHandlers {
     unreal_handler: fn(u64),
 }
 
-// Seems sort of like a constant...  I'm not sure if this is bad form or not...
-#[allow(non_snake_case)]
-pub fn NULL_FUNC(_:u64) { }
-
 lazy_static! {
     // This holds the user registered handlers they want to have called when
     // a close occurs.  I did this rather than return messy data structures
@@ -100,6 +83,7 @@ lazy_static! {
     static ref CLOSEHANDLERTABLE: Mutex<CloseHandlers> = {
         let c = CloseHandlers {
             intermediate_handler:NULL_FUNC, 
+            // final_handler:NULL_FUNC,
             final_handler:kernel_close,
             unreal_handler:NULL_FUNC,
         };
@@ -432,7 +416,7 @@ pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
 }
 
 // Helpers to track the count of times each realfd is used
-// #[doc(hidden)]
+#[doc(hidden)]
 fn _decrement_realfd(realfd:u64) -> u64 {
     if realfd == NO_REAL_FD {
         panic!("Called _decrement_realfd with NO_REAL_FD");
@@ -451,7 +435,7 @@ fn _decrement_realfd(realfd:u64) -> u64 {
 }
 
 // Helpers to track the count of times each realfd is used
-// #[doc(hidden)]
+#[doc(hidden)]
 fn _increment_realfd(realfd:u64) -> u64 {
     if realfd == NO_REAL_FD {
         return 0
@@ -472,247 +456,458 @@ fn _increment_realfd(realfd:u64) -> u64 {
 
 
 
-// /***************   Code for handling select() ****************/
+/***************   Code for handling select() ****************/
 
-// use libc::fd_set;
-// use std::collections::HashSet;
-// use std::cmp;
-// use std::mem;
+use libc::fd_set;
+use std::collections::HashSet;
+use std::cmp;
+use std::mem;
 
-// // Helper to get an empty fd_set.  Helper function to isolate unsafe code,
-// // etc.
-// pub fn _init_fd_set() -> fd_set {
-//     let raw_fd_set:fd_set;
-//     unsafe {
-//         let mut this_fd_set = mem::MaybeUninit::<libc::fd_set>::uninit();
-//         libc::FD_ZERO(this_fd_set.as_mut_ptr());
-//         raw_fd_set = this_fd_set.assume_init()
-//     }
-//     raw_fd_set
-// }
+// Helper to get an empty fd_set.  Helper function to isolate unsafe code,
+// etc.
+#[doc(hidden)]
+pub fn _init_fd_set() -> fd_set {
+    let raw_fd_set:fd_set;
+    unsafe {
+        let mut this_fd_set = mem::MaybeUninit::<libc::fd_set>::uninit();
+        libc::FD_ZERO(this_fd_set.as_mut_ptr());
+        raw_fd_set = this_fd_set.assume_init()
+    }
+    raw_fd_set
+}
 
-// // Helper to get a null pointer.
-// pub fn _get_null_fd_set() -> fd_set {
-//     //unsafe{ptr::null_mut()}
-//     // BUG!!!  Need to fix this later.
-//     _init_fd_set()
-// }
+// Helper to get a null pointer.
+#[doc(hidden)]
+pub fn _get_null_fd_set() -> fd_set {
+    //unsafe{ptr::null_mut()}
+    // BUG!!!  Need to fix this later.
+    _init_fd_set()
+}
 
-// pub fn _fd_set(fd:u64, thisfdset:&mut fd_set) {
-//     unsafe{libc::FD_SET(fd as i32,thisfdset)}
-// }
+#[doc(hidden)]
+pub fn _fd_set(fd:u64, thisfdset:&mut fd_set) {
+    unsafe{libc::FD_SET(fd as i32,thisfdset)}
+}
 
-// pub fn _fd_isset(fd:u64, thisfdset:&fd_set) -> bool {
-//     unsafe{libc::FD_ISSET(fd as i32,thisfdset)}
-// }
+#[doc(hidden)]
+pub fn _fd_isset(fd:u64, thisfdset:&fd_set) -> bool {
+    unsafe{libc::FD_ISSET(fd as i32,thisfdset)}
+}
 
-// // Computes the bitmodifications and returns a (maxnfds, unrealset) tuple...
-// fn _do_bitmods(myfdvec:Vec<Option<FDTableEntry>>, nfds:u64, infdset: fd_set, thisfdset: &mut fd_set, mappingtable: &mut HashMap<u64,u64>) -> Result<(u64,HashSet<(u64,u64)>),threei::RetVal> {
-//     let mut unrealhashset:HashSet<(u64,u64)> = HashSet::new();
-//     // Iterate through the infdset and set those values as is appropriate
-//     let mut highestpos = 0;
+// Computes the bitmodifications and returns a (maxnfds, unrealset) tuple...
+#[doc(hidden)]
+fn _do_bitmods(myfdvec:Vec<Option<FDTableEntry>>, nfds:u64, infdset: fd_set, thisfdset: &mut fd_set, mappingtable: &mut HashMap<u64,u64>) -> Result<(u64,HashSet<(u64,u64)>),threei::RetVal> {
+    let mut unrealhashset:HashSet<(u64,u64)> = HashSet::new();
+    // Iterate through the infdset and set those values as is appropriate
+    let mut highestpos = 0;
 
-//     // Clippy is somehow missing how pos is using bit.
-//     #[allow(clippy::needless_range_loop)]
-//     for bit in 0..nfds as usize {
-//         let pos = bit as u64;
-//         if _fd_isset(pos,&infdset) {
-//             if let Some(entry) = myfdvec[bit] {
-//                 if entry.realfd == NO_REAL_FD {
-//                     unrealhashset.insert((pos,entry.optionalinfo));
-//                 }
-//                 else {
-//                     mappingtable.insert(entry.realfd, pos);
-//                     _fd_set(entry.realfd,thisfdset);
-//                     // I add one because select expects nfds to be the max+1
-//                     highestpos = cmp::max(highestpos, entry.realfd+1);
-//                 }
-//             }
-//             else {
-//                 return Err(threei::Errno::EINVAL as u64);
-//             }
-//         }
-//     }
-//     Ok((highestpos,unrealhashset))
-// }
+    // Clippy is somehow missing how pos is using bit.
+    #[allow(clippy::needless_range_loop)]
+    for bit in 0..nfds as usize {
+        let pos = bit as u64;
+        if _fd_isset(pos,&infdset) {
+            if let Some(entry) = myfdvec[bit] {
+                if entry.realfd == NO_REAL_FD {
+                    unrealhashset.insert((pos,entry.optionalinfo));
+                }
+                else {
+                    mappingtable.insert(entry.realfd, pos);
+                    _fd_set(entry.realfd,thisfdset);
+                    // I add one because select expects nfds to be the max+1
+                    highestpos = cmp::max(highestpos, entry.realfd+1);
+                }
+            }
+            else {
+                return Err(threei::Errno::EINVAL as u64);
+            }
+        }
+    }
+    Ok((highestpos,unrealhashset))
+}
 
-// // helper to call before calling select beneath you.  Translates your virtfds
-// // to realfds.
-// // See: https://man7.org/linux/man-pages/man2/select.2.html for details /
-// // corner cases about the arguments.
+// helper to call before calling select beneath you.  Translates your virtfds
+// to realfds.
+// See: https://man7.org/linux/man-pages/man2/select.2.html for details /
+// corner cases about the arguments.
 
-// // I hate doing these, but don't know how to make this interface better...
-// #[allow(clippy::type_complexity)]
-// #[allow(clippy::too_many_arguments)]
+// I hate doing these, but don't know how to make this interface better...
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 // #[doc = include_str!("../docs/get_real_bitmasks_for_select.md")]
-// pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set>, writebits:Option<fd_set>, exceptbits:Option<fd_set>) -> Result<(u64, fd_set, fd_set, fd_set, [HashSet<(u64,u64)>;3], HashMap<u64,u64>),threei::RetVal> {
+pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set>, writebits:Option<fd_set>, exceptbits:Option<fd_set>) -> Result<(u64, fd_set, fd_set, fd_set, [HashSet<(u64,u64)>;3], HashMap<u64,u64>),threei::RetVal> {
 
-//     if nfds >= FD_PER_PROCESS_MAX {
-//         return Err(threei::Errno::EINVAL as u64);
-//     }
+    if nfds >= FD_PER_PROCESS_MAX {
+        return Err(threei::Errno::EINVAL as u64);
+    }
 
-//     if !FDTABLE.contains_key(&cageid) {
-//         panic!("Unknown cageid in fdtable access");
-//     }
+    if !FDTABLE.contains_key(&cageid) {
+        panic!("Unknown cageid in fdtable access");
+    }
 
-//     let mut unrealarray:[HashSet<(u64,u64)>;3] = [HashSet::new(),HashSet::new(),HashSet::new()];
-//     let mut mappingtable:HashMap<u64,u64> = HashMap::new();
-//     let mut newnfds = 0;
+    let mut unrealarray:[HashSet<(u64,u64)>;3] = [HashSet::new(),HashSet::new(),HashSet::new()];
+    let mut mappingtable:HashMap<u64,u64> = HashMap::new();
+    let mut newnfds = 0;
 
-//     // dashmaps are lockless, but usually I would grab a lock on the fdtable
-//     // here...
-//     let binding = FDTABLE.get(&cageid).unwrap();
-//     let thefdvec = binding.value().clone();
+    // dashmaps are lockless, but usually I would grab a lock on the fdtable
+    // here...
+    let binding = FDTABLE.get(&cageid).unwrap();
+    let thefdvec = binding.value().clone();
 
-//     // putting results in a vec was the cleanest way I found to do this..
-//     let mut resultvec = Vec::new();
+    // putting results in a vec was the cleanest way I found to do this..
+    let mut resultvec = Vec::new();
 
-//     for (unrealoffset, inset) in [readbits,writebits, exceptbits].into_iter().enumerate() {
-//         match inset {
-//             Some(virtualbits) => {
-//                 let mut retset = _init_fd_set();
-//                 let (thisnfds,myunrealhashset) = _do_bitmods(thefdvec.clone(),nfds,virtualbits, &mut retset,&mut mappingtable)?;
-//                 resultvec.push(retset);
-//                 newnfds = cmp::max(thisnfds, newnfds);
-//                 unrealarray[unrealoffset] = myunrealhashset;
-//             }
-//             None => {
-//                 // This item is null.  No unreal items 
-//                 // BUG: Need to actually return null!
-//                 resultvec.push(_get_null_fd_set());
-//                 unrealarray[unrealoffset] = HashSet::new();
-//             }
-//         }
-//     } 
+    for (unrealoffset, inset) in [readbits,writebits, exceptbits].into_iter().enumerate() {
+        match inset {
+            Some(virtualbits) => {
+                let mut retset = _init_fd_set();
+                let (thisnfds,myunrealhashset) = _do_bitmods(thefdvec.clone(),nfds,virtualbits, &mut retset,&mut mappingtable)?;
+                resultvec.push(retset);
+                newnfds = cmp::max(thisnfds, newnfds);
+                unrealarray[unrealoffset] = myunrealhashset;
+            }
+            None => {
+                // This item is null.  No unreal items 
+                // BUG: Need to actually return null!
+                resultvec.push(_get_null_fd_set());
+                unrealarray[unrealoffset] = HashSet::new();
+            }
+        }
+    } 
 
-//     Ok((newnfds, resultvec[0], resultvec[1], resultvec[2], unrealarray, mappingtable))
+    Ok((newnfds, resultvec[0], resultvec[1], resultvec[2], unrealarray, mappingtable))
 
-// }
+}
 
 
-// // helper to call after calling select beneath you.  returns the fd_sets you
-// // need for your return from a select call and the number of unique flags
-// // set...
+// helper to call after calling select beneath you.  returns the fd_sets you
+// need for your return from a select call and the number of unique flags
+// set...
 
-// // I hate doing these, but don't know how to make this interface better...
-// #[allow(clippy::type_complexity)]
-// #[allow(clippy::too_many_arguments)]
+// I hate doing these, but don't know how to make this interface better...
+#[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 // #[doc = include_str!("../docs/get_virtual_bitmasks_from_select_result.md")]
-// pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:fd_set, writebits:fd_set, exceptbits:fd_set,unrealreadset:HashSet<u64>, unrealwriteset:HashSet<u64>, unrealexceptset:HashSet<u64>, mappingtable:HashMap<u64,u64>) -> Result<(u64, fd_set, fd_set, fd_set),threei::RetVal> {
+pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:fd_set, writebits:fd_set, exceptbits:fd_set,unrealreadset:HashSet<u64>, unrealwriteset:HashSet<u64>, unrealexceptset:HashSet<u64>, mappingtable:&HashMap<u64,u64>) -> Result<(u64, fd_set, fd_set, fd_set),threei::RetVal> {
 
-//     // Note, I don't need the cage_id here because I have the mappingtable...
+    // Note, I don't need the cage_id here because I have the mappingtable...
 
-//     if nfds >= FD_PER_PROCESS_MAX {
-//         panic!("This shouldn't be possible because we shouldn't have returned this previously")
-//     }
+    if nfds >= FD_PER_PROCESS_MAX {
+        panic!("This shouldn't be possible because we shouldn't have returned this previously")
+    }
 
-//     let mut flagsset = 0;
-//     let mut retvec = Vec::new();
+    let mut flagsset = 0;
+    let mut retvec = Vec::new();
 
-//     for (inset,unrealset) in [(readbits,unrealreadset), (writebits,unrealwriteset), (exceptbits,unrealexceptset)] {
-//         let mut retbits = _init_fd_set();
-//         for bit in 0..nfds as usize {
-//             let pos = bit as u64;
-//             if _fd_isset(pos,&inset)&& !_fd_isset(*mappingtable.get(&pos).unwrap(),&retbits) {
-//                 flagsset+=1;
-//                 _fd_set(*mappingtable.get(&pos).unwrap(),&mut retbits);
-//             }
-//         }
-//         for virtfd in unrealset {
-//             if !_fd_isset(virtfd,&retbits) {
-//                 flagsset+=1;
-//                 _fd_set(virtfd,&mut retbits);
-//             }
-//         }
-//         retvec.push(retbits);
-//     }
+    for (inset,unrealset) in [(readbits,unrealreadset), (writebits,unrealwriteset), (exceptbits,unrealexceptset)] {
+        let mut retbits = _init_fd_set();
+        for bit in 0..nfds as usize {
+            let pos = bit as u64;
+            if _fd_isset(pos,&inset)&& !_fd_isset(*mappingtable.get(&pos).unwrap(),&retbits) {
+                flagsset+=1;
+                _fd_set(*mappingtable.get(&pos).unwrap(),&mut retbits);
+            }
+        }
+        for virtfd in unrealset {
+            if !_fd_isset(virtfd,&retbits) {
+                flagsset+=1;
+                _fd_set(virtfd,&mut retbits);
+            }
+        }
+        retvec.push(retbits);
+    }
 
-//     Ok((flagsset,retvec[0],retvec[1],retvec[2]))
-// }
+    Ok((flagsset,retvec[0],retvec[1],retvec[2]))
+}
 
 
 
-// /********************** POLL SPECIFIC FUNCTIONS **********************/
+/********************** POLL SPECIFIC FUNCTIONS **********************/
 
-// // helper to call before calling poll beneath you.  replaces the fds in
-// // the poll struct with virtual versions and returns the items you need
-// // to check yourself...
-// #[allow(clippy::type_complexity)]
+// helper to call before calling poll beneath you.  replaces the fds in
+// the poll struct with virtual versions and returns the items you need
+// to check yourself...
+#[allow(clippy::type_complexity)]
 // #[doc = include_str!("../docs/convert_virtualfds_to_real.md")]
-// pub fn convert_virtualfds_to_real(cageid:u64, virtualfds:Vec<u64>) -> (Vec<u64>, Vec<(u64,u64)>, Vec<u64>, HashMap<u64,u64>) {
+pub fn convert_virtualfds_to_real(cageid:u64, virtualfds:Vec<u64>) -> (Vec<u64>, Vec<(u64,u64)>, Vec<u64>, HashMap<u64,u64>) {
 
-//     if !FDTABLE.contains_key(&cageid) {
-//         panic!("Unknown cageid in fdtable access");
-//     }
+    if !FDTABLE.contains_key(&cageid) {
+        panic!("Unknown cageid in fdtable access");
+    }
 
-//     let mut unrealvec = Vec::new();
-//     let mut realvec = Vec::new();
-//     let mut invalidvec = Vec::new();
-//     let binding = FDTABLE.get(&cageid).unwrap();
-//     let thefdvec = binding.value().clone();
-//     let mut mappingtable:HashMap<u64,u64> = HashMap::new();
+    let mut unrealvec = Vec::new();
+    let mut realvec = Vec::new();
+    let mut invalidvec = Vec::new();
+    let binding = FDTABLE.get(&cageid).unwrap();
+    let thefdvec = binding.value().clone();
+    let mut mappingtable:HashMap<u64,u64> = HashMap::new();
 
-//     // BUG?: I'm ignoring the fact that virtualfds can show up multiple times.
-//     // I'm not sure this actually matters, but I didn't think hard about it.
-//     for virtfd in virtualfds {
-//         match thefdvec[virtfd as usize] {
-//             Some(entry) => {
-//                 // always append the value here.  NO_REAL_FD will be added
-//                 // in the appropriate places to tell them to handle those calls
-//                 // themself.
-//                 realvec.push(entry.realfd);
-//                 if entry.realfd == NO_REAL_FD {
-//                     unrealvec.push((virtfd,entry.optionalinfo));
-//                 }
-//                 else{
-//                     mappingtable.insert(entry.realfd, virtfd);
-//                 }
-//             }
-//             None => {
-//                 // Add this because they need to handle it if POLLNVAL is set.
-//                 // An exception should not be raised!!!
-//                 realvec.push(INVALID_FD);
-//                 invalidvec.push(virtfd);
-//             }
-//         }
-//     }
+    // BUG?: I'm ignoring the fact that virtualfds can show up multiple times.
+    // I'm not sure this actually matters, but I didn't think hard about it.
+    for virtfd in virtualfds {
+        match thefdvec[virtfd as usize] {
+            Some(entry) => {
+                // always append the value here.  NO_REAL_FD will be added
+                // in the appropriate places to tell them to handle those calls
+                // themself.
+                realvec.push(entry.realfd);
+                if entry.realfd == NO_REAL_FD {
+                    unrealvec.push((virtfd,entry.optionalinfo));
+                }
+                else{
+                    mappingtable.insert(entry.realfd, virtfd);
+                }
+            }
+            None => {
+                // Add this because they need to handle it if POLLNVAL is set.
+                // An exception should not be raised!!!
+                realvec.push(INVALID_FD);
+                invalidvec.push(virtfd);
+            }
+        }
+    }
 
-//     (realvec, unrealvec, invalidvec, mappingtable)
-// }
+    (realvec, unrealvec, invalidvec, mappingtable)
+}
 
 
 
-// // helper to call after calling poll.  replaces the realfds the vector
-// // with virtual ones...
+// helper to call after calling poll.  replaces the realfds the vector
+// with virtual ones...
 // #[doc = include_str!("../docs/convert_realfds_back_to_virtual.md")]
-// pub fn convert_realfds_back_to_virtual(realfds:Vec<u64>, mappingtable:HashMap<u64,u64>) -> Vec<u64> {
+pub fn convert_realfds_back_to_virtual(realfds:Vec<u64>, mappingtable:&HashMap<u64,u64>) -> Vec<u64> {
 
-//     // I don't care what cage was used, and don't need to lock anything...
-//     // I have the mappingtable!
+    // I don't care what cage was used, and don't need to lock anything...
+    // I have the mappingtable!
 
-//     let mut virtvec = Vec::new();
+    let mut virtvec = Vec::new();
 
-//     for realfd in realfds {
-//         virtvec.push(*mappingtable.get(&realfd).unwrap());
-//     }
+    for realfd in realfds {
+        virtvec.push(*mappingtable.get(&realfd).unwrap());
+    }
 
-//     virtvec
-// }
+    virtvec
+}
 
-// /********************** TESTING HELPER FUNCTION **********************/
+/********************** EPOLL SPECIFIC FUNCTIONS **********************/
 
-// #[doc(hidden)]
-// // Helper to initialize / empty out state so we can test with a clean system...
-// // This is only used in tests, thus is hidden...
-// pub fn refresh() {
-//     FDTABLE.clear();
-//     FDTABLE.insert(threei::TESTING_CAGEID,vec!(Option::None;FD_PER_PROCESS_MAX as usize));
-//     let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap_or_else(|e| {
-//         CLOSEHANDLERTABLE.clear_poison();
-//         e.into_inner()
-//     });
-//     closehandlers.intermediate_handler = NULL_FUNC;
-//     closehandlers.final_handler = NULL_FUNC;
-//     closehandlers.unreal_handler = NULL_FUNC;
-//     // Note, it doesn't seem that Dashmaps can be poisoned...
-// }
+
+// Okay this adds a big wrinkle, epollfds.  The reason these are complex is
+// multi-fold:
+// 1) they themselves are file descriptors and take up a slot.
+// 2) a epollfd can point to any number of other fds
+// 3) an epollfd can point to epollfds, which can point to other epollfds, etc.
+//    and possibly cause a loop to occur (which is an error)
+// 4) an epollfd can point to a mix of virtual and realfds.
+//
+// My thinking is this is handled as similarly to poll as possible.  We push
+// off the problem of understanding what the event types are to the implementer
+// of the library.
+//
+// In my view, epoll_wait() is quite simple to support.  One basically just
+// keeps a list of virtual fds for this epollfd and their corresponding event
+// types, which they may need to poll themselves.  After this, they handle the
+// call.
+//
+// epoll_create makes a new fd type, which really is unfortunate.  To this
+// point, I haven't had to care about anything except in-memory fds (unreal),
+// and doing the virtual <-> real mappings.  The caller can decide whether to
+// create an underlying epollfd when this is called, when epoll_ctl is called
+// to add a realfd, etc.
+//
+// epoll_ctl is complex, but really has the same fundamental problem as
+// epoll_create: the epollfd.
+//
+// What if I just ignore the epollfd problem by just making another table
+// for epoll information?  Then what I do is set the realfd to EPOLLFD and
+// have optionalinfo point into the epollfd table.  If I do this, then when
+// epoll_create is called, if it contains realfds, those need to be passed
+// down to the underlying epoll_create.  Similarly, when epoll_ctl is called,
+// we either modify our data or return the realfd...
+//
+// Interestingly, this actually would be just as easy to build on top of the
+// fdtables library as into it.
+//
+// Each epollfd will have some virtual fds associated with it.  Each of those
+// will have an event mask.  So I'll have a mutex around an EPollTable struct.
+// This contains the next available entry and an epollhashmap<virtfd, event>.
+// I use a hashmap here to better support removing and modifying items.
+
+// Note, I'm defining a bunch of symbols myself because libc doesn't import
+// them on systems that don't support epoll and I want to be able to build
+// the code anywhere.  See commonconstants.rs for more info.
+
+// Design notes: I'm not adding realfds.  I return them when you do a epoll_ctl
+// operation that tries to add them.  So, I only have unrealfds in my epoll
+// structures.
+
+// TODO: I don't clean up this table yet.  I probably should when the last
+// reference to a fd is closed, but this bookkeeping seems excessive at this
+// time...
+#[derive(Clone, Debug)]
+struct EPollTable {
+    highestneverusedentry: u64, // Never resets (even after close).  Used to
+                                // let us quickly get an unused entry
+    thisepolltable: HashMap<u64,HashMap<u64,epoll_event>>, // the epollentry ->
+                                                           // virtfd ->
+                                                           // event map
+}
+
+lazy_static! {
+
+    #[derive(Debug)]
+    static ref EPOLLTABLE: Mutex<EPollTable> = {
+        let newetable = HashMap::new();
+        let m = EPollTable {
+            highestneverusedentry:0,
+            thisepolltable:newetable,
+        };
+        Mutex::new(m)
+    };
+}
+
+
+// #[doc = include_str!("../docs/epoll_create_helper.md")]
+pub fn epoll_create_helper(cageid:u64, should_cloexec:bool) -> Result<u64,threei::RetVal> {
+
+    let mut ept = EPOLLTABLE.lock().unwrap();
+
+    // I'll use my other functions to make this easier.
+    // return the same errno (EMFile), if we get one
+    let newepollfd = get_unused_virtual_fd(cageid, EPOLLFD, should_cloexec, ept.highestneverusedentry)?;
+
+    let newentry = ept.highestneverusedentry;
+    ept.highestneverusedentry+=1;
+    // if it errored out above that is okay. I haven't changed any state yet.
+    ept.thisepolltable.insert(newentry, HashMap::new());
+    Ok(newepollfd)
+
+}
+
+
+
+// #[doc = include_str!("../docs/try_epoll_ctl.md")]
+pub fn try_epoll_ctl(cageid:u64, epfd:u64, op:i32, virtfd:u64, event:epoll_event) -> Result<u64,threei::RetVal> {
+
+    if !FDTABLE.contains_key(&cageid) {
+        panic!("Unknown cageid in fdtable access");
+    }
+
+    if epfd == virtfd {
+        return Err(threei::Errno::EINVAL as u64);
+    }
+    // it's actually easiest to first check if the virtfd is real and error...
+    // I don't care about its contents except to ensure it isn't real...
+    match FDTABLE.get(&cageid).unwrap()[virtfd as usize] {
+        // Do I need to have EPOLLFDs here too?
+        Some(tableentry) => {
+            if tableentry.realfd != NO_REAL_FD {
+                // Return realfds because the caller should handle them instead
+                // I only track unrealfds.
+                if tableentry.realfd == EPOLLFD {
+                    println!("epollfds acting on epollfds is not supported!");
+                }
+                return Ok(tableentry.realfd);
+            }
+        },
+        None => {
+            return Err(threei::Errno::EBADF as u64);
+        },
+    };
+
+    // okay, virtfd is real...
+
+
+    // Now, is the epfd ok?
+    let epollentrynum:u64 = match FDTABLE.get(&cageid).unwrap()[epfd as usize] {
+        None => {
+            return Err(threei::Errno::EBADF as u64);
+        },
+        // Do I need to have EPOLLFDs here too?
+        Some(tableentry) => {
+            if tableentry.realfd != EPOLLFD {
+                return Err(threei::Errno::EINVAL as u64);
+            }
+            tableentry.optionalinfo
+        },
+    };
+
+    // Okay, I know which table entry and verified the virtfd...
+
+    let mut epttable = EPOLLTABLE.lock().unwrap();
+    let eptentry = epttable.thisepolltable.get_mut(&epollentrynum).unwrap();
+
+    match op {
+        EPOLL_CTL_ADD => {
+            if eptentry.contains_key(&virtfd) {
+                return Err(threei::Errno::EEXIST as u64);
+            }
+            // BUG: Need to check for ELOOP here...
+
+            eptentry.insert(virtfd, event);
+        },
+        EPOLL_CTL_MOD => {
+            if !eptentry.contains_key(&virtfd) {
+                return Err(threei::Errno::ENOENT as u64);
+            }
+            eptentry.insert(virtfd, event);
+        },
+        EPOLL_CTL_DEL => {
+            if !eptentry.contains_key(&virtfd) {
+                return Err(threei::Errno::ENOENT as u64);
+            }
+            eptentry.remove(&virtfd);
+        },
+        _ => {
+            return Err(threei::Errno::EINVAL as u64);
+        },
+    };
+    Ok(NO_REAL_FD)
+}
+
+
+// #[doc = include_str!("../docs/get_epoll_wait_data.md")]
+pub fn get_epoll_wait_data(cageid:u64, epfd:u64) -> Result<HashMap<u64,epoll_event>,threei::RetVal> {
+
+    if !FDTABLE.contains_key(&cageid) {
+        panic!("Unknown cageid in fdtable access");
+    }
+
+    // Note that because I don't track realfds or deal with epollfds, I just
+    // return the epolltable...
+    let epollentrynum:u64 = match FDTABLE.get(&cageid).unwrap()[epfd as usize] {
+        None => {
+            return Err(threei::Errno::EBADF as u64);
+        },
+        // Do I need to have EPOLLFDs here too?
+        Some(tableentry) => {
+            if tableentry.realfd != EPOLLFD {
+                return Err(threei::Errno::EINVAL as u64);
+            }
+            tableentry.optionalinfo
+        },
+    };
+
+    let epttable = EPOLLTABLE.lock().unwrap();
+    Ok(epttable.thisepolltable[&epollentrynum].clone())
+}
+
+
+
+
+/********************** TESTING HELPER FUNCTION **********************/
+
+#[doc(hidden)]
+// Helper to initialize / empty out state so we can test with a clean system...
+// This is only used in tests, thus is hidden...
+pub fn refresh() {
+    FDTABLE.clear();
+    FDTABLE.insert(threei::TESTING_CAGEID,vec!(Option::None;FD_PER_PROCESS_MAX as usize));
+    let mut closehandlers = CLOSEHANDLERTABLE.lock().unwrap_or_else(|e| {
+        CLOSEHANDLERTABLE.clear_poison();
+        e.into_inner()
+    });
+    closehandlers.intermediate_handler = NULL_FUNC;
+    closehandlers.final_handler = NULL_FUNC;
+    closehandlers.unreal_handler = NULL_FUNC;
+    // Note, it doesn't seem that Dashmaps can be poisoned...
+}

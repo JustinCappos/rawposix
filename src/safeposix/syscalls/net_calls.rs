@@ -567,7 +567,7 @@ impl Cage {
     */
     pub fn poll_syscall(
         &self,
-        virtual_fds: *mut [PollStruct], // lots of fds, a ptr
+        virtual_fds: &mut [PollStruct], // lots of fds, a ptr
         nfds: u64,
         timeout: i32,
     ) -> i32 {
@@ -754,13 +754,13 @@ pub fn virtual_to_real_set(cageid: u64, virtualfds: *mut BitSet) -> Option<fd_se
 
 /* POLL()
 */
-pub fn virtual_to_real_poll(cageid: u64, virtual_poll: *mut [PollStruct]) -> Vec<pollfd> {
+pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec<pollfd> {
     // Change from ptr to reference
-    let virtual_fds = unsafe { &mut *virtual_poll };
+    // let virtual_fds = unsafe { &mut *virtual_poll };
 
-    let mut real_fds = Vec::with_capacity(virtual_fds.len());
+    let mut real_fds = Vec::with_capacity(virtual_poll.len());
 
-    for vfd in virtual_fds.iter() {
+    for vfd in virtual_poll.iter() {
         let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
         real_fds.push(
             pollfd {
