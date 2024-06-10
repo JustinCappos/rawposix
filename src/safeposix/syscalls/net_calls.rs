@@ -425,9 +425,9 @@ impl Cage {
         mut errorfds: Option<&mut fd_set>,
         timeout: *mut timeval,
     ) -> i32 {
-        let orfds = readfds.cloned();
-        let owfds = writefds.cloned();
-        let oefds = errorfds.cloned();
+        let orfds = readfds.as_mut().map(|fds| &mut **fds);
+        let owfds = writefds.as_mut().map(|fds| &mut **fds);
+        let oefds = errorfds.as_mut().map(|fds| &mut **fds);
         let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) 
             = get_real_bitmasks_for_select(
                 self.cageid,
