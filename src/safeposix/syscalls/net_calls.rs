@@ -388,7 +388,6 @@ impl Cage {
             println!("[Accept] Error message: {:?}", err_msg);
             println!("[Accept] GenSockaddr: {:?}", addr);
             io::stdout().flush().unwrap();
-            panic!();
         }
         // println!("[Accept] GenSockaddr: {:?}", addr);
         // println!("[Accept] ret kernel fd: {:?}", ret_kernelfd);
@@ -485,6 +484,9 @@ impl Cage {
     if let Some(efds) = errorfds.as_mut() {
         **efds = reterrorfds;
     }
+
+    println!("[Select] timeout: {:?}", timeout);
+    io::stdout().flush().unwrap();
 
     ret
     }
