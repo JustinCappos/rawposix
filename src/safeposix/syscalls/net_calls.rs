@@ -454,7 +454,7 @@ impl Cage {
                 &mut real_readfds as *mut fd_set, 
                 &mut real_writefds as *mut fd_set, 
                 &mut real_errorfds as *mut fd_set, 
-                timeout)
+                &mut timeout as *mut timeval)
         };
 
         println!("[Select] After kernel select real_readfds: {:?}", real_readfds);
