@@ -446,6 +446,7 @@ impl Cage {
             ).unwrap();
 
         println!("[Select] Before kernel select real_readfds: {:?}", real_readfds);
+        println!("[Select] Before kernel select timeout: {:?}\nrposix_timeout: {:?}", timeout, rposix_timeout);
         io::stdout().flush().unwrap();
 
         let ret = unsafe { 
