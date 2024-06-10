@@ -489,6 +489,7 @@ impl Cage {
         ).unwrap();
         
         println!("[Select] retreadfds: {:?}", retreadfds);
+        println!("[Select] mappingtable: {:?}", mappingtable);
         io::stdout().flush().unwrap();
 
         if let Some(rfds) = readfds.as_mut() {
