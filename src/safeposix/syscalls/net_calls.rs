@@ -432,9 +432,9 @@ impl Cage {
             = get_real_bitmasks_for_select(
                 self.cageid,
                 nfds as u64,
-                orfds,
-                owfds,
-                oefds,
+                orfds.copied(),
+                owfds.copied(),
+                oefds.copied(),
             ).unwrap();
 
         let ret = unsafe { 
