@@ -420,9 +420,9 @@ impl Cage {
     pub fn select_syscall(
         &self,
         nfds: i32,
-        readfds: Option<&mut fd_set>,
-        writefds: Option<&mut fd_set>,
-        errorfds: Option<&mut fd_set>,
+        mut readfds: Option<&mut fd_set>,
+        mut writefds: Option<&mut fd_set>,
+        mut errorfds: Option<&mut fd_set>,
         timeout: *mut timeval,
     ) -> i32 {
         let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) = get_real_bitmasks_for_select(
@@ -459,14 +459,14 @@ impl Cage {
     let unreal_notused: HashSet<u64> = HashSet::new();
 
     // Revert result
-    let (newnfds, mut retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
+    let (newnfds, mut retreadfds, mut retwritefds, mut reterrorfds) = get_virtual_bitmasks_from_select_result(
         ret as u64,
         real_readfds,
         real_writefds,
         real_errorfds,
-        unreal_notused,
-        unreal_notused,
-        unreal_notused,
+        unreal_notused.clone(),
+        unreal_notused.clone(),
+        unreal_notused.clone(),
         &mappingtable,
     ).unwrap();
     
