@@ -994,6 +994,14 @@ pub extern "C" fn dispatcher(
                 interface::get_itimerval(arg3)
             )
         }
+        SEM_INIT_SYSCALL => {
+            check_and_dispatch!(
+                cage.sem_init_syscall,
+                interface::get_uint(arg1),
+                interface::get_int(arg2),
+                interface::get_uint(arg3)
+            )
+        }
         SEM_WAIT_SYSCALL => {
             check_and_dispatch!(cage.sem_wait_syscall, interface::get_uint(arg1))
         }
