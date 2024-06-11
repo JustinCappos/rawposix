@@ -67,11 +67,11 @@ pub struct StatData {
 }
 
 //R Limit for getrlimit system call
-// #[repr(C)]
-// pub struct Rlimit {
-//     pub rlim_cur: u64,
-//     pub rlim_max: u64,
-// }
+#[repr(C)]
+pub struct Rlimit {
+    pub rlim_cur: u64,
+    pub rlim_max: u64,
+}
 
 #[derive(Eq, PartialEq, Default, Copy, Clone)]
 #[repr(C)]
@@ -215,10 +215,10 @@ pub union Arg {
     pub dispatch_constsigactionstruct: *const SigactionStruct,
     pub dispatch_sigsett: *mut SigsetType,
     pub dispatch_constsigsett: *const SigsetType,
-    // pub dispatch_structitimerval: *mut ITimerVal,
-    pub dispatch_structitimerval: *mut itimerval,
-    // pub dispatch_conststructitimerval: *const ITimerVal,
-    pub dispatch_conststructitimerval: *const itimerval,
+    pub dispatch_structitimerval: *mut ITimerVal,
+    // pub dispatch_structitimerval: *mut itimerval,
+    pub dispatch_conststructitimerval: *const ITimerVal,
+    // pub dispatch_conststructitimerval: *const itimerval,
     // pub dispatch_fdset: *mut BitSet,
     pub dispatch_fdset: *mut libc::fd_set,
     // pub dispatch_structsem: *mut sem_t,
@@ -812,46 +812,46 @@ pub fn get_timerval<'a>(union_argument: Arg) -> Result<&'a mut timeval, i32> {
     ));
 }
 
-// pub fn get_itimerval<'a>(union_argument: Arg) -> Result<Option<&'a mut ITimerVal>, i32> {
-//     let pointer = unsafe { union_argument.dispatch_structitimerval };
-//     if !pointer.is_null() {
-//         Ok(Some(unsafe { &mut *pointer }))
-//     } else {
-//         Ok(None)
-//     }
-// }
-pub fn get_itimerval<'a>(union_argument: Arg) -> Result<&'a mut itimerval, i32> {
+pub fn get_itimerval<'a>(union_argument: Arg) -> Result<Option<&'a mut ITimerVal>, i32> {
     let pointer = unsafe { union_argument.dispatch_structitimerval };
     if !pointer.is_null() {
-        return Ok(unsafe { &mut *pointer });
-    } 
-    return Err(syscall_error(
-        Errno::EFAULT,
-        "dispatcher",
-        "input data not valid",
-    ));
+        Ok(Some(unsafe { &mut *pointer }))
+    } else {
+        Ok(None)
+    }
 }
-
-// pub fn get_constitimerval<'a>(union_argument: Arg) -> Result<Option<&'a ITimerVal>, i32> {
-//     let pointer = unsafe { union_argument.dispatch_conststructitimerval };
+// pub fn get_itimerval<'a>(union_argument: Arg) -> Result<&'a mut itimerval, i32> {
+//     let pointer = unsafe { union_argument.dispatch_structitimerval };
 //     if !pointer.is_null() {
-//         Ok(Some(unsafe { &*pointer }))
-//     } else {
-//         Ok(None)
-//     }
+//         return Ok(unsafe { &mut *pointer });
+//     } 
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
 // }
 
-pub fn get_constitimerval<'a>(union_argument: Arg) -> Result<&'a itimerval, i32> {
+pub fn get_constitimerval<'a>(union_argument: Arg) -> Result<Option<&'a ITimerVal>, i32> {
     let pointer = unsafe { union_argument.dispatch_conststructitimerval };
     if !pointer.is_null() {
-        return Ok(unsafe { &*pointer });
-    } 
-    return Err(syscall_error(
-        Errno::EFAULT,
-        "dispatcher",
-        "input data not valid",
-    ));
+        Ok(Some(unsafe { &*pointer }))
+    } else {
+        Ok(None)
+    }
 }
+
+// pub fn get_constitimerval<'a>(union_argument: Arg) -> Result<&'a itimerval, i32> {
+//     let pointer = unsafe { union_argument.dispatch_conststructitimerval };
+//     if !pointer.is_null() {
+//         return Ok(unsafe { &*pointer });
+//     } 
+//     return Err(syscall_error(
+//         Errno::EFAULT,
+//         "dispatcher",
+//         "input data not valid",
+//     ));
+// }
 
 pub fn duration_fromtimespec(union_argument: Arg) -> Result<interface::RustDuration, i32> {
     let pointer = unsafe { union_argument.dispatch_structtimespec_lind };

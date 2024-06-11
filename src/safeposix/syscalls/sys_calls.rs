@@ -3,7 +3,8 @@
 // System related system calls
 use super::fs_constants::*;
 use super::net_constants::*;
-// use super::sys_constants::*;
+use super::sys_constants;
+use super::sys_constants::*;
 use crate::interface;
 use crate::safeposix::cage;
 use crate::safeposix::cage::*;
@@ -422,54 +423,75 @@ impl Cage {
         res
     }
 
-    pub fn setitimer_syscall(
-        &self,
-        which: i32,
-        new_value: &itimerval,
-        old_value: &mut itimerval,
-    ) -> i32 {
-        unsafe { libc::syscall(SYS_setitimer, which, new_value, old_value) as i32 }
-    }
     // pub fn setitimer_syscall(
     //     &self,
     //     which: i32,
-    //     new_value: Option<&interface::ITimerVal>,
-    //     old_value: Option<&mut interface::ITimerVal>,
+    //     new_value: &itimerval,
+    //     old_value: &mut itimerval,
     // ) -> i32 {
-    //     match which {
-    //         ITIMER_REAL => {
-    //             if let Some(some_old_value) = old_value {
-    //                 let (curr_duration, next_duration) = self.interval_timer.get_itimer();
-    //                 some_old_value.it_value.tv_sec = curr_duration.as_secs() as i64;
-    //                 some_old_value.it_value.tv_usec = curr_duration.subsec_millis() as i64;
-    //                 some_old_value.it_interval.tv_sec = next_duration.as_secs() as i64;
-    //                 some_old_value.it_interval.tv_usec = next_duration.subsec_millis() as i64;
-    //             }
-
-    //             if let Some(some_new_value) = new_value {
-    //                 let curr_duration = interface::RustDuration::new(
-    //                     some_new_value.it_value.tv_sec as u64,
-    //                     some_new_value.it_value.tv_usec as u32,
-    //                 );
-    //                 let next_duration = interface::RustDuration::new(
-    //                     some_new_value.it_interval.tv_sec as u64,
-    //                     some_new_value.it_interval.tv_usec as u32,
-    //                 );
-
-    //                 self.interval_timer.set_itimer(curr_duration, next_duration);
-    //             }
-    //         }
-
-    //         _ => { /* ITIMER_VIRTUAL and ITIMER_PROF is not implemented*/ }
-    //     }
-    //     0
+    //     unsafe { libc::syscall(SYS_setitimer, which, new_value, old_value) as i32 }
     // }
+    pub fn setitimer_syscall(
+        &self,
+        which: i32,
+        new_value: Option<&interface::ITimerVal>,
+        old_value: Option<&mut interface::ITimerVal>,
+    ) -> i32 {
+        match which {
+            sys_constants::ITIMER_REAL => {
+                if let Some(some_old_value) = old_value {
+                    let (curr_duration, next_duration) = self.interval_timer.get_itimer();
+                    some_old_value.it_value.tv_sec = curr_duration.as_secs() as i64;
+                    some_old_value.it_value.tv_usec = curr_duration.subsec_millis() as i64;
+                    some_old_value.it_interval.tv_sec = next_duration.as_secs() as i64;
+                    some_old_value.it_interval.tv_usec = next_duration.subsec_millis() as i64;
+                }
 
-    pub fn getrlimit(&self, res_type: u64, rlimit: *mut rlimit) -> i32 {
-       unsafe { libc::getrlimit(res_type as u32, rlimit as *mut rlimit)}
+                if let Some(some_new_value) = new_value {
+                    let curr_duration = interface::RustDuration::new(
+                        some_new_value.it_value.tv_sec as u64,
+                        some_new_value.it_value.tv_usec as u32,
+                    );
+                    let next_duration = interface::RustDuration::new(
+                        some_new_value.it_interval.tv_sec as u64,
+                        some_new_value.it_interval.tv_usec as u32,
+                    );
+
+                    self.interval_timer.set_itimer(curr_duration, next_duration);
+                }
+            }
+
+            _ => { /* ITIMER_VIRTUAL and ITIMER_PROF is not implemented*/ }
+        }
+        0
     }
 
-    pub fn setrlimit(&self, res_type: u64, limit_value: *const rlimit) -> i32 {
-        unsafe { libc::setrlimit(res_type as u32, limit_value) }
+    pub fn getrlimit(&self, res_type: u64, rlimit: &mut interface::Rlimit) -> i32 {
+        match res_type {
+            sys_constants::RLIMIT_NOFILE => {
+                rlimit.rlim_cur = NOFILE_CUR;
+                rlimit.rlim_max = NOFILE_MAX;
+            }
+            sys_constants::RLIMIT_STACK => {
+                rlimit.rlim_cur = STACK_CUR;
+                rlimit.rlim_max = STACK_MAX;
+            }
+            _ => return -1,
+        }
+        0
+    }
+
+    pub fn setrlimit(&self, res_type: u64, _limit_value: u64) -> i32 {
+        match res_type {
+            sys_constants::RLIMIT_NOFILE => {
+                if NOFILE_CUR > NOFILE_MAX {
+                    -1
+                } else {
+                    0
+                }
+                //FIXME: not implemented yet to update value in program
+            }
+            _ => -1,
+        }
     }
 }
