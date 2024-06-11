@@ -866,9 +866,8 @@ impl Cage {
             let epollmapping = REAL_EPOLL_MAP.lock();
             let ret_virtualfd = epollmapping.get(&(virtual_epfd as u64)).and_then(|kernel_map| kernel_map.get(&(ret_kernelfd as i32)).copied());
 
-            let ret_kernelevent = &kernel_events[i];
             events[i].fd = ret_virtualfd.unwrap() as i32;
-            events[i].events = ret_kernelevent[i].events;
+            events[i].events = &kernel_events[i].events;
 
             println!("[epoll_wait] After libc calling events[i].events: {:?}", events[i].events);
             io::stdout().flush().unwrap();
