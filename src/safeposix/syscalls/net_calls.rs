@@ -816,7 +816,8 @@ impl Cage {
             let kernel_event = &kernel_events[i];
             let kernel_fd = kernel_event.u64 as u64;
             if let Some(&virtual_fd) = fd_map.get(&kernel_fd) {
-                println!("[epoll_wait] kernel_event.events: {:?}", kernel_event.events);
+                let kdebug = kernel_event.events;
+                println!("[epoll_wait] kernel_event.events: {:?}", kdebug);
                 io::stdout().flush().unwrap();
                 events[i].events = kernel_event.events;
                 println!("[epoll_wait] events[i].events: {:?}", events[i].events);
