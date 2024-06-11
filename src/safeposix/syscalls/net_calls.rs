@@ -698,10 +698,6 @@ impl Cage {
     pub fn epoll_create_syscall(&self, size: i32) -> i32 {
         // Create the kernel instance
         let kernel_fd = unsafe { libc::epoll_create(size) };
-
-        println!("[epoll_create] size: {:?}", size);
-        println!("[epoll_create] kernel epfd: {:?}", kernel_fd);
-        io::stdout().flush().unwrap();
         
         if kernel_fd < 0 {
             let err = unsafe {
@@ -717,14 +713,14 @@ impl Cage {
             println!("[EPOLL] size: {:?}", size);
             println!("[EPOLL] kernelfd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            panic!();
+            return -1;
         }
 
         // Get the virtual epfd
-        // let virtual_epfd = epoll_create_helper(self.cageid, false).unwrap() as i32;
         let virtual_epfd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
-        println!("[epoll_create] virtual_epfd: {:?}", virtual_epfd);
-        io::stdout().flush().unwrap();
+        // println!("[epoll_create] virtual_epfd: {:?}", virtual_epfd);
+        // io::stdout().flush().unwrap();
+
         // We don't need to update mapping table at now
         // Return virtual epfd
         virtual_epfd as i32
@@ -743,9 +739,6 @@ impl Cage {
         virtual_fd: i32,
         epollevent: &mut EpollEvent,
     ) -> i32 {
-        println!("[epoll_ctl] virtual_fd: {:?}", virtual_fd);
-        println!("[epoll_ctl] virtual_epfd: {:?}", virtual_epfd);
-        io::stdout().flush().unwrap();
 
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
@@ -755,10 +748,6 @@ impl Cage {
             events: event,
             u64: kernel_fd as u64,
         };
-
-        println!("[epoll_ctl] kernel_epfd: {:?}", kernel_epfd);
-        println!("[epoll_ctl] virtual_fd: {:?}", virtual_fd);
-        io::stdout().flush().unwrap();
 
         let ret = unsafe { libc::epoll_ctl(kernel_epfd as i32, op, kernel_fd as i32, &mut epoll_event) };
         if ret < 0 {
@@ -773,7 +762,7 @@ impl Cage {
             };
             println!("[epoll_ctl] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            panic!();
+            return -1;
         }
 
         // Update the virtual list -- but we only handle the non-real fd case
@@ -818,45 +807,13 @@ impl Cage {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
 
-        // Create a hashmap to store the mapping info
-        // fd_map = <real fd, virutal fd>
-        // 
-        let mut fd_map: HashMap<u64, i32> = HashMap::new();
-
-        // if !events.is_empty() {
-        //     for epollevent in &mut *events {
-        //         let virtual_fd = epollevent.fd;
-        //         println!("[epoll_wait] virtual_fd: {:?}", virtual_fd);
-        //         io::stdout().flush().unwrap();
-        //         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        //         kernel_events.push(
-        //             epoll_event {
-        //                 events: epollevent.events,
-        //                 u64: kernel_fd as u64,
-        //             }
-        //         );
-        //         fd_map.insert(kernel_fd,virtual_fd);
-        //     }
-        // } else {
-        //     println!("[epoll_wait] Empty before calling");
-        //     io::stdout().flush().unwrap();
-        //     kernel_events.push(
-        //         epoll_event {
-        //             events: 0,
-        //             u64: 0,
-        //         }
-        //     )
-        // }
-
-        println!("[epoll_wait] Empty before calling");
-        io::stdout().flush().unwrap();
+        // Should always be null value before we call libc::epoll_wait
         kernel_events.push(
             epoll_event {
                 events: 0,
                 u64: 0,
             }
         );
-        
 
         let ret = unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout as i32) };
         if ret < 0 {
@@ -871,7 +828,6 @@ impl Cage {
             };
             println!("[epoll_wait] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            panic!();
         }
 
         // Convert back to rustposix's data structure
@@ -884,9 +840,6 @@ impl Cage {
 
             events[i].fd = ret_virtualfd.unwrap() as i32;
             events[i].events = kernel_events[i].events;
-
-            println!("[epoll_wait] After libc calling events[i].events: {:?}", events[i].events);
-            io::stdout().flush().unwrap();
         }
 
         ret
@@ -902,7 +855,6 @@ impl Cage {
         protocol: i32,
         virtual_socket_vector: &mut SockPair,
     ) -> i32 {
-        /* TODO: change to translate from kernel - virtual after calling sockpair */
 
         let mut kernel_socket_vector: [i32; 2] = [0, 0];
 
