@@ -752,32 +752,32 @@ impl Cage {
      *       3. -1, fail
      */
     pub fn epoll_wait_syscall(
-        // &self,
-        // virtual_epfd: i32,
-        // events: &[EpollEvent],
-        // maxevents: i32,
-        // timeout: i32,
         &self,
         virtual_epfd: i32,
         events: &mut [EpollEvent],
         maxevents: i32,
-        rposix_timeout: Option<RustDuration>,
+        timeout: i32,
+        // &self,
+        // virtual_epfd: i32,
+        // events: &mut [EpollEvent],
+        // maxevents: i32,
+        // rposix_timeout: Option<RustDuration>,
     ) -> i32 {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
 
-        let mut timeout;
-        if rposix_timeout.is_none() {
-            timeout = libc::timeval { 
-                tv_sec: 0, 
-                tv_usec: 0,
-            };
-        } else {
-            timeout = libc::timeval { 
-                tv_sec: rposix_timeout.unwrap().as_secs() as i64, 
-                tv_usec: rposix_timeout.unwrap().subsec_micros() as i64,
-            };
-        }
+        // let mut timeout;
+        // if rposix_timeout.is_none() {
+        //     timeout = libc::timeval { 
+        //         tv_sec: 0, 
+        //         tv_usec: 0,
+        //     };
+        // } else {
+        //     timeout = libc::timeval { 
+        //         tv_sec: rposix_timeout.unwrap().as_secs() as i64, 
+        //         tv_usec: rposix_timeout.unwrap().subsec_micros() as i64,
+        //     };
+        // }
 
         // Create a hashmap to store the mapping info
         // fd_map = <real fd, virutal fd>
@@ -797,7 +797,7 @@ impl Cage {
             );
             fd_map.insert(kernel_fd,virtual_fd);
         }
-        let ret = unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout) };
+        let ret = unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout as i32) };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
