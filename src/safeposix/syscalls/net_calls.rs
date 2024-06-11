@@ -356,11 +356,9 @@ impl Cage {
             let errno = unsafe {
                 *libc::__errno_location() 
             } as i32;
-            println!("[Accept] errno: {:?}", errno);
-            io::stdout().flush().unwrap();
+            // println!("[Accept] errno: {:?}", errno);
+            // io::stdout().flush().unwrap();
             if errno == EAGAIN {
-                println!("[Accept] GenSockaddr: {:?}", addr);
-                io::stdout().flush().unwrap();
                 return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
             }
         }
