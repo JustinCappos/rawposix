@@ -823,30 +823,39 @@ impl Cage {
         // 
         let mut fd_map: HashMap<u64, i32> = HashMap::new();
 
-        if !events.is_empty() {
-            for epollevent in &mut *events {
-                let virtual_fd = epollevent.fd;
-                println!("[epoll_wait] virtual_fd: {:?}", virtual_fd);
-                io::stdout().flush().unwrap();
-                let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-                kernel_events.push(
-                    epoll_event {
-                        events: epollevent.events,
-                        u64: kernel_fd as u64,
-                    }
-                );
-                fd_map.insert(kernel_fd,virtual_fd);
+        // if !events.is_empty() {
+        //     for epollevent in &mut *events {
+        //         let virtual_fd = epollevent.fd;
+        //         println!("[epoll_wait] virtual_fd: {:?}", virtual_fd);
+        //         io::stdout().flush().unwrap();
+        //         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        //         kernel_events.push(
+        //             epoll_event {
+        //                 events: epollevent.events,
+        //                 u64: kernel_fd as u64,
+        //             }
+        //         );
+        //         fd_map.insert(kernel_fd,virtual_fd);
+        //     }
+        // } else {
+        //     println!("[epoll_wait] Empty before calling");
+        //     io::stdout().flush().unwrap();
+        //     kernel_events.push(
+        //         epoll_event {
+        //             events: 0,
+        //             u64: 0,
+        //         }
+        //     )
+        // }
+
+        println!("[epoll_wait] Empty before calling");
+        io::stdout().flush().unwrap();
+        kernel_events.push(
+            epoll_event {
+                events: 0,
+                u64: 0,
             }
-        } else {
-            println!("[epoll_wait] Empty before calling");
-            io::stdout().flush().unwrap();
-            kernel_events.push(
-                epoll_event {
-                    events: 0,
-                    u64: 0,
-                }
-            )
-        }
+        );
         
 
         let ret = unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout as i32) };
