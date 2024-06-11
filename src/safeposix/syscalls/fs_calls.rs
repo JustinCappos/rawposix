@@ -231,26 +231,34 @@ impl Cage {
     //     }
     // }
     pub fn fstat_syscall(&self, virtual_fd: i32, rposix_statbuf: &mut StatData) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        // Declare statbuf by ourselves 
-        let mut libc_statbuf: stat = unsafe { std::mem::zeroed() };
-        let libcret = unsafe {
-        libc::fstat(kernel_fd as i32, &mut libc_statbuf)
-        };
-        
-        if libcret == 0 {
-            rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
-            rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
-            rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
-            rposix_statbuf.st_gid = libc_statbuf.st_gid;
-            rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
-            rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
-            rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
-            rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
-            rposix_statbuf.st_size = libc_statbuf.st_size as usize;
-            rposix_statbuf.st_uid = libc_statbuf.st_uid;
+        // let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        match translate_virtual_fd(self.cageid, virtual_fd as u64) {
+            Ok(kernel_fd) => {
+                // Declare statbuf by ourselves 
+                let mut libc_statbuf: stat = unsafe { std::mem::zeroed() };
+                let libcret = unsafe {
+                libc::fstat(kernel_fd as i32, &mut libc_statbuf)
+                };
+                
+                if libcret == 0 {
+                    rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
+                    rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
+                    rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
+                    rposix_statbuf.st_gid = libc_statbuf.st_gid;
+                    rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
+                    rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
+                    rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
+                    rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
+                    rposix_statbuf.st_size = libc_statbuf.st_size as usize;
+                    rposix_statbuf.st_uid = libc_statbuf.st_uid;
+                }
+                return libcret;
+            },
+            Err(_e) => {
+                return -1;
+            },
         }
-        libcret
+        
     }
 
     //------------------------------------STATFS SYSCALL------------------------------------
