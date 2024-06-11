@@ -797,6 +797,13 @@ impl Cage {
                 );
                 fd_map.insert(kernel_fd,virtual_fd);
             }
+        } else {
+            kernel_events.push(
+                epoll_event {
+                    events: 0,
+                    u64: 0,
+                }
+            )
         }
         
 
