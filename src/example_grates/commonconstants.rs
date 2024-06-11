@@ -86,7 +86,7 @@ pub const TOTAL_FD_MAX: u64 = 4096;
 // /// copied from libc
 // pub const EPOLLET: c_int = 0x8000_0000;
 
-// // use libc::epoll_event;
+use libc::epoll_event;
 // // Note, I'm not using libc's version because this isn't defined on Windows
 // // or Mac.  Hence, I can't compile, etc. on those systems.  Of course any
 // // system actually running epoll, will need to be on Mac, but that doesn't mean

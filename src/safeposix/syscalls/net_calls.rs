@@ -12,7 +12,8 @@ use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::dashmaparrayglobal::*;
 
 use std::collections::HashSet;
-use std::io::Write;
+use std::collections::HashMap;
+use std::io::{Read, Write};
 use std::io;
 use std::mem::size_of;
 use libc::*;
@@ -710,7 +711,7 @@ impl Cage {
         virtual_epfd: i32,
         op: i32,
         virtual_fd: i32,
-        epollevent: &EpollEvent,
+        epollevent: &mut EpollEvent,
     ) -> i32 {
         println!("[epoll_ctl] virtual_epfd: {:?}", virtual_epfd);
         println!("[epoll_ctl] virtual_fd: {:?}", virtual_fd);
@@ -751,14 +752,37 @@ impl Cage {
      *       3. -1, fail
      */
     pub fn epoll_wait_syscall(
+        // &self,
+        // virtual_epfd: i32,
+        // events: &[EpollEvent],
+        // maxevents: i32,
+        // timeout: i32,
         &self,
         virtual_epfd: i32,
-        events: &[EpollEvent],
+        events: &mut [EpollEvent],
         maxevents: i32,
-        timeout: i32,
+        rposix_timeout: Option<RustDuration>,
     ) -> i32 {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
+
+        let mut timeout;
+        if rposix_timeout.is_none() {
+            timeout = libc::timeval { 
+                tv_sec: 0, 
+                tv_usec: 0,
+            };
+        } else {
+            timeout = libc::timeval { 
+                tv_sec: rposix_timeout.unwrap().as_secs() as i64, 
+                tv_usec: rposix_timeout.unwrap().subsec_micros() as i64,
+            };
+        }
+
+        // Create a hashmap to store the mapping info
+        // fd_map = <real fd, virutal fd>
+        let mut fd_map: HashMap<u64, i32> = HashMap::new();
+
         for epollevent in events.iter() {
             let virtual_fd = epollevent.fd;
             // println!("[epoll_wait] virtual_epfd: {:?}", virtual_epfd);
@@ -771,6 +795,7 @@ impl Cage {
                     u64: kernel_fd as u64,
                 }
             );
+            fd_map.insert(kernel_fd,virtual_fd);
         }
         let ret = unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout) };
         if ret < 0 {
@@ -787,6 +812,15 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
+        for i in 0..ret as usize {
+            let kernel_event = &kernel_events[i];
+            let kernel_fd = kernel_event.u64 as u64;
+            if let Some(&virtual_fd) = fd_map.get(&kernel_fd) {
+                events[i].events = kernel_event.events;
+                events[i].fd = virtual_fd;
+            }
+        }
+
         ret
     }
 
