@@ -335,7 +335,7 @@ impl Cage {
     pub fn accept_syscall(
         &self,
         virtual_fd: i32,
-        addr: &mut Option<&mut GenSockaddr>,
+        _addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
 
@@ -408,7 +408,7 @@ impl Cage {
         let orfds = readfds.as_mut().map(|fds| &mut **fds);
         let owfds = writefds.as_mut().map(|fds| &mut **fds);
         let oefds = errorfds.as_mut().map(|fds| &mut **fds);
-        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) 
+        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, _unrealset, mappingtable) 
             = get_real_bitmasks_for_select(
                 self.cageid,
                 nfds as u64,
@@ -448,7 +448,7 @@ impl Cage {
         }
 
         // Revert result
-        let (retnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
+        let (_retnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
             newnfds as u64,
             real_readfds,
             real_writefds,

@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 extern crate libc;
 
-static NET_DEV_FILENAME: &str = "net_devices";
+// static NET_DEV_FILENAME: &str = "net_devices";
 
 static mut UD_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
