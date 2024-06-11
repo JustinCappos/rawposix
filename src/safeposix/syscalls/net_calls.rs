@@ -674,8 +674,8 @@ impl Cage {
     pub fn epoll_create_syscall(&self, size: i32) -> i32 {
         let kernel_fd = unsafe { libc::epoll_create(size) };
 
-        println!("[EPOLL] size: {:?}", size);
-        println!("[EPOLL] kernelfd: {:?}", kernel_fd);
+        println!("[epoll_create] size: {:?}", size);
+        println!("[epoll_create] kernelfd: {:?}", kernel_fd);
         io::stdout().flush().unwrap();
         
         if kernel_fd < 0 {
@@ -712,6 +712,10 @@ impl Cage {
         virtual_fd: i32,
         epollevent: &EpollEvent,
     ) -> i32 {
+        println!("[epoll_ctl] virtual_epfd: {:?}", virtual_epfd);
+        println!("[epoll_ctl] virtual_fd: {:?}", virtual_fd);
+        io::stdout().flush().unwrap();
+
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
         // EpollEvent conversion
