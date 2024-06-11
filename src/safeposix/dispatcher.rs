@@ -110,6 +110,8 @@ const FSYNC_SYSCALL: i32 = 162;
 const FDATASYNC_SYSCALL: i32 = 163;
 const SYNC_FILE_RANGE: i32 = 164;
 
+const WRITEV_SYSCALL: i32 = 170;
+
 use std::collections::HashMap;
 
 use super::cage::*;
@@ -1024,6 +1026,14 @@ pub extern "C" fn dispatcher(
                 cage.sem_timedwait_syscall,
                 interface::get_uint(arg1),
                 interface::duration_fromtimespec(arg2)
+            )
+        }
+        WRITEV_SYSCALL => {
+            check_and_dispatch!(
+                cage.writev_syscall,
+                interface::get_int(arg1),
+                interface::get_iovecstruct(arg2),
+                interface::get_int(arg3)
             )
         }
 

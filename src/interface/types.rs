@@ -166,6 +166,8 @@ pub struct ShmidsStruct {
 
 pub type SigsetType = u64;
 
+pub type IovecStruct = libc::iovec;
+
 #[derive(Copy, Clone, Debug, Default)]
 #[repr(C)]
 pub struct SigactionStruct {
@@ -223,6 +225,7 @@ pub union Arg {
     pub dispatch_fdset: *mut libc::fd_set,
     // pub dispatch_structsem: *mut sem_t,
     // pub dispatch_ifaddrs: *mut ifaddrs,
+    pub dispatch_constiovecstruct: *const interface::IovecStruct,
 }
 
 use std::mem::size_of;
@@ -955,6 +958,18 @@ pub fn get_constsigsett<'a>(union_argument: Arg) -> Result<Option<&'a SigsetType
     } else {
         Ok(None)
     }
+}
+
+pub fn get_iovecstruct(union_argument: Arg) -> Result<*const interface::IovecStruct, i32> {
+    let data = unsafe { union_argument.dispatch_constiovecstruct };
+    if !data.is_null() {
+        return Ok(data);
+    }
+    return Err(syscall_error(
+        Errno::EFAULT,
+        "dispatcher",
+        "input data not valid",
+    ));
 }
 
 // pub fn get_sem<'a>(union_argument: Arg) -> Result<&'a mut sem_t, i32> {
