@@ -73,9 +73,8 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            println!("errno: {:?}", err);
-            println!("Error message: {:?}", err_msg);
-            println!("c_path: {:?}", c_path);
+            println!("[open] Error message: {:?}", err_msg);
+            println!("[open] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
             return -1;
         }
@@ -98,9 +97,24 @@ impl Cage {
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
         
-        unsafe {
+        let ret = unsafe {
             libc::mkdir(c_path.as_ptr(), mode)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[mkdir] Error message: {:?}", err_msg);
+            println!("[mkdir] c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------MKNOD SYSCALL------------------
@@ -114,9 +128,24 @@ impl Cage {
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::mknod(c_path.as_ptr(), mode, dev)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[mknod] Error message: {:?}", err_msg);
+            println!("[mknod] c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------LINK SYSCALL------------------------------------
@@ -127,9 +156,24 @@ impl Cage {
         // Convert data type from &str into *const i8
         let old_cpath = CString::new(oldpath).expect("CString::new failed");
         let new_cpath = CString::new(newpath).expect("CString::new failed");
-        unsafe {
+        let ret = unsafe {
             libc::link(old_cpath.as_ptr(), new_cpath.as_ptr())
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[link] Error message: {:?}", err_msg);
+            println!("[link] c_path: {:?}", old_cpath);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------UNLINK SYSCALL------------------------------------
@@ -138,9 +182,24 @@ impl Cage {
     */
     pub fn unlink_syscall(&self, path: &str) -> i32 {
         let (path_c, _, _) = path.to_string().into_raw_parts();
-        unsafe {
+        let ret = unsafe {
             libc::unlink(path_c as *const i8)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[unlink] Error message: {:?}", err_msg);
+            println!("[unlink] c_path: {:?}", path_c);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------CREAT SYSCALL------------------------------------
@@ -157,6 +216,22 @@ impl Cage {
         let kernel_fd = unsafe {
             libc::creat(c_path.as_ptr(), mode)
         };
+        if kernel_fd < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[creat] Error message: {:?}", err_msg);
+            println!("[creat] c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
+            return -1;
+        }
+        
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
         virtual_fd as i32
     }
@@ -197,9 +272,8 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            println!("errno: {:?}", err);
-            println!("Error message: {:?}", err_msg);
-            println!("c_path: {:?}", c_path);
+            println!("[stat] Error message: {:?}", err_msg);
+            println!("[stat] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
             return -1;
         }
@@ -360,9 +434,24 @@ impl Cage {
     */
     pub fn pread_syscall(&self, virtual_fd: i32, buf: *mut u8, count: usize, offset: i64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::pread(kernel_fd as i32, buf as *mut c_void, count, offset) as i32
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[pread] Error message: {:?}", err_msg);
+            println!("[pread] virtual fd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------WRITE SYSCALL------------------------------------
@@ -374,9 +463,24 @@ impl Cage {
     */
     pub fn write_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::write(kernel_fd as i32, buf as *const c_void, count) as i32
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[write] Error message: {:?}", err_msg);
+            println!("[write] virtual fd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     pub fn writev_syscall(
@@ -415,9 +519,24 @@ impl Cage {
     */
     pub fn pwrite_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize, offset: i64) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::pwrite(kernel_fd as i32, buf as *const c_void, count, offset) as i32
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[pwrite] Error message: {:?}", err_msg);
+            println!("[pwrite] virtual fd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------LSEEK SYSCALL------------------------------------
@@ -429,9 +548,24 @@ impl Cage {
     */
     pub fn lseek_syscall(&self, virtual_fd: i32, offset: isize, whence: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::lseek(kernel_fd as i32, offset as i64, whence) as i32
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[lseek] Error message: {:?}", err_msg);
+            println!("[lseek] virtual fd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------ACCESS SYSCALL------------------------------------
@@ -444,9 +578,24 @@ impl Cage {
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::access(c_path.as_ptr(), amode)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[access] Error message: {:?}", err_msg);
+            println!("[access] c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------FCHDIR SYSCALL------------------------------------
@@ -456,9 +605,24 @@ impl Cage {
     */
     pub fn fchdir_syscall(&self, virtual_fd: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::fchdir(kernel_fd as i32)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[fchdir] Error message: {:?}", err_msg);
+            println!("[fchdir] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------CHDIR SYSCALL------------------------------------
@@ -564,7 +728,22 @@ impl Cage {
             let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd as u64, false, 0).unwrap();
             return new_virtualfd as i32;
         }
-        unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) }
+        let ret = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[fcntl] Error message: {:?}", err_msg);
+            println!("[fcntl] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
+        }
+        ret
     }
 
     //------------------------------------IOCTL SYSCALL------------------------------------
@@ -577,7 +756,22 @@ impl Cage {
     */
     pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: *mut u8) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe { libc::ioctl(kernel_fd as i32, request, ptrunion as *mut c_void) }
+        let ret = unsafe { libc::ioctl(kernel_fd as i32, request, ptrunion as *mut c_void) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[ioctl] Error message: {:?}", err_msg);
+            println!("[ioctl] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
+        }
+        ret
     }
 
 
@@ -591,9 +785,24 @@ impl Cage {
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::chmod(c_path.as_ptr(), mode)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[chmod] Error message: {:?}", err_msg);
+            println!("[chmod] c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------FCHMOD SYSCALL------------------------------------
@@ -603,9 +812,24 @@ impl Cage {
     */
     pub fn fchmod_syscall(&self, virtual_fd: i32, mode: u32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::fchmod(kernel_fd as i32, mode)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[fchmod] Error message: {:?}", err_msg);
+            println!("[fchmod] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------MMAP SYSCALL------------------------------------
@@ -659,9 +883,24 @@ impl Cage {
     */
     pub fn flock_syscall(&self, virtual_fd: i32, operation: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::flock(kernel_fd as i32, operation)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[flock] Error message: {:?}", err_msg);
+            println!("[flock] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------RMDIR SYSCALL------------------
@@ -674,9 +913,24 @@ impl Cage {
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::rmdir(c_path.as_ptr())
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[rmdir] Error message: {:?}", err_msg);
+            println!("[rmdir] c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------RENAME SYSCALL------------------
@@ -694,9 +948,25 @@ impl Cage {
         let full_newpath = format!("{}{}", LIND_ROOT, relative_newpath);
         let new_cpath = CString::new(full_newpath).unwrap();
 
-        unsafe {
+        let ret = unsafe {
             libc::rename(old_cpath.as_ptr(), new_cpath.as_ptr())
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[rename] Error message: {:?}", err_msg);
+            println!("[rename] old: {:?}", old_cpath);
+            println!("[rename] new: {:?}", new_cpath);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------FSYNC SYSCALL------------------------------------
@@ -706,9 +976,24 @@ impl Cage {
     */
     pub fn fsync_syscall(&self, virtual_fd: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::fsync(kernel_fd as i32)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[fsync] Error message: {:?}", err_msg);
+            println!("[fsync] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------FDATASYNC SYSCALL------------------------------------
@@ -718,9 +1003,24 @@ impl Cage {
     */
     pub fn fdatasync_syscall(&self, virtual_fd: i32) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::fdatasync(kernel_fd as i32)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[fdatasync] Error message: {:?}", err_msg);
+            println!("[fdatasync] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------------------------SYNC_FILE_RANGE SYSCALL------------------------------------
@@ -736,9 +1036,24 @@ impl Cage {
         flags: u32,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::sync_file_range(kernel_fd as i32, offset as i64, nbytes as i64, flags)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[sync file range] Error message: {:?}", err_msg);
+            println!("[sync file range] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------FTRUNCATE SYSCALL------------------
@@ -748,9 +1063,24 @@ impl Cage {
     */
     pub fn ftruncate_syscall(&self, virtual_fd: i32, length: isize) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::ftruncate(kernel_fd as i32, length as i64)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[ftruncate] Error message: {:?}", err_msg);
+            println!("[ftruncate] vfd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------TRUNCATE SYSCALL------------------
@@ -763,9 +1093,24 @@ impl Cage {
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
         let c_path = CString::new(full_path).unwrap();
-        unsafe {
+        let ret = unsafe {
             libc::truncate(c_path.as_ptr(), length as i64)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[truncate] Error message: {:?}", err_msg);
+            println!("[truncate] c_path: {:?}", c_path);
+            io::stdout().flush().unwrap();
         }
+        ret
     }
 
     //------------------PIPE SYSCALL------------------
