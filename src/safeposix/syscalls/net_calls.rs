@@ -83,7 +83,7 @@ impl Cage {
             };
             println!("[Bind] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
         // println!("[Bind] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.addr(), addr.port(), addr.get_family());
         // println!("[Bind] GenSockaddr after: {:?}", addr);
@@ -127,7 +127,6 @@ impl Cage {
             };
             println!("[Connect] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            panic!();
         }
 
         // println!("[Connect] kernel fd: {:?}", kernel_fd);
@@ -202,7 +201,7 @@ impl Cage {
             println!("[Send] Error message: {:?}", err_msg);
             println!("[Send] kernel fd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
         ret
     }
@@ -255,7 +254,7 @@ impl Cage {
             println!("[Recvfrom] Error message: {:?}", err_msg);
             println!("[Recvfrom] addr: {:?}", addr);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
         ret
     }
@@ -284,7 +283,7 @@ impl Cage {
             println!("[Recv] Error message: {:?}", err_msg);
             println!("[Recv] kernel fd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
         ret
     }
@@ -308,7 +307,7 @@ impl Cage {
             };
             println!("[Listen] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
         ret
     }
@@ -508,7 +507,7 @@ impl Cage {
             };
             println!("[Getsockopt] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
         ret
     }
@@ -541,7 +540,7 @@ impl Cage {
             };
             println!("[Setsockopt] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
         ret
     }
@@ -647,7 +646,7 @@ impl Cage {
             println!("[POLL] Error message: {:?}", err_msg);
             println!("[POLL] kernel fd: {:?}", real_fd);
             io::stdout().flush().unwrap();
-            panic!();
+            // panic!();
         }
 
         // Convert back to PollStruct
