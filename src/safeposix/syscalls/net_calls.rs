@@ -673,6 +673,10 @@ impl Cage {
      */
     pub fn epoll_create_syscall(&self, size: i32) -> i32 {
         let kernel_fd = unsafe { libc::epoll_create(size) };
+
+        println!("[EPOLL] size: {:?}", size);
+        println!("[EPOLL] kernelfd: {:?}", kernel_fd);
+        io::stdout().flush().unwrap();
         
         if kernel_fd < 0 {
             let err = unsafe {
