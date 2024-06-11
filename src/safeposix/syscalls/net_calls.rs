@@ -700,7 +700,7 @@ impl Cage {
         let kernel_fd = unsafe { libc::epoll_create(size) };
 
         println!("[epoll_create] size: {:?}", size);
-        println!("[epoll_create] kernelfd: {:?}", kernel_fd);
+        println!("[epoll_create] kernel epfd: {:?}", kernel_fd);
         io::stdout().flush().unwrap();
         
         if kernel_fd < 0 {
@@ -721,10 +721,13 @@ impl Cage {
         }
 
         // Get the virtual epfd
-        let virtual_epfd = epoll_create_helper(self.cageid, false).unwrap() as i32;
+        // let virtual_epfd = epoll_create_helper(self.cageid, false).unwrap() as i32;
+        let virtual_epfd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        println!("[epoll_create] virtual_epfd: {:?}", virtual_epfd);
+        io::stdout().flush().unwrap();
         // We don't need to update mapping table at now
         // Return virtual epfd
-        virtual_epfd
+        virtual_epfd as i32
         
     }
 
@@ -740,8 +743,8 @@ impl Cage {
         virtual_fd: i32,
         epollevent: &mut EpollEvent,
     ) -> i32 {
-        println!("[epoll_ctl] virtual_epfd: {:?}", virtual_epfd);
         println!("[epoll_ctl] virtual_fd: {:?}", virtual_fd);
+        println!("[epoll_ctl] virtual_epfd: {:?}", virtual_epfd);
         io::stdout().flush().unwrap();
 
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
@@ -752,6 +755,10 @@ impl Cage {
             events: event,
             u64: kernel_fd as u64,
         };
+
+        println!("[epoll_ctl] kernel_epfd: {:?}", kernel_epfd);
+        println!("[epoll_ctl] virtual_fd: {:?}", virtual_fd);
+        io::stdout().flush().unwrap();
 
         let ret = unsafe { libc::epoll_ctl(kernel_epfd as i32, op, kernel_fd as i32, &mut epoll_event) };
         if ret < 0 {
