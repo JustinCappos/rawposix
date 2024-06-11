@@ -206,6 +206,8 @@ impl Cage {
     *   exec() will only return if error happens 
     */
     pub fn exec_syscall(&self, child_cageid: u64) -> i32 {
+        // Empty fd with flag should_cloexec 
+        empty_fds_for_exec(self.cageid);
         // Add the new one to fdtable
         let _ = copy_fdtable_for_cage(self.cageid, child_cageid);
         // Delete the original one

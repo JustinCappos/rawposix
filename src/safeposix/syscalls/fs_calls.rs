@@ -80,7 +80,9 @@ impl Cage {
             return -1;
         }
 
-        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        let should_cloexec = (oflag & O_CLOEXEC) != 0;
+
+        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, should_cloexec, 0).unwrap();
         virtual_fd as i32
     }
 
