@@ -732,6 +732,7 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
+        ret
     }
 
     /*  
