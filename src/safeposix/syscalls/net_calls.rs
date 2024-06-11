@@ -330,71 +330,40 @@ impl Cage {
     }
 
     /*  
-     *   Get the kernel fd with provided virtual fd first
-     *   accept() will return a file descriptor for the accepted socket
-     *   Mapping a new virtual fd in this cage (virtual fd is different per cage) and kernel
-     *       fd that libc::accept returned
-     *   Return the virtual fd
-     */
+    *   We pass a default addr to libc::accept and then fill the GenSockaddr when return to 
+    *   dispatcher
+    *
+    *   Get the kernel fd with provided virtual fd first
+    *   accept() will return a file descriptor for the accepted socket
+    *   Mapping a new virtual fd in this cage (virtual fd is different per cage) and kernel
+    *       fd that libc::accept returned
+    *   Return the virtual fd
+    */
     pub fn accept_syscall(
         &self,
         virtual_fd: i32,
         addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        
-        // let (finalsockaddr, addrlen) = match addr {
-        //     Some(GenSockaddr::V6(ref mut addrref6)) => (
-        //         (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
-        //         size_of::<SockaddrV6>() as *mut u32,
-        //     ),
-        //     Some(GenSockaddr::V4(ref mut addrref)) => (
-        //         (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
-        //         size_of::<SockaddrV4>() as *mut u32,
-        //     ),
-        //     Some(GenSockaddr::Unix(ref mut addrrefu)) => (
-        //         (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
-        //         size_of::<SockaddrUnix>() as *mut u32,
-        //     ),
-        //     Some(_) => {
-        //         unreachable!()
-        //     }
-        //     None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0 as *mut u32),
-        // };
 
         let finalsockaddr = std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr;
-        // let mut sadlen = size_of::<SockaddrV4>() as u32;
+        
         let mut sadlen = 0 as u32;
 
         let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, &mut sadlen as *mut u32) };
 
         if ret_kernelfd < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            
             let errno = unsafe {
                 *libc::__errno_location() 
             } as i32;
             println!("[Accept] errno: {:?}", errno);
             io::stdout().flush().unwrap();
-            // panic!();
             if errno == EAGAIN {
-                println!("[Accept] Error message: {:?}", err_msg);
                 println!("[Accept] GenSockaddr: {:?}", addr);
                 io::stdout().flush().unwrap();
                 return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
             }
         }
-        // println!("[Accept] GenSockaddr: {:?}", addr);
-        // println!("[Accept] ret kernel fd: {:?}", ret_kernelfd);
-        // io::stdout().flush().unwrap();
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
         ret_virtualfd as i32
     }

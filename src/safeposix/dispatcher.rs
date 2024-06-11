@@ -507,8 +507,10 @@ pub extern "C" fn dispatcher(
             )
         }
         ACCEPT_SYSCALL => {
-            let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
-            // let mut addr = None;
+            /* We don't care the type of addr
+            *   We will directly copy all stuffs in copy_out_sockaddr
+            */
+            let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); 
 
             let nullity1 = interface::arg_nullity(&arg2);
             let nullity2 = interface::arg_nullity(&arg3);
@@ -517,21 +519,17 @@ pub extern "C" fn dispatcher(
                 check_and_dispatch!(
                     cage.accept_syscall,
                     interface::get_int(arg1),
-                    // Ok::<&mut interface::GenSockaddr, i32>(&mut addr)
                     Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
                         &mut addr
                     ))
-                    // Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut addr)
                 )
             } else if !(nullity1 || nullity2) {
                 let rv = check_and_dispatch!(
                     cage.accept_syscall,
                     interface::get_int(arg1),
-                    // Ok::<&mut interface::GenSockaddr, i32>(&mut addr)
                     Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
                         &mut addr
                     ))
-                    // Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut addr)
                 );
                 if rv >= 0 {
                     interface::copy_out_sockaddr(arg2, arg3, addr);
