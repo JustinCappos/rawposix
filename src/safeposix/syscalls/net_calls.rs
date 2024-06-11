@@ -761,6 +761,9 @@ impl Cage {
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
         for epollevent in events.iter() {
             let virtual_fd = epollevent.fd;
+            // println!("[epoll_wait] virtual_epfd: {:?}", virtual_epfd);
+            println!("[epoll_wait] virtual_fd: {:?}", virtual_fd);
+            io::stdout().flush().unwrap();
             let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
             kernel_events.push(
                 epoll_event {
