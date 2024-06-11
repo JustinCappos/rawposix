@@ -13,6 +13,8 @@ use crate::example_grates::dashmapvecglobal::*;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
+use parking_lot::Mutex;
+use lazy_static::lazy_static;
 use std::io::{Read, Write};
 use std::io;
 use std::mem::size_of;
@@ -24,21 +26,11 @@ use libc::*;
 use std::{os::fd::RawFd, ptr};
 use bit_set::BitSet;
 
-/* A,W:
-*   [Related Changes]
-*    - Added some helper functions in fdtables repo
-*
-*   [Concern / TODO]
-*    - Use functions in fdtalbes repo? --> treat fdtables as package?
-*    - Type conversion?
-*       1. For now I assume the user will use linux data structure when
-*          they want to use libc functions, but for fd / fd_set they need to use our implementation..?
-*    - Need to check parameter data type and libc function data type (eg: mut / not using, etc.)
-*    - The socket_vector in socketpair() ...?
-*    - Do the type conversion inside each syscall
-*    - Error handling 
-*    - cloexec in get_unused_virtual_fd()..?
-*/
+lazy_static! {
+    // A hashmap used to store epoll mapping relationships 
+    // <virtual_epfd <kernel_fd, virtual_fd>> 
+    static ref REAL_EPOLL_MAP: Mutex<HashMap<u64, HashMap<i32, u64>>> = Mutex::new(HashMap::new());
+}
 
 impl Cage {
     /* 
@@ -668,11 +660,43 @@ impl Cage {
         ret
     }
 
+    /* EPOLL
+    *   In normal Linux, epoll will perform the listed behaviors 
+    *   
+    *   epoll_create:
+    *   - This function creates an epfd, which is an epoll file descriptor used to manage 
+    *       multiple file behaviors.
+    *   epoll_ctl:
+    *   - This function associates the events and the file descriptors that need to be 
+    *       monitored with the specific epfd.
+    *   epoll_wait:
+    *   - This function waits for events on the epfd and returns a list of epoll_events 
+    *       that have been triggered.
+    *   
+    *   Then the processing workflow in RawPOSIX is:
+    *
+    *   epoll_create:
+    *   When epoll_create is called, we use epoll_create_helper to create a virtual epfd.
+    *   Add this virtual epfd to the global mapping table.
+    *
+    *   epoll_ctl:
+    *   (Use try_epoll_ctl to handle the association between the virtual epfd and the 
+    *   events with the file descriptors.) This step involves updating the global table 
+    *   with the appropriate mappings.
+    *
+    *   epoll_wait:
+    *   When epoll_wait is called, you need to convert the virtual epfd to the real epfd.
+    *   Call libc::epoll_wait to perform the actual wait operation on the real epfd.
+    *   Convert the resulting real events back to the virtual events using the mapping in 
+    *   the global table.
+    */
+
     /*  
      *   Mapping a new virtual fd and kernel fd that libc::epoll_create returned
      *   Then return virtual fd
      */
     pub fn epoll_create_syscall(&self, size: i32) -> i32 {
+        // Create the kernel instance
         let kernel_fd = unsafe { libc::epoll_create(size) };
 
         println!("[epoll_create] size: {:?}", size);
@@ -695,15 +719,18 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
-        return get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap() as i32;
+
+        // Get the virtual epfd
+        let virtual_epfd = epoll_create_helper(self.cageid, false).unwrap() as i32;
+        // We don't need to update mapping table at now
+        // Return virtual epfd
+        virtual_epfd
+        
     }
 
     /*  
-    *  epoll_ctl system call is used to add, modify, or remove entries in the
-       interest list of the epoll(7) instance referred to by the file
-       descriptor epfd.  It requests that the operation op be performed
-       for the target file descriptor, fd.
-    *   Translate before calling
+    *   Translate before calling, and updating the glocal mapping tables according to 
+    *   the op. 
     *   epoll_ctl() will return 0 when success and -1 when fail
     */
     pub fn epoll_ctl_syscall(
@@ -741,11 +768,34 @@ impl Cage {
             io::stdout().flush().unwrap();
             panic!();
         }
-        ret
+
+        // Update the virtual list -- but we only handle the non-real fd case
+        //  try_epoll_ctl will directly return a real fd in libc case
+        //  - maybe we could create a new mapping table to handle the mapping relationship..?
+        //      ceate inside the fdtable interface? or we could handle inside rawposix..?
+        
+        // Update the mapping table for epoll
+        if op == EPOLL_CTL_DEL {
+            let mut epollmapping = REAL_EPOLL_MAP.lock();
+            if let Some(fdmap) = epollmapping.get_mut(&(virtual_epfd as u64)) {
+                if fdmap.remove(&(kernel_fd as i32)).is_some() {
+                    if fdmap.is_empty() {
+                        epollmapping.remove(&(virtual_epfd as u64));
+                    }
+                    return ret;
+                }
+            }
+        } else {
+            let mut epollmapping = REAL_EPOLL_MAP.lock();
+            epollmapping.entry(virtual_epfd as u64).or_insert_with(HashMap::new).insert(kernel_fd as i32, virtual_fd as u64);
+            return ret;
+        }
+        
+        -1
     }
 
     /*  
-     *   Get the kernel fd with provided virtual fd first
+     *   Get the kernel fd with provided virtual fd first, and then convert back to virtual
      *   epoll_wait() will return:
      *       1. the number of file descriptors ready for the requested I/O
      *       2. 0, if none
@@ -757,35 +807,18 @@ impl Cage {
         events: &mut [EpollEvent],
         maxevents: i32,
         timeout: i32,
-        // &self,
-        // virtual_epfd: i32,
-        // events: &mut [EpollEvent],
-        // maxevents: i32,
-        // rposix_timeout: Option<RustDuration>,
     ) -> i32 {
         let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
 
         // Create a hashmap to store the mapping info
         // fd_map = <real fd, virutal fd>
+        // 
         let mut fd_map: HashMap<u64, i32> = HashMap::new();
 
-        /*
-        for vfd in &mut *virtual_poll {
-
-        let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
-        let kernel_poll = pollfd {
-            fd: real_fd as i32,
-            events: vfd.events,
-            revents: vfd.revents,
-        };
-        real_fds.push(kernel_poll);
-    }
-     */
         if !events.is_empty() {
             for epollevent in &mut *events {
                 let virtual_fd = epollevent.fd;
-                // println!("[epoll_wait] virtual_epfd: {:?}", virtual_epfd);
                 println!("[epoll_wait] virtual_fd: {:?}", virtual_fd);
                 io::stdout().flush().unwrap();
                 let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
@@ -798,6 +831,8 @@ impl Cage {
                 fd_map.insert(kernel_fd,virtual_fd);
             }
         } else {
+            println!("[epoll_wait] Empty before calling");
+            io::stdout().flush().unwrap();
             kernel_events.push(
                 epoll_event {
                     events: 0,
@@ -823,18 +858,20 @@ impl Cage {
             panic!();
         }
 
+        // Convert back to rustposix's data structure
+        // Loop over virtual_epollfd to find corresponding mapping relationship between kernel fd and virtual fd
         for i in 0..ret as usize {
-            let kernel_event = &kernel_events[i];
-            let kernel_fd = kernel_event.u64 as u64;
-            if let Some(&virtual_fd) = fd_map.get(&kernel_fd) {
-                let kdebug = kernel_event.events;
-                println!("[epoll_wait] kernel_event.events: {:?}", kdebug);
-                io::stdout().flush().unwrap();
-                events[i].events = kernel_event.events;
-                println!("[epoll_wait] events[i].events: {:?}", events[i].events);
-                io::stdout().flush().unwrap();
-                events[i].fd = virtual_fd;
-            }
+
+            let ret_kernelfd = kernel_events[i].u64;
+            let epollmapping = REAL_EPOLL_MAP.lock();
+            let ret_virtualfd = epollmapping.get(&(virtual_epfd as u64)).and_then(|kernel_map| kernel_map.get(&ret_kernelfd).copied());
+
+            let ret_kernelevent = &kernel_events[i];
+            events[i].fd = ret_virtualfd.unwrap() as i32;
+            events[i].events = ret_kernelevent;
+
+            println!("[epoll_wait] After libc calling events[i].events: {:?}", events[i].events);
+            io::stdout().flush().unwrap();
         }
 
         ret
