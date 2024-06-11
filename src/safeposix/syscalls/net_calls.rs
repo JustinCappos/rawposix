@@ -775,7 +775,7 @@ impl Cage {
         //      ceate inside the fdtable interface? or we could handle inside rawposix..?
         
         // Update the mapping table for epoll
-        if op == EPOLL_CTL_DEL {
+        if op == libc::EPOLL_CTL_DEL {
             let mut epollmapping = REAL_EPOLL_MAP.lock();
             if let Some(fdmap) = epollmapping.get_mut(&(virtual_epfd as u64)) {
                 if fdmap.remove(&(kernel_fd as i32)).is_some() {
@@ -790,7 +790,7 @@ impl Cage {
             epollmapping.entry(virtual_epfd as u64).or_insert_with(HashMap::new).insert(kernel_fd as i32, virtual_fd as u64);
             return ret;
         }
-        
+
         -1
     }
 
@@ -864,11 +864,11 @@ impl Cage {
 
             let ret_kernelfd = kernel_events[i].u64;
             let epollmapping = REAL_EPOLL_MAP.lock();
-            let ret_virtualfd = epollmapping.get(&(virtual_epfd as u64)).and_then(|kernel_map| kernel_map.get(&ret_kernelfd).copied());
+            let ret_virtualfd = epollmapping.get(&(virtual_epfd as u64)).and_then(|kernel_map| kernel_map.get(&(ret_kernelfd as i32)).copied());
 
             let ret_kernelevent = &kernel_events[i];
             events[i].fd = ret_virtualfd.unwrap() as i32;
-            events[i].events = ret_kernelevent;
+            events[i].events = ret_kernelevent[i].events;
 
             println!("[epoll_wait] After libc calling events[i].events: {:?}", events[i].events);
             io::stdout().flush().unwrap();
