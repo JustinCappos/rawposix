@@ -717,7 +717,21 @@ impl Cage {
             u64: kernel_fd as u64,
         };
 
-        unsafe { libc::epoll_ctl(kernel_epfd as i32, op, kernel_fd as i32, &mut epoll_event) }
+        let ret = unsafe { libc::epoll_ctl(kernel_epfd as i32, op, kernel_fd as i32, &mut epoll_event) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[epoll_ctl] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
     }
 
     /*  
@@ -746,7 +760,22 @@ impl Cage {
                 }
             );
         }
-        unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout) }
+        let ret = unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout) };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[epoll_wait] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            panic!();
+        }
+        ret
     }
 
     /*  
@@ -825,23 +854,6 @@ impl Cage {
         let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd, buf as *mut c_void, nbytes) as i32 }
     }
-}
-
-/* SELECT() 
-*/
-pub fn virtual_to_real_set(cageid: u64, virtualfds: *mut BitSet) -> Option<fd_set> {
-    if virtualfds.is_null() {
-        return None;
-    }
-    // Change from ptr to reference
-    let virtualfds = unsafe { &*virtualfds };
-    let mut real_set = unsafe { std::mem::zeroed::<fd_set>() };
-    for virtualfd in virtualfds.iter() {
-        let real_fd = translate_virtual_fd(cageid, virtualfd as u64).unwrap() as RawFd;
-        unsafe { FD_SET(real_fd, &mut real_set) };
-    }
-
-    Some(real_set)    
 }
 
 /* POLL()
