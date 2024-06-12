@@ -1272,6 +1272,16 @@ impl Cage {
         0
     }
 
+    pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
+        // let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "getdents", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+        unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd as i32, buf as *mut c_void, nbytes) as i32 }
+    }
+
     //------------------SHMHELPERS----------------------
 
     pub fn rev_shm_find_index_by_addr(rev_shm: &Vec<(u32, i32)>, shmaddr: u32) -> Option<usize> {
