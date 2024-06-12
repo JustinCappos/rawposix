@@ -77,8 +77,9 @@ impl Cage {
             println!("[open] c_path: {:?}", c_path);
             println!("[open] oflag: {:?}", oflag);
             println!("[open] mode: {:?}", mode);
+            println!("[open] kernel fd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            return -1;
+            return kernel_fd;
         }
 
         let should_cloexec = (oflag & O_CLOEXEC) != 0;
@@ -165,7 +166,7 @@ impl Cage {
         let relative_newpath = rel_newpath.to_str().unwrap();
         let full_newpath = format!("{}{}", LIND_ROOT, relative_newpath);
         let new_cpath = CString::new(full_newpath).unwrap();
-        
+
         let ret = unsafe {
             libc::link(old_cpath.as_ptr(), new_cpath.as_ptr())
         };
@@ -245,7 +246,7 @@ impl Cage {
             println!("[creat] Error message: {:?}", err_msg);
             println!("[creat] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
-            return -1;
+            return kernel_fd;
         }
         
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
@@ -291,7 +292,7 @@ impl Cage {
             println!("[stat] Error message: {:?}", err_msg);
             println!("[stat] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
-            return -1;
+            return libcret;
         }
         
         if libcret == 0 {
@@ -440,7 +441,7 @@ impl Cage {
             println!("[READ] Error message: {:?}", err_msg);
             println!("kernel_fd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            return -1;
+            return ret;
         }
         return ret;
         
