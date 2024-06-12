@@ -26,6 +26,8 @@ use libc::*;
 use std::{os::fd::RawFd, ptr};
 use bit_set::BitSet;
 
+static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
+
 lazy_static! {
     // A hashmap used to store epoll mapping relationships 
     // <virtual_epfd <kernel_fd, virtual_fd>> 
@@ -68,10 +70,26 @@ impl Cage {
                 (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV4>(),
             ),
-            GenSockaddr::Unix(addrrefu) => (
-                (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
-                size_of::<SockaddrUnix>(),
-            )
+            GenSockaddr::Unix(addrrefu) => {
+                // Convert sun_path to LIND_ROOT path
+                let mut new_addr = *addrrefu;
+                let original_path = unsafe { CStr::from_ptr(new_addr.sun_path.as_ptr() as *const i8).to_str().unwrap() };
+                let lind_path = format!("{}{}", LIND_ROOT, &original_path[1..]); // Skip the initial '/' in original path
+
+                // Use memcpy to copy the new path into sun_path
+                unsafe {
+                    let src = lind_path.as_ptr() as *const c_void;
+                    let dst = new_addr.sun_path.as_mut_ptr() as *mut c_void;
+                    memcpy(dst, src, lind_path.len());
+                    *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                }
+                (
+                    (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrUnix>(),
+                )
+                
+            }
+            
         };
 
         let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
