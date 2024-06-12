@@ -60,9 +60,6 @@ impl Cage {
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
-        // if kernel_fd < 0 {
-        //     return -1;
-        // }
         if kernel_fd < 0 {
             let err = unsafe {
                 libc::__errno_location()
@@ -73,11 +70,17 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
+            let errno = unsafe {
+                *libc::__errno_location() 
+            } as i32;
             println!("[open] Error message: {:?}", err_msg);
             println!("[open] c_path: {:?}", c_path);
             println!("[open] oflag: {:?}", oflag);
             println!("[open] mode: {:?}", mode);
             println!("[open] kernel fd: {:?}", kernel_fd);
+            if errno == libc::ENOENT {
+                return syscall_error(Errno::ENOENT, "open", "No such file or directory");
+            }
             io::stdout().flush().unwrap();
             return kernel_fd;
         }
