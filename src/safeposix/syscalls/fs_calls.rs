@@ -298,9 +298,15 @@ impl Cage {
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
+            let errno = unsafe {
+                *libc::__errno_location() 
+            } as i32;
             println!("[stat] Error message: {:?}", err_msg);
             println!("[stat] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
+            if errno == libc::ENOENT {
+                return syscall_error(Errno::ENOENT, "stat", "No such file or directory");
+            }
             return libcret;
         }
         
