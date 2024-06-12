@@ -115,6 +115,7 @@ const WRITEV_SYSCALL: i32 = 170;
 use std::collections::HashMap;
 
 use super::cage::*;
+use super::syscalls::kernel_close;
 // use crate::example_grates::vanillaglobal::*;
 use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::muthashmaxglobal::*;
@@ -1135,6 +1136,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
 
     // fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp/").unwrap();
     // std::env::set_current_dir("/").unwrap();
+    register_close_handlers(NULL_FUNC, kernel_close, NULL_FUNC);
     
     let utilcage = Cage {
         cageid: 0,

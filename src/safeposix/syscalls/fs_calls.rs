@@ -1279,11 +1279,16 @@ impl Cage {
     *   - 0, EOF
     *   - -1, fail 
     */
-    // pub fn getdents_syscall(&self, virtual_fd: u64, dirp: *mut u8, bufsize: u64) -> i32 {
-    //     let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-    //     unsafe {
-    //     }
-    // }
+    
+    pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
+        // let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "getdents", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+        unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd as i32, buf as *mut c_void, nbytes) as i32 }
+    }
 
     //------------------------------------GETCWD SYSCALL------------------------------------
     /*
@@ -1302,16 +1307,6 @@ impl Cage {
             *buf.add(path.len()) = 0;
         }
         0
-    }
-
-    pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
-        // let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
-            return syscall_error(Errno::EBADF, "getdents", "Bad File Descriptor");
-        }
-        let kernel_fd = kfd.unwrap();
-        unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd as i32, buf as *mut c_void, nbytes) as i32 }
     }
 
     //------------------SHMHELPERS----------------------

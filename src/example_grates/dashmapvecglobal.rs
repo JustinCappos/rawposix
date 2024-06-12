@@ -88,8 +88,8 @@ lazy_static! {
     static ref CLOSEHANDLERTABLE: Mutex<CloseHandlers> = {
         let c = CloseHandlers {
             intermediate_handler:NULL_FUNC, 
-            // final_handler:NULL_FUNC,
-            final_handler:kernel_close,
+            final_handler:NULL_FUNC,
+            // final_handler:kernel_close,
             unreal_handler:NULL_FUNC,
         };
         Mutex::new(c)
