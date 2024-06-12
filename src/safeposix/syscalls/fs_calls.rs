@@ -75,6 +75,8 @@ impl Cage {
             };
             println!("[open] Error message: {:?}", err_msg);
             println!("[open] c_path: {:?}", c_path);
+            println!("[open] oflag: {:?}", oflag);
+            println!("[open] mode: {:?}", mode);
             io::stdout().flush().unwrap();
             return -1;
         }
