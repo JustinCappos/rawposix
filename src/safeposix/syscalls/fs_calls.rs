@@ -156,8 +156,16 @@ impl Cage {
     */
     pub fn link_syscall(&self, oldpath: &str, newpath: &str) -> i32 {
         // Convert data type from &str into *const i8
-        let old_cpath = CString::new(oldpath).expect("CString::new failed");
-        let new_cpath = CString::new(newpath).expect("CString::new failed");
+        let rel_oldpath = normpath(convpath(oldpath), self);
+        let relative_oldpath = rel_oldpath.to_str().unwrap();
+        let full_oldpath = format!("{}{}", LIND_ROOT, relative_oldpath);
+        let old_cpath = CString::new(full_oldpath).unwrap();
+
+        let rel_newpath = normpath(convpath(newpath), self);
+        let relative_newpath = rel_newpath.to_str().unwrap();
+        let full_newpath = format!("{}{}", LIND_ROOT, relative_newpath);
+        let new_cpath = CString::new(full_newpath).unwrap();
+        
         let ret = unsafe {
             libc::link(old_cpath.as_ptr(), new_cpath.as_ptr())
         };
@@ -183,10 +191,16 @@ impl Cage {
     *   unlink() will return 0 when success and -1 when fail 
     */
     pub fn unlink_syscall(&self, path: &str) -> i32 {
-        let (path_c, _, _) = path.to_string().into_raw_parts();
+        // let (path_c, _, _) = path.to_string().into_raw_parts();
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
+
         let ret = unsafe {
-            libc::unlink(path_c as *const i8)
+            libc::unlink(c_path.as_ptr())
         };
+
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
@@ -198,7 +212,7 @@ impl Cage {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
             println!("[unlink] Error message: {:?}", err_msg);
-            println!("[unlink] c_path: {:?}", path_c);
+            println!("[unlink] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
         }
         ret
