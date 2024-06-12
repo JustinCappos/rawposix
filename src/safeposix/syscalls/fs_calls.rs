@@ -305,33 +305,30 @@ impl Cage {
     //     }
     // }
     pub fn fstat_syscall(&self, virtual_fd: i32, rposix_statbuf: &mut StatData) -> i32 {
-        // let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        match translate_virtual_fd(self.cageid, virtual_fd as u64) {
-            Ok(kernel_fd) => {
-                // Declare statbuf by ourselves 
-                let mut libc_statbuf: stat = unsafe { std::mem::zeroed() };
-                let libcret = unsafe {
-                libc::fstat(kernel_fd as i32, &mut libc_statbuf)
-                };
-                
-                if libcret == 0 {
-                    rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
-                    rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
-                    rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
-                    rposix_statbuf.st_gid = libc_statbuf.st_gid;
-                    rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
-                    rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
-                    rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
-                    rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
-                    rposix_statbuf.st_size = libc_statbuf.st_size as usize;
-                    rposix_statbuf.st_uid = libc_statbuf.st_uid;
-                }
-                return libcret;
-            },
-            Err(_e) => {
-                return -1;
-            },
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "fstat", "Bad File Descriptor");
         }
+        let kernel_fd = kfd.unwrap();
+        // Declare statbuf by ourselves 
+        let mut libc_statbuf: stat = unsafe { std::mem::zeroed() };
+        let libcret = unsafe {
+        libc::fstat(kernel_fd as i32, &mut libc_statbuf)
+        };
+        
+        if libcret == 0 {
+            rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
+            rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
+            rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
+            rposix_statbuf.st_gid = libc_statbuf.st_gid;
+            rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
+            rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
+            rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
+            rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
+            rposix_statbuf.st_size = libc_statbuf.st_size as usize;
+            rposix_statbuf.st_uid = libc_statbuf.st_uid;
+        }
+        libcret
         
     }
 
@@ -372,8 +369,11 @@ impl Cage {
     *   fstatfs() will return 0 when success and -1 when fail 
     */
     pub fn fstatfs_syscall(&self, virtual_fd: i32, rposix_databuf: &mut FSData) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "fstatfs", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let mut libc_databuf: statfs = unsafe { mem::zeroed() };
         let libcret = unsafe {
             libc::fstatfs(kernel_fd as i32, &mut libc_databuf)
@@ -392,7 +392,7 @@ impl Cage {
             rposix_databuf.f_frsize = 4096;
             rposix_databuf.f_spare = [0; 32];
         }
-        libcret
+        return libcret;
     }
 
     //------------------------------------READ SYSCALL------------------------------------
@@ -403,7 +403,11 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn read_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: usize) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "read", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::read(kernel_fd as i32, readbuf as *mut c_void, count) as i32
         };
@@ -422,7 +426,8 @@ impl Cage {
             io::stdout().flush().unwrap();
             return -1;
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------PREAD SYSCALL------------------------------------
@@ -433,7 +438,11 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn pread_syscall(&self, virtual_fd: i32, buf: *mut u8, count: usize, offset: i64) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "pread", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::pread(kernel_fd as i32, buf as *mut c_void, count, offset) as i32
         };
@@ -451,7 +460,8 @@ impl Cage {
             println!("[pread] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------WRITE SYSCALL------------------------------------
@@ -462,7 +472,11 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn write_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::write(kernel_fd as i32, buf as *const c_void, count) as i32
         };
@@ -480,34 +494,8 @@ impl Cage {
             println!("[write] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
-    }
-
-    pub fn writev_syscall(
-        &self,
-        virtual_fd: i32,
-        iovec: *const interface::IovecStruct,
-        iovcnt: i32,
-    ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-        let ret = unsafe {
-            libc::writev(kernel_fd as i32, iovec, iovcnt)
-        };
-        if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[writev] Error message: {:?}", err_msg);
-            io::stdout().flush().unwrap();
-            panic!();
-        }
-        ret as i32
+        return ret;
+        
     }
 
     //------------------------------------PWRITE SYSCALL------------------------------------
@@ -518,7 +506,11 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn pwrite_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize, offset: i64) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "pwrite", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::pwrite(kernel_fd as i32, buf as *const c_void, count, offset) as i32
         };
@@ -536,7 +528,41 @@ impl Cage {
             println!("[pwrite] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
+    }
+
+    //------------------------------------WRITEV SYSCALL------------------------------------
+
+    pub fn writev_syscall(
+        &self,
+        virtual_fd: i32,
+        iovec: *const interface::IovecStruct,
+        iovcnt: i32,
+    ) -> i32 {
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "writev", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+        let ret = unsafe {
+            libc::writev(kernel_fd as i32, iovec, iovcnt)
+        };
+        if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[writev] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+        }
+        return ret as i32;
+        
     }
 
     //------------------------------------LSEEK SYSCALL------------------------------------
@@ -547,7 +573,11 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn lseek_syscall(&self, virtual_fd: i32, offset: isize, whence: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "lseek", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::lseek(kernel_fd as i32, offset as i64, whence) as i32
         };
@@ -565,7 +595,8 @@ impl Cage {
             println!("[lseek] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------ACCESS SYSCALL------------------------------------
@@ -604,7 +635,11 @@ impl Cage {
     *   fchdir() will return 0 when sucess, -1 when fail 
     */
     pub fn fchdir_syscall(&self, virtual_fd: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "fchdir", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::fchdir(kernel_fd as i32)
         };
@@ -622,7 +657,8 @@ impl Cage {
             println!("[fchdir] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------CHDIR SYSCALL------------------------------------
@@ -646,24 +682,36 @@ impl Cage {
     *   Then return virtual fd
     */
     pub fn dup_syscall(&self, virtual_fd: i32, _start_desc: Option<i32>) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "dup", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret_kernelfd = unsafe{ libc::dup(kernel_fd as i32) };
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
-        ret_virtualfd as i32
+        return ret_virtualfd as i32;
+        
     }
 
     /* 
     */
     pub fn dup2_syscall(&self, old_virtualfd: i32, new_virtualfd: i32) -> i32 {
-        let old_kernelfd = translate_virtual_fd(self.cageid, old_virtualfd as u64).unwrap();
-        let new_kernelfd = unsafe {
-            libc::dup(old_kernelfd as i32)
-        };
-        // Map new kernel fd with provided kernel fd
-        let _ret_kernelfd = unsafe{ libc::dup2(old_kernelfd as i32, new_kernelfd) };
-        let optinfo = get_optionalinfo(self.cageid, old_virtualfd as u64).unwrap();
-        let _ = get_specific_virtual_fd(self.cageid, new_virtualfd as u64, new_kernelfd as u64, false, optinfo).unwrap();
-        new_virtualfd
+        match translate_virtual_fd(self.cageid, old_virtualfd as u64) {
+            Ok(old_kernelfd) => {
+                let new_kernelfd = unsafe {
+                    libc::dup(old_kernelfd as i32)
+                };
+                // Map new kernel fd with provided kernel fd
+                let _ret_kernelfd = unsafe{ libc::dup2(old_kernelfd as i32, new_kernelfd) };
+                let optinfo = get_optionalinfo(self.cageid, old_virtualfd as u64).unwrap();
+                let _ = get_specific_virtual_fd(self.cageid, new_virtualfd as u64, new_kernelfd as u64, false, optinfo).unwrap();
+                return new_virtualfd;
+            },
+            Err(_e) => {
+                return syscall_error(Errno::EBADF, "dup2", "Bad File Descriptor");
+            }
+        }
+        
     }
 
     //------------------------------------CLOSE SYSCALL------------------------------------
@@ -721,7 +769,11 @@ impl Cage {
        On error, -1 is returned 
     */
     pub fn fcntl_syscall(&self, virtual_fd: i32, cmd: i32, arg: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "fcntl", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         if cmd == libc::F_DUPFD {
             let new_kernelfd = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
             // Get status
@@ -743,7 +795,8 @@ impl Cage {
             println!("[fcntl] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------IOCTL SYSCALL------------------------------------
@@ -755,7 +808,11 @@ impl Cage {
     *   a nonnegative value on success.
     */
     pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: *mut u8) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "ioctl", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe { libc::ioctl(kernel_fd as i32, request, ptrunion as *mut c_void) };
         if ret < 0 {
             let err = unsafe {
@@ -771,7 +828,8 @@ impl Cage {
             println!("[ioctl] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
 
@@ -811,7 +869,11 @@ impl Cage {
     *   fchmod() will return 0 when sucess, -1 when fail 
     */
     pub fn fchmod_syscall(&self, virtual_fd: i32, mode: u32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "fchmod", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::fchmod(kernel_fd as i32, mode)
         };
@@ -829,7 +891,8 @@ impl Cage {
             println!("[fchmod] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------MMAP SYSCALL------------------------------------
@@ -849,12 +912,18 @@ impl Cage {
         off: i64,
     ) -> i32 {
         if virtual_fd != -1 {
-            let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
-            let ret = unsafe {
-                ((libc::mmap(addr as *mut c_void, len, prot, flags, kernel_fd as i32, off) as i64) 
-                    & 0xffffffff) as i32
-            };
-            return ret;
+            match translate_virtual_fd(self.cageid, virtual_fd as u64) {
+                Ok(kernel_fd) => {
+                    let ret = unsafe {
+                        ((libc::mmap(addr as *mut c_void, len, prot, flags, kernel_fd as i32, off) as i64) 
+                            & 0xffffffff) as i32
+                    };
+                    return ret;
+                },
+                Err(_e) => {
+                    return syscall_error(Errno::EBADF, "mmap", "Bad File Descriptor");
+                }
+            }
         }
         
         // Do type conversion to translate from c_void into i32
@@ -882,7 +951,11 @@ impl Cage {
     *   flock() will return 0 when sucess, -1 when fail 
     */
     pub fn flock_syscall(&self, virtual_fd: i32, operation: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "flock", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::flock(kernel_fd as i32, operation)
         };
@@ -900,7 +973,8 @@ impl Cage {
             println!("[flock] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------RMDIR SYSCALL------------------
@@ -975,7 +1049,11 @@ impl Cage {
     *   fsync() will return 0 when sucess, -1 when fail 
     */
     pub fn fsync_syscall(&self, virtual_fd: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "fsync", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::fsync(kernel_fd as i32)
         };
@@ -993,7 +1071,8 @@ impl Cage {
             println!("[fsync] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------FDATASYNC SYSCALL------------------------------------
@@ -1002,7 +1081,11 @@ impl Cage {
     *   fdatasync() will return 0 when sucess, -1 when fail 
     */
     pub fn fdatasync_syscall(&self, virtual_fd: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "fdatasync", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::fdatasync(kernel_fd as i32)
         };
@@ -1020,7 +1103,8 @@ impl Cage {
             println!("[fdatasync] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
         }
-        ret
+        return ret;
+        
     }
 
     //------------------------------------SYNC_FILE_RANGE SYSCALL------------------------------------
@@ -1035,7 +1119,11 @@ impl Cage {
         nbytes: isize,
         flags: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "sync", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::sync_file_range(kernel_fd as i32, offset as i64, nbytes as i64, flags)
         };
@@ -1062,7 +1150,11 @@ impl Cage {
     *   ftruncate() will return 0 when sucess, -1 when fail 
     */
     pub fn ftruncate_syscall(&self, virtual_fd: i32, length: isize) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "ftruncate", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         let ret = unsafe {
             libc::ftruncate(kernel_fd as i32, length as i64)
         };

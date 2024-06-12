@@ -53,7 +53,11 @@ impl Cage {
         /*
             translate_virtual_fd(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetVal>
         */
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "bind", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
 
         let (finalsockaddr, addrlen) = match addr {
             GenSockaddr::V6(addrref6) => (
@@ -85,10 +89,6 @@ impl Cage {
             io::stdout().flush().unwrap();
             // panic!();
         }
-        // println!("[Bind] GenSockAddr addr: {:?}\nGenSockAddr port: {:?}\nGenSockAddr family: {:?}", addr.addr(), addr.port(), addr.get_family());
-        // println!("[Bind] GenSockaddr after: {:?}", addr);
-        // io::stdout().flush().unwrap();
-
         ret
     }
 
@@ -97,7 +97,11 @@ impl Cage {
      *   connect() will return 0 when success and -1 when fail
      */
     pub fn connect_syscall(&self, virtual_fd: i32, addr: &GenSockaddr) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "connect", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
 
         let (finalsockaddr, addrlen) = match addr {
             GenSockaddr::V6(addrref6) => (
@@ -128,9 +132,6 @@ impl Cage {
             println!("[Connect] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
         }
-
-        // println!("[Connect] kernel fd: {:?}", kernel_fd);
-        // io::stdout().flush().unwrap();
         ret
     }
 
@@ -146,7 +147,11 @@ impl Cage {
         flags: i32,
         dest_addr: &GenSockaddr,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "sendto", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
 
         let (finalsockaddr, addrlen) = match dest_addr {
             GenSockaddr::V6(addrref6) => (
@@ -186,7 +191,12 @@ impl Cage {
         buflen: usize,
         flags: i32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "send", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+
         let ret = unsafe { libc::send(kernel_fd as i32, buf as *const c_void, buflen, flags) as i32};
         if ret < 0 {
             let err = unsafe {
@@ -222,7 +232,11 @@ impl Cage {
         flags: i32,
         addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap(); 
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "recvfrom", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
 
         let (finalsockaddr, mut addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
@@ -268,7 +282,12 @@ impl Cage {
      *       - Fail: -1
      */
     pub fn recv_syscall(&self, virtual_fd: i32, buf: *mut u8, len: usize, flags: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "recv", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+
         let ret = unsafe { libc::recv(kernel_fd as i32, buf as *mut c_void, len, flags) as i32 };
         if ret < 0 {
             let err = unsafe {
@@ -293,7 +312,12 @@ impl Cage {
      *   listen() will return 0 when success and -1 when fail
      */
     pub fn listen_syscall(&self, virtual_fd: i32, backlog: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "listen", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+
         let ret = unsafe { libc::listen(kernel_fd as i32, backlog) };
         if ret < 0 {
             let err = unsafe {
@@ -317,7 +341,12 @@ impl Cage {
      *   shutdown() will return 0 when success and -1 when fail
      */
     pub fn shutdown_syscall(&self, virtual_fd: i32, how: i32) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "shutdown", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+
         unsafe { libc::shutdown(kernel_fd as i32, how) }
     }
 
@@ -336,7 +365,11 @@ impl Cage {
         virtual_fd: i32,
         _addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "accept", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
 
         let finalsockaddr = std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr;
         
@@ -493,7 +526,12 @@ impl Cage {
         optval: *mut u8,
         optlen: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "getsockopt", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+
         let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
         if ret < 0 {
             let err = unsafe {
@@ -524,7 +562,12 @@ impl Cage {
         optval: *mut u8,
         optlen: u32,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "setsockopt", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
+
         let ret = unsafe { 
             libc::setsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen)
         };
@@ -554,7 +597,11 @@ impl Cage {
         virtual_fd: i32,
         address: &mut Option<&mut GenSockaddr>
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "getpeername", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
         
         let (finalsockaddr, addrlen) = match address {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
@@ -583,7 +630,11 @@ impl Cage {
         virtual_fd: i32,
         address: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() {
+            return syscall_error(Errno::EBADF, "getsockname", "Bad File Descriptor");
+        }
+        let kernel_fd = kfd.unwrap();
 
         let (finalsockaddr, addrlen) = match address {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
@@ -738,9 +789,14 @@ impl Cage {
         virtual_fd: i32,
         epollevent: &mut EpollEvent,
     ) -> i32 {
+        let k_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64);
+        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if kfd.is_err() || k_epfd.is_err() {
+            return syscall_error(Errno::EBADF, "epoll", "Bad File Descriptor");
+        }
 
-        let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
-        let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64).unwrap();
+        let kernel_epfd = k_epfd.unwrap();
+        let kernel_fd = kfd.unwrap();
         // EpollEvent conversion
         let event = epollevent.events;
         let mut epoll_event = epoll_event {
@@ -803,7 +859,12 @@ impl Cage {
         maxevents: i32,
         timeout: i32,
     ) -> i32 {
-        let kernel_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64).unwrap();
+        let k_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64);
+        if k_epfd.is_err() {
+            return syscall_error(Errno::EBADF, "epoll_wait", "Bad File Descriptor");
+        }
+        let kernel_epfd = k_epfd.unwrap();
+        
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
 
         // Should always be null value before we call libc::epoll_wait
@@ -931,7 +992,12 @@ pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec
 
     for vfd in &mut *virtual_poll {
 
-        let real_fd = translate_virtual_fd(cageid, vfd.fd as u64).unwrap();
+        let rfd = translate_virtual_fd(cageid, vfd.fd as u64);
+        if rfd.is_err() {
+            // return syscall_error(Errno::EBADF, "poll", "Bad File Descriptor");
+            panic!();
+        }
+        let real_fd = rfd.unwrap();
         let kernel_poll = pollfd {
             fd: real_fd as i32,
             events: vfd.events,
