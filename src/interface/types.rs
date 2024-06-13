@@ -726,7 +726,8 @@ pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interf
                 std::ptr::copy(
                     (unixa) as *mut interface::SockaddrUnix as *mut u8,
                     copyoutaddr,
-                    fullcopylen as usize,
+                    // fullcopylen as usize,
+                    initaddrlen as usize,
                 )
             };
             unsafe {
@@ -746,7 +747,8 @@ pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interf
                 std::ptr::copy(
                     (v4a) as *mut interface::SockaddrV4 as *mut u8,
                     copyoutaddr,
-                    fullcopylen as usize,
+                    // fullcopylen as usize,
+                    initaddrlen as usize,
                 )
             };
             unsafe {
@@ -762,7 +764,8 @@ pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interf
                 std::ptr::copy(
                     (v6a) as *mut interface::SockaddrV6 as *mut u8,
                     copyoutaddr,
-                    fullcopylen as usize,
+                    // fullcopylen as usize,
+                    initaddrlen as usize,
                 )
             };
             unsafe {
