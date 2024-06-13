@@ -74,6 +74,7 @@ impl Cage {
                 size_of::<SockaddrV4>(),
             ),
             GenSockaddr::Unix(addrrefu) => {
+                
                 // Convert sun_path to LIND_ROOT path
                 let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
                 let lind_path = format!("{}{}", LIND_ROOT, &original_path[1..]); // Skip the initial '/' in original path
@@ -83,18 +84,23 @@ impl Cage {
                     panic!("New path is too long to fit in sun_path");
                 }
 
-                // Use ptr::copy_nonoverlapping to copy the new path into sun_path
+                let mut new_addr = SockaddrUnix {
+                    sun_family: addrrefu.sun_family,
+                    sun_path: [0; 108],
+                };
+
+                // Copy the new path into sun_path
                 unsafe {
                     ptr::copy_nonoverlapping(
                         lind_path.as_ptr(),
-                        addrrefu.sun_path.as_mut_ptr() as *mut u8,
+                        new_addr.sun_path.as_mut_ptr() as *mut u8,
                         lind_path.len()
                     );
-                    *addrrefu.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                    *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
                 }
 
                 (
-                    (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                    (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
                 )
                 
@@ -102,7 +108,7 @@ impl Cage {
             
         };
         println!("[Bind] After GenSockaddr: {:?}", addr);
-        println!("[Bind] finalsockaddr: {:?}", finalsockaddr);
+        // println!("[Bind] finalsockaddr: {:?}", (*(finalsockaddr as *const sockaddr_un)).sun_path);
         io::stdout().flush().unwrap();
 
         let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
