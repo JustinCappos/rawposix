@@ -434,9 +434,35 @@ impl Cage {
         }
 
         // change the GenSockaddr type according to the sockaddr we received 
+        // GenSockAddr will be modified after libc::accept returns 
+        // So we only need to modify values in GenSockAddr, and rest of the things will be finished in dispatcher stage
         println!("[Accept] After GenSockaddr: {:?}", addr);
         println!("[Accept] finalsockaddr: {:?}", finalsockaddr);
         io::stdout().flush().unwrap();
+
+        if let Some(sockaddr) = addr {
+            if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
+                unsafe {
+                    let sun_path_cstr = CStr::from_ptr(sockaddr_unix.sun_path.as_ptr() as *const i8);
+                    let sun_path_str = sun_path_cstr.to_str().unwrap();
+            
+                    if sun_path_str.starts_with(LIND_ROOT) {
+                        let new_path_str = &sun_path_str[LIND_ROOT.len()..];
+                        let new_path_bytes = new_path_str.as_bytes();
+            
+                        // Clear the existing sun_path
+                        for i in 0..sockaddr_unix.sun_path.len() {
+                            sockaddr_unix.sun_path[i] = 0;
+                        }
+            
+                        // Copy new path into sun_path
+                        for (i, &b) in new_path_bytes.iter().enumerate() {
+                            sockaddr_unix.sun_path[i] = b;
+                        }
+                    }
+                }
+            }
+        }
 
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
         
