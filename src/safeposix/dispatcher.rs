@@ -121,8 +121,8 @@ use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::muthashmaxglobal::*;
 // use crate::example_grates::dashmaparrayglobal::*;
 
-// Chroot
-use std::os::unix::fs;
+use std::io::{Read, Write};
+use std::io;
 
 // use super::filesystem::{
 //     incref_root, load_fs, persist_metadata, remove_domain_sock, FilesystemMetadata, FS_METADATA,
@@ -607,6 +607,11 @@ pub extern "C" fn dispatcher(
         GETSOCKNAME_SYSCALL => {
             // let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
             let mut addr = interface::set_gensockaddr(arg2, arg3).unwrap();
+
+            let len = interface::get_socklen_t_ptr(arg3).unwrap();
+            println!("[Dispatcher getsockname] socklen: {:?}", len);
+            io::stdout().flush().unwrap();
+
             if interface::arg_nullity(&arg2) || interface::arg_nullity(&arg3) {
                 return syscall_error(
                     Errno::EINVAL,
