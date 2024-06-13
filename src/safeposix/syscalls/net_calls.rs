@@ -61,6 +61,9 @@ impl Cage {
         }
         let kernel_fd = kfd.unwrap();
 
+        println!("[Bind] Before GenSockaddr: {:?}", addr);
+        io::stdout().flush().unwrap();
+
         let (finalsockaddr, addrlen) = match addr {
             GenSockaddr::V6(addrref6) => (
                 (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
@@ -91,6 +94,9 @@ impl Cage {
             }
             
         };
+        println!("[Bind] After GenSockaddr: {:?}", addr);
+        println!("[Bind] finalsockaddr: {:?}", finalsockaddr);
+        io::stdout().flush().unwrap();
 
         let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
         if ret < 0 {
