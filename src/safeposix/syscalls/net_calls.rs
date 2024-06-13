@@ -854,6 +854,7 @@ impl Cage {
             };
             println!("[getsockname] Error message: {:?}", err_msg);
             println!("[getsockname] address: {:?}", address);
+            println!("[getsockname] finalsockaddr: {:?}", finalsockaddr);
             io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "getsockname");
