@@ -1021,6 +1021,7 @@ impl Cage {
             let errno = get_errno();
             return handle_errno(errno, "munmap");
         }
+        ret
     }
 
     //------------------------------------FLOCK SYSCALL------------------------------------
