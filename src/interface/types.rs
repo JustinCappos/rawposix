@@ -732,8 +732,12 @@ pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interf
 
         interface::GenSockaddr::V4(ref mut v4a) => {
             let v4len = size_of::<interface::SockaddrV4>() as u32;
-
+            
             let fullcopylen = interface::rust_min(initaddrlen, v4len);
+            println!("[Dispatcher copy] v4len: {:?}", v4len);
+            println!("[Dispatcher copy] initaddrlen: {:?}", initaddrlen);
+            println!("[Dispatcher copy] fullcopylen: {:?}", fullcopylen);
+            io::stdout().flush().unwrap();
             unsafe {
                 std::ptr::copy(
                     (v4a) as *mut interface::SockaddrV4 as *mut u8,
