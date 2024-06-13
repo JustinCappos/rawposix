@@ -405,6 +405,9 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
+        println!("[Accept] Before GenSockaddr: {:?}", addr);
+        io::stdout().flush().unwrap();
+
         let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, &mut addrlen as *mut u32) };
 
         if ret_kernelfd < 0 {
@@ -431,7 +434,7 @@ impl Cage {
         }
 
         // change the GenSockaddr type according to the sockaddr we received 
-        println!("[Accept] GenSockaddr: {:?}", addr);
+        println!("[Accept] After GenSockaddr: {:?}", addr);
         println!("[Accept] finalsockaddr: {:?}", finalsockaddr);
         io::stdout().flush().unwrap();
 
