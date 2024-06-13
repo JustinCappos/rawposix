@@ -5,6 +5,8 @@ use super::fs_constants;
 use super::fs_constants::*;
 use super::sys_constants::*;
 use crate::interface;
+use crate::interface::get_errno;
+use crate::interface::handle_errno;
 use crate::interface::FSData;
 use crate::safeposix::cage::Errno::EINVAL;
 use crate::safeposix::cage::*;
@@ -62,27 +64,22 @@ impl Cage {
 
         if kernel_fd < 0 {
             let err = unsafe {
-                libc::__errno_location()
+                *libc::__errno_location()
             };
             let err_str = unsafe {
-                libc::strerror(*err)
+                libc::strerror(err)
             };
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
-            let errno = unsafe {
-                *libc::__errno_location() 
-            } as i32;
             println!("[open] Error message: {:?}", err_msg);
             println!("[open] c_path: {:?}", c_path);
             println!("[open] oflag: {:?}", oflag);
             println!("[open] mode: {:?}", mode);
             println!("[open] kernel fd: {:?}", kernel_fd);
-            if errno == libc::ENOENT {
-                return syscall_error(Errno::ENOENT, "open", "No such file or directory");
-            }
             io::stdout().flush().unwrap();
-            return kernel_fd;
+            let errno = get_errno();
+            return handle_errno(errno, "open");
         }
 
         let should_cloexec = (oflag & O_CLOEXEC) != 0;
@@ -119,6 +116,8 @@ impl Cage {
             println!("[mkdir] Error message: {:?}", err_msg);
             println!("[mkdir] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "mkdir");
         }
         ret
     }
@@ -150,6 +149,8 @@ impl Cage {
             println!("[mknod] Error message: {:?}", err_msg);
             println!("[mknod] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "mknod");
         }
         ret
     }
@@ -186,6 +187,8 @@ impl Cage {
             println!("[link] Error message: {:?}", err_msg);
             println!("[link] c_path: {:?}", old_cpath);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "link");
         }
         ret
     }
@@ -221,9 +224,8 @@ impl Cage {
             println!("[unlink] Error message: {:?}", err_msg);
             println!("[unlink] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
-            if errno == libc::ENOENT {
-                return syscall_error(Errno::ENOENT, "unlink", "No such file or directory");
-            }
+            let errno = get_errno();
+            return handle_errno(errno, "unlink");
         }
         ret
     }
@@ -255,7 +257,8 @@ impl Cage {
             println!("[creat] Error message: {:?}", err_msg);
             println!("[creat] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
-            return kernel_fd;
+            let errno = get_errno();
+            return handle_errno(errno, "creat");
         }
         
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
@@ -304,24 +307,21 @@ impl Cage {
             println!("[stat] Error message: {:?}", err_msg);
             println!("[stat] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
-            if errno == libc::ENOENT {
-                return syscall_error(Errno::ENOENT, "stat", "No such file or directory");
-            }
-            return libcret;
+            let errno = get_errno();
+            return handle_errno(errno, "stat");
         }
         
-        if libcret == 0 {
-            rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
-            rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
-            rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
-            rposix_statbuf.st_gid = libc_statbuf.st_gid;
-            rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
-            rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
-            rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
-            rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
-            rposix_statbuf.st_size = libc_statbuf.st_size as usize;
-            rposix_statbuf.st_uid = libc_statbuf.st_uid;
-        }
+        rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
+        rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
+        rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
+        rposix_statbuf.st_gid = libc_statbuf.st_gid;
+        rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
+        rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
+        rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
+        rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
+        rposix_statbuf.st_size = libc_statbuf.st_size as usize;
+        rposix_statbuf.st_uid = libc_statbuf.st_uid;
+
         libcret
     }
 
@@ -347,19 +347,23 @@ impl Cage {
         let libcret = unsafe {
         libc::fstat(kernel_fd as i32, &mut libc_statbuf)
         };
-        
-        if libcret == 0 {
-            rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
-            rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
-            rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
-            rposix_statbuf.st_gid = libc_statbuf.st_gid;
-            rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
-            rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
-            rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
-            rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
-            rposix_statbuf.st_size = libc_statbuf.st_size as usize;
-            rposix_statbuf.st_uid = libc_statbuf.st_uid;
+
+        if libcret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "fstat");
         }
+        
+        rposix_statbuf.st_blksize = libc_statbuf.st_blksize as i32;
+        rposix_statbuf.st_blocks = libc_statbuf.st_blocks as u32;
+        rposix_statbuf.st_dev = libc_statbuf.st_dev as u64;
+        rposix_statbuf.st_gid = libc_statbuf.st_gid;
+        rposix_statbuf.st_ino = libc_statbuf.st_ino as usize;
+        rposix_statbuf.st_mode = libc_statbuf.st_mode as u32;
+        rposix_statbuf.st_nlink = libc_statbuf.st_nlink as u32;
+        rposix_statbuf.st_rdev = libc_statbuf.st_rdev as u64;
+        rposix_statbuf.st_size = libc_statbuf.st_size as usize;
+        rposix_statbuf.st_uid = libc_statbuf.st_uid;
+
         libcret
         
     }
@@ -378,20 +382,25 @@ impl Cage {
         let libcret = unsafe {
             libc::statfs(c_path.as_ptr(), &mut libc_databuf)
         };
-        if libcret == 0 {
-            rposix_databuf.f_bavail = libc_databuf.f_bavail;
-            rposix_databuf.f_bfree = libc_databuf.f_bfree;
-            rposix_databuf.f_blocks = libc_databuf.f_blocks;
-            rposix_databuf.f_bsize = libc_databuf.f_bsize as u64;
-            rposix_databuf.f_files = libc_databuf.f_files;
-            /* TODO: different from libc struct */
-            rposix_databuf.f_fsid = 0; 
-            rposix_databuf.f_type = libc_databuf.f_type as u64;
-            rposix_databuf.f_ffiles = 1024 * 1024 * 515;
-            rposix_databuf.f_namelen = 254;
-            rposix_databuf.f_frsize = 4096;
-            rposix_databuf.f_spare = [0; 32];
+
+        if libcret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "statfs");
         }
+
+        rposix_databuf.f_bavail = libc_databuf.f_bavail;
+        rposix_databuf.f_bfree = libc_databuf.f_bfree;
+        rposix_databuf.f_blocks = libc_databuf.f_blocks;
+        rposix_databuf.f_bsize = libc_databuf.f_bsize as u64;
+        rposix_databuf.f_files = libc_databuf.f_files;
+        /* TODO: different from libc struct */
+        rposix_databuf.f_fsid = 0; 
+        rposix_databuf.f_type = libc_databuf.f_type as u64;
+        rposix_databuf.f_ffiles = 1024 * 1024 * 515;
+        rposix_databuf.f_namelen = 254;
+        rposix_databuf.f_frsize = 4096;
+        rposix_databuf.f_spare = [0; 32];
+
         libcret
     }
 
@@ -410,20 +419,25 @@ impl Cage {
         let libcret = unsafe {
             libc::fstatfs(kernel_fd as i32, &mut libc_databuf)
         };
-        if libcret == 0 {
-            rposix_databuf.f_bavail = libc_databuf.f_bavail;
-            rposix_databuf.f_bfree = libc_databuf.f_bfree;
-            rposix_databuf.f_blocks = libc_databuf.f_blocks;
-            rposix_databuf.f_bsize = libc_databuf.f_bsize as u64;
-            rposix_databuf.f_files = libc_databuf.f_files;
-            /* TODO: different from libc struct */
-            rposix_databuf.f_fsid = 0; 
-            rposix_databuf.f_type = libc_databuf.f_type as u64;
-            rposix_databuf.f_ffiles = 1024 * 1024 * 515;
-            rposix_databuf.f_namelen = 254;
-            rposix_databuf.f_frsize = 4096;
-            rposix_databuf.f_spare = [0; 32];
+
+        if libcret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "fstatfs");
         }
+
+        rposix_databuf.f_bavail = libc_databuf.f_bavail;
+        rposix_databuf.f_bfree = libc_databuf.f_bfree;
+        rposix_databuf.f_blocks = libc_databuf.f_blocks;
+        rposix_databuf.f_bsize = libc_databuf.f_bsize as u64;
+        rposix_databuf.f_files = libc_databuf.f_files;
+        /* TODO: different from libc struct */
+        rposix_databuf.f_fsid = 0; 
+        rposix_databuf.f_type = libc_databuf.f_type as u64;
+        rposix_databuf.f_ffiles = 1024 * 1024 * 515;
+        rposix_databuf.f_namelen = 254;
+        rposix_databuf.f_frsize = 4096;
+        rposix_databuf.f_spare = [0; 32];
+
         return libcret;
     }
 
@@ -457,7 +471,8 @@ impl Cage {
             println!("kernel_fd: {:?}", kernel_fd);
             println!("vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
-            return ret;
+            let errno = get_errno();
+            return handle_errno(errno, "read");
         }
         return ret;
         
@@ -492,6 +507,8 @@ impl Cage {
             println!("[pread] Error message: {:?}", err_msg);
             println!("[pread] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "pread");
         }
         return ret;
         
@@ -526,6 +543,8 @@ impl Cage {
             println!("[write] Error message: {:?}", err_msg);
             println!("[write] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "write");
         }
         return ret;
         
@@ -560,6 +579,8 @@ impl Cage {
             println!("[pwrite] Error message: {:?}", err_msg);
             println!("[pwrite] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "pwrite");
         }
         return ret;
         
@@ -593,6 +614,8 @@ impl Cage {
             };
             println!("[writev] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "writev");
         }
         return ret as i32;
         
@@ -627,6 +650,8 @@ impl Cage {
             println!("[lseek] Error message: {:?}", err_msg);
             println!("[lseek] virtual fd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "lseek");
         }
         return ret;
         
@@ -658,6 +683,8 @@ impl Cage {
             println!("[access] Error message: {:?}", err_msg);
             println!("[access] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "access");
         }
         ret
     }
@@ -689,6 +716,8 @@ impl Cage {
             println!("[fchdir] Error message: {:?}", err_msg);
             println!("[fchdir] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "fchdir");
         }
         return ret;
         
@@ -827,6 +856,8 @@ impl Cage {
             println!("[fcntl] Error message: {:?}", err_msg);
             println!("[fcntl] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "fcntl");
         }
         return ret;
         
@@ -860,6 +891,8 @@ impl Cage {
             println!("[ioctl] Error message: {:?}", err_msg);
             println!("[ioctl] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "ioctl");
         }
         return ret;
         
@@ -892,6 +925,8 @@ impl Cage {
             println!("[chmod] Error message: {:?}", err_msg);
             println!("[chmod] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "chmod");
         }
         ret
     }
@@ -923,6 +958,8 @@ impl Cage {
             println!("[fchmod] Error message: {:?}", err_msg);
             println!("[fchmod] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "fchmod");
         }
         return ret;
         
@@ -951,6 +988,10 @@ impl Cage {
                         ((libc::mmap(addr as *mut c_void, len, prot, flags, kernel_fd as i32, off) as i64) 
                             & 0xffffffff) as i32
                     };
+                    if ret < 0 {
+                        let errno = get_errno();
+                        return handle_errno(errno, "mmap");
+                    }
                     return ret;
                 },
                 Err(_e) => {
@@ -973,8 +1014,12 @@ impl Cage {
     *   - -1, fail
     */
     pub fn munmap_syscall(&self, addr: *mut u8, len: usize) -> i32 {
-        unsafe {
+        let ret = unsafe {
             libc::munmap(addr as *mut c_void, len)
+        };
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "munmap");
         }
     }
 
@@ -1005,6 +1050,8 @@ impl Cage {
             println!("[flock] Error message: {:?}", err_msg);
             println!("[flock] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "flock");
         }
         return ret;
         
@@ -1036,6 +1083,8 @@ impl Cage {
             println!("[rmdir] Error message: {:?}", err_msg);
             println!("[rmdir] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "rmdir");
         }
         ret
     }
@@ -1072,6 +1121,8 @@ impl Cage {
             println!("[rename] old: {:?}", old_cpath);
             println!("[rename] new: {:?}", new_cpath);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "rename");
         }
         ret
     }
@@ -1103,6 +1154,8 @@ impl Cage {
             println!("[fsync] Error message: {:?}", err_msg);
             println!("[fsync] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "fsync");
         }
         return ret;
         
@@ -1135,6 +1188,8 @@ impl Cage {
             println!("[fdatasync] Error message: {:?}", err_msg);
             println!("[fdatasync] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "fdatasync");
         }
         return ret;
         
@@ -1173,6 +1228,8 @@ impl Cage {
             println!("[sync file range] Error message: {:?}", err_msg);
             println!("[sync file range] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "sync_file_range");
         }
         ret
     }
@@ -1204,6 +1261,8 @@ impl Cage {
             println!("[ftruncate] Error message: {:?}", err_msg);
             println!("[ftruncate] vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "ftruncate");
         }
         ret
     }
@@ -1234,6 +1293,8 @@ impl Cage {
             println!("[truncate] Error message: {:?}", err_msg);
             println!("[truncate] c_path: {:?}", c_path);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "truncate");
         }
         ret
     }
@@ -1250,6 +1311,11 @@ impl Cage {
         let mut kernel_fds = [0; 2];
         
         let ret = unsafe { libc::pipe(kernel_fds.as_mut_ptr() as *mut i32) };
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "pipe");
+        }
+
         pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0], false, 0).unwrap() as i32;
         pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1], false, 0).unwrap() as i32;
 
@@ -1260,6 +1326,10 @@ impl Cage {
         let mut kernel_fds:[i32; 2] = [0; 2];
         
         let ret = unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) };
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "pipe2");
+        }
 
         if flags == libc::O_CLOEXEC {
             pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0] as u64, true, 0).unwrap() as i32;
@@ -1288,7 +1358,12 @@ impl Cage {
             return syscall_error(Errno::EBADF, "getdents", "Bad File Descriptor");
         }
         let kernel_fd = kfd.unwrap();
-        unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd as i32, buf as *mut c_void, nbytes) as i32 }
+        let ret = unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd as i32, buf as *mut c_void, nbytes) as i32 };
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "getdents");
+        }
+        ret
     }
 
     //------------------------------------GETCWD SYSCALL------------------------------------

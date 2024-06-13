@@ -109,11 +109,9 @@ impl Cage {
 
         let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
+            let errno = get_errno();
             let err_str = unsafe {
-                libc::strerror(*err)
+                libc::strerror(errno)
             };
             let err_msg = unsafe {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
@@ -131,7 +129,8 @@ impl Cage {
             }
             println!("[Bind] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "bind");
         }
         ret
     }
@@ -201,6 +200,8 @@ impl Cage {
             };
             println!("[Connect] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "connect");
         }
         ret
     }
@@ -265,7 +266,7 @@ impl Cage {
             }
         };
 
-        unsafe {
+       let ret = unsafe {
             libc::sendto(
                 kernel_fd as i32,
                 buf as *const c_void,
@@ -274,7 +275,14 @@ impl Cage {
                 finalsockaddr,
                 addrlen as u32,
             ) as i32
+        };
+
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "sendto");
         }
+
+        ret
     }
 
     /*  
@@ -308,7 +316,8 @@ impl Cage {
             println!("[Send] Error message: {:?}", err_msg);
             println!("[Send] kernel fd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "send");
         }
         ret
     }
@@ -366,7 +375,8 @@ impl Cage {
             println!("[Recvfrom] Error message: {:?}", err_msg);
             println!("[Recvfrom] addr: {:?}", addr);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "recvfrom");
         }
         ret
     }
@@ -400,7 +410,8 @@ impl Cage {
             println!("[Recv] Error message: {:?}", err_msg);
             println!("[Recv] kernel fd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "recv");
         }
         ret
     }
@@ -429,7 +440,8 @@ impl Cage {
             };
             println!("[Listen] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "listen");
         }
         ret
     }
@@ -445,7 +457,14 @@ impl Cage {
         }
         let kernel_fd = kfd.unwrap();
 
-        unsafe { libc::shutdown(kernel_fd as i32, how) }
+        let ret = unsafe { libc::shutdown(kernel_fd as i32, how) };
+
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "bind");
+        }
+
+        ret
     }
 
     /*  
@@ -507,10 +526,8 @@ impl Cage {
             io::stdout().flush().unwrap();
             println!("[Accept] errno: {:?}", errno);
             io::stdout().flush().unwrap();
-            if errno == EAGAIN {
-                return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
-            }
-            return ret_kernelfd;
+            let errno = get_errno();
+            return handle_errno(errno, "accept");
         }
 
         // change the GenSockaddr type according to the sockaddr we received 
@@ -635,6 +652,8 @@ impl Cage {
             };
             println!("[Select] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "select");
         }
 
         // Revert result
@@ -703,7 +722,8 @@ impl Cage {
             };
             println!("[Getsockopt] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "getsockopt");
         }
         ret
     }
@@ -741,7 +761,8 @@ impl Cage {
             };
             println!("[Setsockopt] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "setsockopt");
         }
         ret
     }
@@ -776,7 +797,14 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        unsafe { libc::getpeername(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) }
+        let ret = unsafe { libc::getpeername(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
+
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "getpeername");
+        }
+
+        ret
     }
 
     /*  
@@ -809,14 +837,26 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        unsafe { libc::getsockname(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) }
+        let ret = unsafe { libc::getsockname(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
+
+        if ret < 0  {
+            let errno = get_errno();
+            return handle_errno(errno, "getsockname");
+        }
+
+        ret
     }
 
     /*  
      *   gethostname() will return 0 when success and -1 when fail
      */
     pub fn gethostname_syscall(&self, name: *mut u8, len: isize) -> i32 {
-        unsafe { libc::gethostname(name as *mut i8, len as usize) }
+        let ret = unsafe { libc::gethostname(name as *mut i8, len as usize) };
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "gethostname");
+        }
+        ret
     }
 
     
@@ -855,7 +895,8 @@ impl Cage {
             println!("[POLL] Error message: {:?}", err_msg);
             println!("[POLL] kernel fd: {:?}", real_fd);
             io::stdout().flush().unwrap();
-            // panic!();
+            let errno = get_errno();
+            return handle_errno(errno, "poll");
         }
 
         // Convert back to PollStruct
@@ -921,7 +962,8 @@ impl Cage {
             println!("[EPOLL] size: {:?}", size);
             println!("[EPOLL] kernelfd: {:?}", kernel_fd);
             io::stdout().flush().unwrap();
-            return -1;
+            let errno = get_errno();
+            return handle_errno(errno, "epoll_create");
         }
 
         // Get the virtual epfd
@@ -975,7 +1017,8 @@ impl Cage {
             };
             println!("[epoll_ctl] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
-            return -1;
+            let errno = get_errno();
+            return handle_errno(errno, "epoll_ctl");
         }
 
         // Update the virtual list -- but we only handle the non-real fd case
@@ -1000,6 +1043,8 @@ impl Cage {
             return ret;
         }
 
+        // [TODO]
+        // should be op not support
         -1
     }
 
@@ -1046,6 +1091,8 @@ impl Cage {
             };
             println!("[epoll_wait] Error message: {:?}", err_msg);
             io::stdout().flush().unwrap();
+            let errno = get_errno();
+            return handle_errno(errno, "epoll_wait");
         }
 
         // Convert back to rustposix's data structure
@@ -1077,16 +1124,18 @@ impl Cage {
         let mut kernel_socket_vector: [i32; 2] = [0, 0];
 
         let ret = unsafe { libc::socketpair(domain, type_, protocol, kernel_socket_vector.as_mut_ptr()) };
-        if ret == 0 {
-            let ksv_1 = kernel_socket_vector[0];
-            let ksv_2 = kernel_socket_vector[1];
-            let vsv_1 = get_unused_virtual_fd(self.cageid, ksv_1 as u64, false, 0).unwrap();
-            let vsv_2 = get_unused_virtual_fd(self.cageid, ksv_2 as u64, false, 0).unwrap();
-            virtual_socket_vector.sock1 = vsv_1 as i32;
-            virtual_socket_vector.sock2 = vsv_2 as i32;
-            return 0;
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "sockpair");
         }
-        return -1;
+
+        let ksv_1 = kernel_socket_vector[0];
+        let ksv_2 = kernel_socket_vector[1];
+        let vsv_1 = get_unused_virtual_fd(self.cageid, ksv_1 as u64, false, 0).unwrap();
+        let vsv_2 = get_unused_virtual_fd(self.cageid, ksv_2 as u64, false, 0).unwrap();
+        virtual_socket_vector.sock1 = vsv_1 as i32;
+        virtual_socket_vector.sock2 = vsv_2 as i32;
+        return 0;
     }
 
     /*
@@ -1103,7 +1152,8 @@ impl Cage {
                 let err_msg = CStr::from_ptr(err_str).to_string_lossy().into_owned();
                 println!("Error message: {:?}", err_msg);
                 io::stdout().flush().unwrap();
-                return -1;
+                let errno = get_errno();
+                return handle_errno(errno, "getifaddrs");
             }
             let mut ifa = ifaddr;
             let mut offset = 0;
