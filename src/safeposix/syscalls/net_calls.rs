@@ -831,9 +831,10 @@ impl Cage {
                 (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV4>() as u32,
             ),
-            Some(_) => {
-                unreachable!()
-            }
+            Some(GenSockaddr::Unix(ref mut addrrefu)) => (
+                (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
+                size_of::<SockaddrUnix>() as u32,
+            ),
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
