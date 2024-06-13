@@ -77,7 +77,7 @@ impl Cage {
                 
                 // Convert sun_path to LIND_ROOT path
                 let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
-                let lind_path = format!("{}{}", LIND_ROOT, &original_path[1..]); // Skip the initial '/' in original path
+                let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
 
                 // Ensure the length of lind_path does not exceed sun_path capacity
                 if lind_path.len() >= addrrefu.sun_path.len() {
