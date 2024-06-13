@@ -75,17 +75,29 @@ impl Cage {
             ),
             GenSockaddr::Unix(addrrefu) => {
                 // Convert sun_path to LIND_ROOT path
-                let mut new_addr = *addrrefu;
-                let original_path = unsafe { CStr::from_ptr(new_addr.sun_path.as_ptr() as *const i8).to_str().unwrap() };
+                let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
                 let lind_path = format!("{}{}", LIND_ROOT, &original_path[1..]); // Skip the initial '/' in original path
 
-                // Use memcpy to copy the new path into sun_path
-                unsafe {
-                    let src = lind_path.as_ptr() as *const c_void;
-                    let dst = new_addr.sun_path.as_mut_ptr() as *mut c_void;
-                    memcpy(dst, src, lind_path.len());
-                    *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                // Ensure the length of lind_path does not exceed sun_path capacity
+                if lind_path.len() >= addrrefu.sun_path.len() {
+                    panic!("New path is too long to fit in sun_path");
                 }
+
+                // Clear the existing sun_path
+                for i in 0..addrrefu.sun_path.len() {
+                    addrrefu.sun_path[i] = 0;
+                }
+
+                // Use ptr::copy_nonoverlapping to copy the new path into sun_path
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        lind_path.as_ptr(),
+                        addrrefu.sun_path.as_mut_ptr() as *mut u8,
+                        lind_path.len()
+                    );
+                    *addrrefu.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                }
+
                 (
                     (addrrefu as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
@@ -271,9 +283,10 @@ impl Cage {
                 (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV4>() as u32,
             ),
-            Some(_) => {
-                unreachable!()
-            }
+            Some(GenSockaddr::Unix(ref mut addrrefu)) => (
+                (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
+                size_of::<SockaddrUnix>() as u32,
+            ),
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
