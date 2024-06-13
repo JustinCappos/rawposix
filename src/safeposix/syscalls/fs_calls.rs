@@ -455,6 +455,7 @@ impl Cage {
             };
             println!("[READ] Error message: {:?}", err_msg);
             println!("kernel_fd: {:?}", kernel_fd);
+            println!("vfd: {:?}", virtual_fd);
             io::stdout().flush().unwrap();
             return ret;
         }
@@ -1279,7 +1280,7 @@ impl Cage {
     *   - 0, EOF
     *   - -1, fail 
     */
-    
+
     pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
         // let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
