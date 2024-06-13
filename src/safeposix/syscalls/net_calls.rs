@@ -399,8 +399,19 @@ impl Cage {
             let errno = unsafe {
                 *libc::__errno_location() 
             } as i32;
-            // println!("[Accept] errno: {:?}", errno);
-            // io::stdout().flush().unwrap();
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[Accept] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            println!("[Accept] errno: {:?}", errno);
+            io::stdout().flush().unwrap();
             if errno == EAGAIN {
                 return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
             }
