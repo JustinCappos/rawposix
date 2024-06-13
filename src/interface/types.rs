@@ -695,7 +695,7 @@ pub fn set_gensockaddr(union_argument: Arg, len_argument: Arg) -> Result<interfa
         _ => {
             println!("[Dispatcher] tmpsock.sa_family: {:?}", tmpsock.sa_family);
             io::stdout().flush().unwrap();
-            let null_addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); 
+            let null_addr = interface::GenSockaddr::Unix(interface::SockaddrUnix::default());
             return Ok(null_addr);
             // return Err(syscall_error(
             //     Errno::EOPNOTSUPP,
@@ -718,6 +718,10 @@ pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interf
             let unixlen = size_of::<interface::SockaddrUnix>() as u32;
 
             let fullcopylen = interface::rust_min(initaddrlen, unixlen);
+            println!("[Dispatcher copy] unixlen: {:?}", unixlen);
+            println!("[Dispatcher copy] initaddrlen: {:?}", initaddrlen);
+            println!("[Dispatcher copy] fullcopylen: {:?}", fullcopylen);
+            io::stdout().flush().unwrap();
             unsafe {
                 std::ptr::copy(
                     (unixa) as *mut interface::SockaddrUnix as *mut u8,
