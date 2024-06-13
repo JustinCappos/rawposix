@@ -605,7 +605,8 @@ pub extern "C" fn dispatcher(
             // )
         }
         GETSOCKNAME_SYSCALL => {
-            let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
+            // let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
+            let mut addr = interface::set_gensockaddr(arg2, arg3).unwrap();
             if interface::arg_nullity(&arg2) || interface::arg_nullity(&arg3) {
                 return syscall_error(
                     Errno::EINVAL,
