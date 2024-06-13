@@ -2,6 +2,8 @@
 use crate::interface;
 use crate::interface::errnos::{syscall_error, Errno};
 
+use std::io::{Read, Write};
+use std::io;
 use libc::*;
 
 const SIZEOF_SOCKADDR: u32 = 16;
@@ -690,6 +692,8 @@ pub fn set_gensockaddr(union_argument: Arg, len_argument: Arg) -> Result<interfa
             return Ok(v6_addr);
         }
         _ => {
+            println!("[Dispatcher] tmpsock.sa_family: {:?}", tmpsock.sa_family);
+            io::stdout().flush().unwrap();
             return Err(syscall_error(
                 Errno::EOPNOTSUPP,
                 "dispatcher",
