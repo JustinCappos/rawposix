@@ -381,7 +381,7 @@ impl Cage {
     pub fn accept_syscall(
         &self,
         virtual_fd: i32,
-        _addr: &mut Option<&mut GenSockaddr>,
+        addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
         let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
