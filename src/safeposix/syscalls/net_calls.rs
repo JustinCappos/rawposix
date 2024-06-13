@@ -83,11 +83,6 @@ impl Cage {
                     panic!("New path is too long to fit in sun_path");
                 }
 
-                // Clear the existing sun_path
-                for i in 0..addrrefu.sun_path.len() {
-                    addrrefu.sun_path[i] = 0;
-                }
-
                 // Use ptr::copy_nonoverlapping to copy the new path into sun_path
                 unsafe {
                     ptr::copy_nonoverlapping(
