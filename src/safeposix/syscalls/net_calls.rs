@@ -389,9 +389,6 @@ impl Cage {
         }
         let kernel_fd = kfd.unwrap();
 
-        // let finalsockaddr = std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr;
-        
-        // let mut sadlen = 0 as u32;
         let (finalsockaddr, mut addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
@@ -405,9 +402,6 @@ impl Cage {
                 (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
                 size_of::<SockaddrUnix>() as u32,
             ),
-            Some(_) => {
-                unreachable!()
-            }
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
@@ -435,10 +429,14 @@ impl Cage {
             }
             return ret_kernelfd;
         }
-        let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
 
-        // [TODO]
         // change the GenSockaddr type according to the sockaddr we received 
+        println!("[Accept] GenSockaddr: {:?}", addr);
+        println!("[Accept] finalsockaddr: {:?}", finalsockaddr);
+        io::stdout().flush().unwrap();
+
+        let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
+        
         ret_virtualfd as i32
     }
 
