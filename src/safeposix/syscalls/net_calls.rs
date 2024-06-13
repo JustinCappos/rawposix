@@ -415,6 +415,7 @@ impl Cage {
             if errno == EAGAIN {
                 return syscall_error(Errno::EAGAIN, "accept", "Resource temporarily unavailable");
             }
+            return ret_kernelfd;
         }
         let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
 

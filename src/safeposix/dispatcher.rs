@@ -513,8 +513,39 @@ pub extern "C" fn dispatcher(
             /* We don't care the type of addr
             *   We will directly copy all stuffs in copy_out_sockaddr
             */
-            let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); 
+            // let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); 
 
+            // let nullity1 = interface::arg_nullity(&arg2);
+            // let nullity2 = interface::arg_nullity(&arg3);
+
+            // if nullity1 && nullity2 {
+            //     check_and_dispatch!(
+            //         cage.accept_syscall,
+            //         interface::get_int(arg1),
+            //         Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
+            //             &mut addr
+            //         ))
+            //     )
+            // } else if !(nullity1 || nullity2) {
+            //     let rv = check_and_dispatch!(
+            //         cage.accept_syscall,
+            //         interface::get_int(arg1),
+            //         Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
+            //             &mut addr
+            //         ))
+            //     );
+            //     if rv >= 0 {
+            //         interface::copy_out_sockaddr(arg2, arg3, addr);
+            //     }
+            //     rv
+            // } else {
+            //     syscall_error(
+            //         Errno::EINVAL,
+            //         "accept",
+            //         "exactly one of the last two arguments was zero",
+            //     )
+            // }
+            
             let nullity1 = interface::arg_nullity(&arg2);
             let nullity2 = interface::arg_nullity(&arg3);
 
@@ -522,11 +553,10 @@ pub extern "C" fn dispatcher(
                 check_and_dispatch!(
                     cage.accept_syscall,
                     interface::get_int(arg1),
-                    Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
-                        &mut addr
-                    ))
+                    Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut None)
                 )
             } else if !(nullity1 || nullity2) {
+                let mut addr = interface::set_gensockaddr(arg2, arg3).unwrap();
                 let rv = check_and_dispatch!(
                     cage.accept_syscall,
                     interface::get_int(arg1),
@@ -545,12 +575,6 @@ pub extern "C" fn dispatcher(
                     "exactly one of the last two arguments was zero",
                 )
             }
-            // check_and_dispatch!(
-            //     cage.accept_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_sockaddr(arg2),
-            //     interface::get_socklen_t_ptr(arg3)
-            // )
         }
         GETPEERNAME_SYSCALL => {
             let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter

@@ -173,6 +173,15 @@ pub struct SockaddrUnix {
     pub sun_path: [u8; 108],
 }
 
+impl Default for SockaddrUnix {
+    fn default() -> Self {
+        SockaddrUnix {
+            sun_family: 0,
+            sun_path: [0; 108],
+        }
+    }
+}
+
 pub fn new_sockaddr_unix(family: u16, path: &[u8]) -> SockaddrUnix {
     let pathlen = path.len();
     if pathlen > 108 {

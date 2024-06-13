@@ -644,6 +644,61 @@ pub fn get_sockaddr(union_argument: Arg, addrlen: u32) -> Result<interface::GenS
     ));
 }
 
+pub fn set_gensockaddr(union_argument: Arg, len_argument: Arg) -> Result<interface::GenSockaddr, i32> {
+    let received = unsafe { union_argument.dispatch_sockaddrstruct };
+    let received_addrlen = unsafe { len_argument.dispatch_socklen_t_ptr } as u32;
+    let tmpsock = unsafe { &*received };
+    match tmpsock.sa_family {
+        /*AF_UNIX*/
+        1 => {
+            if received_addrlen < SIZEOF_SOCKADDR
+                || received_addrlen > size_of::<interface::SockaddrUnix>() as u32
+            {
+                return Err(syscall_error(
+                    Errno::EINVAL,
+                    "dispatcher",
+                    "input length incorrect for family of sockaddr",
+                ));
+            }
+            let unix_addr = interface::GenSockaddr::Unix(interface::SockaddrUnix::default());
+            return Ok(unix_addr);
+        }
+        /*AF_INET*/
+        2 => {
+            if received_addrlen < size_of::<interface::SockaddrV4>() as u32 {
+                return Err(syscall_error(
+                    Errno::EINVAL,
+                    "dispatcher",
+                    "input length too small for family of sockaddr",
+                ));
+            }
+            // let v4_ptr = pointer as *const interface::SockaddrV4;
+            let v4_addr = interface::GenSockaddr::V4(interface::SockaddrV4::default());
+            return Ok(v4_addr);
+        }
+        /*AF_INET6*/
+        30 => {
+            if received_addrlen < size_of::<interface::SockaddrV6>() as u32 {
+                return Err(syscall_error(
+                    Errno::EINVAL,
+                    "dispatcher",
+                    "input length too small for family of sockaddr",
+                ));
+            }
+            // let v6_ptr = pointer as *const interface::SockaddrV6;
+            let v6_addr = interface::GenSockaddr::V6(interface::SockaddrV6::default());
+            return Ok(v6_addr);
+        }
+        _ => {
+            return Err(syscall_error(
+                Errno::EOPNOTSUPP,
+                "dispatcher",
+                "sockaddr family not supported",
+            ))
+        }
+    }
+}
+
 pub fn copy_out_sockaddr(union_argument: Arg, len_argument: Arg, gensock: interface::GenSockaddr) {
     let copyoutaddr = unsafe { union_argument.dispatch_sockaddrstruct } as *mut u8;
     let addrlen = unsafe { len_argument.dispatch_socklen_t_ptr };
