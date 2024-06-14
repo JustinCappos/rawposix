@@ -712,9 +712,8 @@ impl Cage {
         let kernel_fd = kfd.unwrap();
 
         let mut optlen: u32 = 4;
-        let mut ownoptval: Vec<u8> = vec![0; 4 as usize];
         // let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
-        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, ownoptval.as_mut_ptr() as *mut c_void, optlen as *mut u32) };
+        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, &mut optval as *mut _ as *mut _, optlen as *mut u32) };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
@@ -731,9 +730,6 @@ impl Cage {
             return handle_errno(errno, "getsockopt");
         }
         
-        let ownoptval_arr: [u8; 4] = ownoptval.try_into().unwrap();
-
-        *optval = i32::from_ne_bytes(ownoptval_arr);
 
         println!("[Getsockopt] optval: {:?}", optval);
         io::stdout().flush().unwrap();
