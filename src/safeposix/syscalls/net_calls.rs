@@ -725,6 +725,8 @@ impl Cage {
             let errno = get_errno();
             return handle_errno(errno, "getsockopt");
         }
+        println!("[Getsockopt] optlen: {:?}", optlen);
+        io::stdout().flush().unwrap();
         ret
     }
 
