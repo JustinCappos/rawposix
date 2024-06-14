@@ -62,8 +62,8 @@ impl Cage {
         }
         let kernel_fd = kfd.unwrap();
 
-        println!("[Bind] Before GenSockaddr: {:?}", addr);
-        io::stdout().flush().unwrap();
+        // println!("[Bind] Before GenSockaddr: {:?}", addr);
+        // io::stdout().flush().unwrap();
 
         let (finalsockaddr, addrlen) = match addr {
             GenSockaddr::V6(addrref6) => (
@@ -504,8 +504,8 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        println!("[Accept] Before GenSockaddr: {:?}", addr);
-        io::stdout().flush().unwrap();
+        // println!("[Accept] Before GenSockaddr: {:?}", addr);
+        // io::stdout().flush().unwrap();
 
         let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, &mut addrlen as *mut u32) };
 
@@ -533,9 +533,9 @@ impl Cage {
         // change the GenSockaddr type according to the sockaddr we received 
         // GenSockAddr will be modified after libc::accept returns 
         // So we only need to modify values in GenSockAddr, and rest of the things will be finished in dispatcher stage
-        println!("[Accept] After GenSockaddr: {:?}", addr);
-        println!("[Accept] finalsockaddr: {:?}", finalsockaddr);
-        io::stdout().flush().unwrap();
+        // println!("[Accept] After GenSockaddr: {:?}", addr);
+        // println!("[Accept] finalsockaddr: {:?}", finalsockaddr);
+        // io::stdout().flush().unwrap();
 
         if let Some(sockaddr) = addr {
             if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
@@ -732,8 +732,8 @@ impl Cage {
         }
         
 
-        println!("[Getsockopt] optval: {:?}", optval);
-        io::stdout().flush().unwrap();
+        // println!("[Getsockopt] optval: {:?}", optval);
+        // io::stdout().flush().unwrap();
         ret
     }
 

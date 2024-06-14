@@ -609,8 +609,8 @@ pub extern "C" fn dispatcher(
             let mut addr = interface::set_gensockaddr(arg2, arg3).unwrap();
 
             let len = interface::get_socklen_t_ptr(arg3).unwrap();
-            println!("[Dispatcher getsockname] socklen: {:?}", len);
-            io::stdout().flush().unwrap();
+            // println!("[Dispatcher getsockname] socklen: {:?}", len);
+            // io::stdout().flush().unwrap();
 
             if interface::arg_nullity(&arg2) || interface::arg_nullity(&arg3) {
                 return syscall_error(
