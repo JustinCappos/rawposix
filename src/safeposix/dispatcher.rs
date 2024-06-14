@@ -647,7 +647,7 @@ pub extern "C" fn dispatcher(
             )
         }
         GETSOCKOPT_SYSCALL => {
-            // let mut sockval = 0;
+            let mut sockval = 0;
             if interface::arg_nullity(&arg4) || interface::arg_nullity(&arg5) {
                 return syscall_error(
                     Errno::EFAULT,
@@ -658,29 +658,30 @@ pub extern "C" fn dispatcher(
             if get_onearg!(interface::get_socklen_t_ptr(arg5)) != 4 {
                 return syscall_error(Errno::EINVAL, "setsockopt", "Invalid optlen passed");
             }
-            // let rv = check_and_dispatch!(
-            //     cage.getsockopt_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_int(arg2),
-            //     interface::get_int(arg3),
-            //     Ok::<&mut i32, i32>(&mut sockval)
-            // );
-
-            // if rv >= 0 {
-            //     interface::copy_out_intptr(arg4, sockval);
-            // }
-            // //we take it as a given that the length is 4 both in and out
-            // rv
-            let mut optval: Vec<u8> = vec![0; 4 as usize];
-            check_and_dispatch!(
+            let rv = check_and_dispatch!(
                 cage.getsockopt_syscall,
                 interface::get_int(arg1),
                 interface::get_int(arg2),
                 interface::get_int(arg3),
-                // interface::get_mutcbuf(arg4)
-                Ok::<&mut Vec<u8>, i32>(&mut optval)
-                // interface::get_uint(arg5)
-            )
+                Ok::<&mut i32, i32>(&mut sockval)
+            );
+
+            if rv >= 0 {
+                interface::copy_out_intptr(arg4, sockval);
+            }
+            //we take it as a given that the length is 4 both in and out
+            rv
+
+            // let mut optval: Vec<u8> = vec![0; 4 as usize];
+            // check_and_dispatch!(
+            //     cage.getsockopt_syscall,
+            //     interface::get_int(arg1),
+            //     interface::get_int(arg2),
+            //     interface::get_int(arg3),
+            //     // interface::get_mutcbuf(arg4)
+            //     Ok::<&mut Vec<u8>, i32>(&mut optval)
+            //     // interface::get_uint(arg5)
+            // )
         }
         SETSOCKOPT_SYSCALL => {
             // let sockval;
