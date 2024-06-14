@@ -676,8 +676,8 @@ pub extern "C" fn dispatcher(
                 interface::get_int(arg1),
                 interface::get_int(arg2),
                 interface::get_int(arg3),
-                interface::get_mutcbuf(arg4),
-                interface::get_uint(arg5)
+                interface::get_mutcbuf(arg4)
+                // interface::get_uint(arg5)
             )
         }
         SETSOCKOPT_SYSCALL => {

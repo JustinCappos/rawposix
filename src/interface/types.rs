@@ -267,8 +267,6 @@ pub fn get_uint(union_argument: Arg) -> Result<u32, i32> {
     if (unsafe { union_argument.dispatch_ulong } & !unsafe { type_checker.dispatch_ulong }) == 0 {
         return Ok(data);
     }
-    println!("[Getsockopt - Dispathcer]");
-    io::stdout().flush().unwrap();
     return Err(syscall_error(
         Errno::EINVAL,
         "dispatcher",

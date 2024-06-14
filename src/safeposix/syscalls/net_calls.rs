@@ -701,13 +701,15 @@ impl Cage {
         level: i32,
         optname: i32,
         optval: *mut u8,
-        optlen: u32,
+        // optlen: u32,
     ) -> i32 {
         let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "getsockopt", "Bad File Descriptor");
         }
         let kernel_fd = kfd.unwrap();
+
+        let mut optlen: u32 = 4;
 
         let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
         if ret < 0 {
