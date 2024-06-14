@@ -711,9 +711,11 @@ impl Cage {
         }
         let kernel_fd = kfd.unwrap();
 
-        let mut optlen: u32 = 4;
+        // let mut optlen: u32 = 4;
+        let mut optlen: socklen_t = 4;
+
         // let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
-        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_int as *mut c_void, optlen as *mut u32) };
+        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_int as *mut c_void, &mut optlen as *mut socklen_t) };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
