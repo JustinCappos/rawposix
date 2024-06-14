@@ -656,7 +656,7 @@ pub extern "C" fn dispatcher(
                 );
             }
             if get_onearg!(interface::get_socklen_t_ptr(arg5)) != 4 {
-                return syscall_error(Errno::EINVAL, "setsockopt", "Invalid optlen passed");
+                return syscall_error(Errno::EINVAL, "getsockopt", "Invalid optlen passed");
             }
             let rv = check_and_dispatch!(
                 cage.getsockopt_syscall,
