@@ -713,7 +713,7 @@ impl Cage {
 
         let mut optlen: u32 = 4;
         // let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
-        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, &mut optval as *mut _ as *mut _, optlen as *mut u32) };
+        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut _ as *mut _, optlen as *mut u32) };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
