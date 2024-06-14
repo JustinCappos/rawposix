@@ -13,6 +13,7 @@ use crate::example_grates::dashmapvecglobal::*;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use parking_lot::Mutex;
 use lazy_static::lazy_static;
 use std::io::{Read, Write};
@@ -700,7 +701,8 @@ impl Cage {
         virtual_fd: i32,
         level: i32,
         optname: i32,
-        optval: *mut u8,
+        // optval: *mut u8,
+        optval: &mut i32,
         // optlen: u32,
     ) -> i32 {
         let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
@@ -710,8 +712,9 @@ impl Cage {
         let kernel_fd = kfd.unwrap();
 
         let mut optlen: u32 = 4;
-
-        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
+        let mut ownoptval: Vec<u8> = vec![0; 4 as usize];
+        // let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
+        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, ownoptval.as_mut_ptr() as *mut c_void, optlen as *mut u32) };
         if ret < 0 {
             let err = unsafe {
                 libc::__errno_location()
@@ -727,7 +730,12 @@ impl Cage {
             let errno = get_errno();
             return handle_errno(errno, "getsockopt");
         }
-        println!("[Getsockopt] optlen: {:?}", optlen);
+        
+        let ownoptval_arr: [u8; 4] = ownoptval.try_into().unwrap();
+
+        *optval = i32::from_ne_bytes(ownoptval_arr);
+
+        println!("[Getsockopt] optval: {:?}", optval);
         io::stdout().flush().unwrap();
         ret
     }

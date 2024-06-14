@@ -648,16 +648,16 @@ pub extern "C" fn dispatcher(
         }
         GETSOCKOPT_SYSCALL => {
             // let mut sockval = 0;
-            // if interface::arg_nullity(&arg4) || interface::arg_nullity(&arg5) {
-            //     return syscall_error(
-            //         Errno::EFAULT,
-            //         "getsockopt",
-            //         "Optval or optlen passed as null",
-            //     );
-            // }
-            // if get_onearg!(interface::get_socklen_t_ptr(arg5)) != 4 {
-            //     return syscall_error(Errno::EINVAL, "setsockopt", "Invalid optlen passed");
-            // }
+            if interface::arg_nullity(&arg4) || interface::arg_nullity(&arg5) {
+                return syscall_error(
+                    Errno::EFAULT,
+                    "getsockopt",
+                    "Optval or optlen passed as null",
+                );
+            }
+            if get_onearg!(interface::get_socklen_t_ptr(arg5)) != 4 {
+                return syscall_error(Errno::EINVAL, "setsockopt", "Invalid optlen passed");
+            }
             // let rv = check_and_dispatch!(
             //     cage.getsockopt_syscall,
             //     interface::get_int(arg1),
@@ -671,12 +671,14 @@ pub extern "C" fn dispatcher(
             // }
             // //we take it as a given that the length is 4 both in and out
             // rv
+            let mut optval: Vec<u8> = vec![0; 4 as usize];
             check_and_dispatch!(
                 cage.getsockopt_syscall,
                 interface::get_int(arg1),
                 interface::get_int(arg2),
                 interface::get_int(arg3),
-                interface::get_mutcbuf(arg4)
+                // interface::get_mutcbuf(arg4)
+                Ok::<&mut Vec<u8>, i32>(&mut optval)
                 // interface::get_uint(arg5)
             )
         }
