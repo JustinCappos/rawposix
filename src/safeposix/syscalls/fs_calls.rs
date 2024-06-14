@@ -63,21 +63,21 @@ impl Cage {
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
         if kernel_fd < 0 {
-            let err = unsafe {
-                *libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[open] Error message: {:?}", err_msg);
-            println!("[open] c_path: {:?}", c_path);
-            println!("[open] oflag: {:?}", oflag);
-            println!("[open] mode: {:?}", mode);
-            println!("[open] kernel fd: {:?}", kernel_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     *libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[open] Error message: {:?}", err_msg);
+            // println!("[open] c_path: {:?}", c_path);
+            // println!("[open] oflag: {:?}", oflag);
+            // println!("[open] mode: {:?}", mode);
+            // println!("[open] kernel fd: {:?}", kernel_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "open");
         }
@@ -104,18 +104,18 @@ impl Cage {
             libc::mkdir(c_path.as_ptr(), mode)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[mkdir] Error message: {:?}", err_msg);
-            println!("[mkdir] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[mkdir] Error message: {:?}", err_msg);
+            // println!("[mkdir] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "mkdir");
         }
@@ -137,18 +137,18 @@ impl Cage {
             libc::mknod(c_path.as_ptr(), mode, dev)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[mknod] Error message: {:?}", err_msg);
-            println!("[mknod] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[mknod] Error message: {:?}", err_msg);
+            // println!("[mknod] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "mknod");
         }
@@ -175,18 +175,18 @@ impl Cage {
             libc::link(old_cpath.as_ptr(), new_cpath.as_ptr())
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[link] Error message: {:?}", err_msg);
-            println!("[link] c_path: {:?}", old_cpath);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[link] Error message: {:?}", err_msg);
+            // println!("[link] c_path: {:?}", old_cpath);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "link");
         }
@@ -209,21 +209,21 @@ impl Cage {
         };
 
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            let errno = unsafe {
-                *libc::__errno_location() 
-            } as i32;
-            println!("[unlink] Error message: {:?}", err_msg);
-            println!("[unlink] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // let errno = unsafe {
+            //     *libc::__errno_location() 
+            // } as i32;
+            // println!("[unlink] Error message: {:?}", err_msg);
+            // println!("[unlink] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "unlink");
         }
@@ -245,18 +245,18 @@ impl Cage {
             libc::creat(c_path.as_ptr(), mode)
         };
         if kernel_fd < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[creat] Error message: {:?}", err_msg);
-            println!("[creat] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[creat] Error message: {:?}", err_msg);
+            // println!("[creat] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "creat");
         }
@@ -292,21 +292,21 @@ impl Cage {
         };
         
         if libcret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            let errno = unsafe {
-                *libc::__errno_location() 
-            } as i32;
-            println!("[stat] Error message: {:?}", err_msg);
-            println!("[stat] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // let errno = unsafe {
+            //     *libc::__errno_location() 
+            // } as i32;
+            // println!("[stat] Error message: {:?}", err_msg);
+            // println!("[stat] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "stat");
         }
@@ -458,19 +458,19 @@ impl Cage {
             libc::read(kernel_fd as i32, readbuf as *mut c_void, count) as i32
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[READ] Error message: {:?}", err_msg);
-            println!("kernel_fd: {:?}", kernel_fd);
-            println!("vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[READ] Error message: {:?}", err_msg);
+            // println!("kernel_fd: {:?}", kernel_fd);
+            // println!("vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "read");
         }
@@ -495,18 +495,18 @@ impl Cage {
             libc::pread(kernel_fd as i32, buf as *mut c_void, count, offset) as i32
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[pread] Error message: {:?}", err_msg);
-            println!("[pread] virtual fd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[pread] Error message: {:?}", err_msg);
+            // println!("[pread] virtual fd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "pread");
         }
@@ -531,18 +531,18 @@ impl Cage {
             libc::write(kernel_fd as i32, buf as *const c_void, count) as i32
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[write] Error message: {:?}", err_msg);
-            println!("[write] virtual fd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[write] Error message: {:?}", err_msg);
+            // println!("[write] virtual fd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "write");
         }
@@ -567,18 +567,18 @@ impl Cage {
             libc::pwrite(kernel_fd as i32, buf as *const c_void, count, offset) as i32
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[pwrite] Error message: {:?}", err_msg);
-            println!("[pwrite] virtual fd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[pwrite] Error message: {:?}", err_msg);
+            // println!("[pwrite] virtual fd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "pwrite");
         }
@@ -603,17 +603,17 @@ impl Cage {
             libc::writev(kernel_fd as i32, iovec, iovcnt)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[writev] Error message: {:?}", err_msg);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[writev] Error message: {:?}", err_msg);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "writev");
         }
@@ -638,18 +638,18 @@ impl Cage {
             libc::lseek(kernel_fd as i32, offset as i64, whence) as i32
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[lseek] Error message: {:?}", err_msg);
-            println!("[lseek] virtual fd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[lseek] Error message: {:?}", err_msg);
+            // println!("[lseek] virtual fd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "lseek");
         }
@@ -671,18 +671,18 @@ impl Cage {
             libc::access(c_path.as_ptr(), amode)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[access] Error message: {:?}", err_msg);
-            println!("[access] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[access] Error message: {:?}", err_msg);
+            // println!("[access] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "access");
         }
@@ -704,18 +704,18 @@ impl Cage {
             libc::fchdir(kernel_fd as i32)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[fchdir] Error message: {:?}", err_msg);
-            println!("[fchdir] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[fchdir] Error message: {:?}", err_msg);
+            // println!("[fchdir] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fchdir");
         }
@@ -844,18 +844,18 @@ impl Cage {
         }
         let ret = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[fcntl] Error message: {:?}", err_msg);
-            println!("[fcntl] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[fcntl] Error message: {:?}", err_msg);
+            // println!("[fcntl] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fcntl");
         }
@@ -879,18 +879,18 @@ impl Cage {
         let kernel_fd = kfd.unwrap();
         let ret = unsafe { libc::ioctl(kernel_fd as i32, request, ptrunion as *mut c_void) };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[ioctl] Error message: {:?}", err_msg);
-            println!("[ioctl] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[ioctl] Error message: {:?}", err_msg);
+            // println!("[ioctl] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "ioctl");
         }
@@ -913,18 +913,18 @@ impl Cage {
             libc::chmod(c_path.as_ptr(), mode)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[chmod] Error message: {:?}", err_msg);
-            println!("[chmod] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[chmod] Error message: {:?}", err_msg);
+            // println!("[chmod] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "chmod");
         }
@@ -946,18 +946,18 @@ impl Cage {
             libc::fchmod(kernel_fd as i32, mode)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[fchmod] Error message: {:?}", err_msg);
-            println!("[fchmod] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[fchmod] Error message: {:?}", err_msg);
+            // println!("[fchmod] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fchmod");
         }
@@ -1039,18 +1039,18 @@ impl Cage {
             libc::flock(kernel_fd as i32, operation)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[flock] Error message: {:?}", err_msg);
-            println!("[flock] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[flock] Error message: {:?}", err_msg);
+            // println!("[flock] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "flock");
         }
@@ -1072,18 +1072,18 @@ impl Cage {
             libc::rmdir(c_path.as_ptr())
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[rmdir] Error message: {:?}", err_msg);
-            println!("[rmdir] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[rmdir] Error message: {:?}", err_msg);
+            // println!("[rmdir] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "rmdir");
         }
@@ -1109,19 +1109,19 @@ impl Cage {
             libc::rename(old_cpath.as_ptr(), new_cpath.as_ptr())
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[rename] Error message: {:?}", err_msg);
-            println!("[rename] old: {:?}", old_cpath);
-            println!("[rename] new: {:?}", new_cpath);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[rename] Error message: {:?}", err_msg);
+            // println!("[rename] old: {:?}", old_cpath);
+            // println!("[rename] new: {:?}", new_cpath);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "rename");
         }
@@ -1143,18 +1143,18 @@ impl Cage {
             libc::fsync(kernel_fd as i32)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[fsync] Error message: {:?}", err_msg);
-            println!("[fsync] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[fsync] Error message: {:?}", err_msg);
+            // println!("[fsync] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fsync");
         }
@@ -1177,18 +1177,18 @@ impl Cage {
             libc::fdatasync(kernel_fd as i32)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[fdatasync] Error message: {:?}", err_msg);
-            println!("[fdatasync] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[fdatasync] Error message: {:?}", err_msg);
+            // println!("[fdatasync] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fdatasync");
         }
@@ -1217,18 +1217,18 @@ impl Cage {
             libc::sync_file_range(kernel_fd as i32, offset as i64, nbytes as i64, flags)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[sync file range] Error message: {:?}", err_msg);
-            println!("[sync file range] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[sync file range] Error message: {:?}", err_msg);
+            // println!("[sync file range] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "sync_file_range");
         }
@@ -1250,18 +1250,18 @@ impl Cage {
             libc::ftruncate(kernel_fd as i32, length as i64)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[ftruncate] Error message: {:?}", err_msg);
-            println!("[ftruncate] vfd: {:?}", virtual_fd);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[ftruncate] Error message: {:?}", err_msg);
+            // println!("[ftruncate] vfd: {:?}", virtual_fd);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "ftruncate");
         }
@@ -1282,18 +1282,18 @@ impl Cage {
             libc::truncate(c_path.as_ptr(), length as i64)
         };
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[truncate] Error message: {:?}", err_msg);
-            println!("[truncate] c_path: {:?}", c_path);
-            io::stdout().flush().unwrap();
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("[truncate] Error message: {:?}", err_msg);
+            // println!("[truncate] c_path: {:?}", c_path);
+            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "truncate");
         }
