@@ -124,7 +124,8 @@ impl Cage {
         
                 let c_str = CStr::from_ptr(sun_path_ptr);
                 let str_slice = c_str.to_str().expect("Failed to convert CStr to str");
-        
+                
+                println!("addr: {:?}", addr);
                 println!("sun_path: {}", str_slice);
                 io::stdout().flush().unwrap();
             }
