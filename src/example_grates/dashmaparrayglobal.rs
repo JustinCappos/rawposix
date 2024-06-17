@@ -86,8 +86,8 @@ struct CloseHandlers {
 }
 
 // Seems sort of like a constant...  I'm not sure if this is bad form or not...
-#[allow(non_snake_case)]
-pub fn NULL_FUNC(_:u64) { }
+// #[allow(non_snake_case)]
+// pub fn NULL_FUNC(_:u64) { }
 
 lazy_static! {
     // This holds the user registered handlers they want to have called when
