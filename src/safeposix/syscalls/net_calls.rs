@@ -99,6 +99,8 @@ impl Cage {
                     *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
                 }
 
+                println!("[bind] new_addr:{:?} ", new_addr);
+                io::stdout().flush().unwrap();
                 (
                     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
@@ -125,8 +127,8 @@ impl Cage {
                 let c_str = CStr::from_ptr(sun_path_ptr);
                 let str_slice = c_str.to_str().expect("Failed to convert CStr to str");
                 
-                println!("addr: {:?}", addr);
-                println!("sun_path: {}", str_slice);
+                println!("[bind] addr: {:?}", addr);
+                println!("[bind] sun_path: {}", str_slice);
                 io::stdout().flush().unwrap();
             }
             println!("[Bind] Error message: {:?}", err_msg);
