@@ -599,11 +599,11 @@ impl Cage {
         // timeout: *mut timeval,
         rposix_timeout: Option<RustDuration>,
     ) -> i32 {
-        println!("[Select] nfds: {:?}", nfds);
-        println!("[Select] readfds: {:?}", readfds);
-        println!("[Select] writefds: {:?}", writefds);
-        println!("[Select] errorfds: {:?}", errorfds);
-        io::stdout().flush().unwrap();
+        // println!("[Select] nfds: {:?}", nfds);
+        // println!("[Select] readfds: {:?}", readfds);
+        // println!("[Select] writefds: {:?}", writefds);
+        // println!("[Select] errorfds: {:?}", errorfds);
+        // io::stdout().flush().unwrap();
 
         let mut timeout;
         if rposix_timeout.is_none() {
@@ -623,10 +623,10 @@ impl Cage {
         let owfds = writefds.as_mut().map(|fds| &mut **fds);
         let oefds = errorfds.as_mut().map(|fds| &mut **fds);
 
-        println!("[Select] orfds: {:?}", orfds);
-        println!("[Select] owfds: {:?}", owfds);
-        println!("[Select] oefds: {:?}", oefds);
-        io::stdout().flush().unwrap();
+        // println!("[Select] orfds: {:?}", orfds);
+        // println!("[Select] owfds: {:?}", owfds);
+        // println!("[Select] oefds: {:?}", oefds);
+        // io::stdout().flush().unwrap();
 
         let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, _unrealset, mappingtable) 
             = get_real_bitmasks_for_select(
@@ -637,10 +637,10 @@ impl Cage {
                 oefds.copied(),
             ).unwrap();
 
-        println!("[Select] real_readfds: {:?}", real_readfds);
-        println!("[Select] real_writefds: {:?}", real_writefds);
-        println!("[Select] real_errorfds: {:?}", real_errorfds);
-        io::stdout().flush().unwrap();
+        // println!("[Select] real_readfds: {:?}", real_readfds);
+        // println!("[Select] real_writefds: {:?}", real_writefds);
+        // println!("[Select] real_errorfds: {:?}", real_errorfds);
+        // io::stdout().flush().unwrap();
 
         // println!("[Select] Before kernel select real_readfds: {:?}", real_readfds);
         // println!("[Select] Before kernel select timeout: {:?}\nrposix_timeout: {:?}", timeout, rposix_timeout);
