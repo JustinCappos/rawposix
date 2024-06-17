@@ -111,25 +111,25 @@ impl Cage {
         let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
         if ret < 0 {
             let errno = get_errno();
-            // let err_str = unsafe {
-            //     libc::strerror(errno)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // unsafe {
-            //     let sockaddr_un_ptr = finalsockaddr as *const sockaddr_un;
+            let err_str = unsafe {
+                libc::strerror(errno)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            unsafe {
+                let sockaddr_un_ptr = finalsockaddr as *const sockaddr_un;
         
-            //     let sun_path_ptr = (*sockaddr_un_ptr).sun_path.as_ptr();
+                let sun_path_ptr = (*sockaddr_un_ptr).sun_path.as_ptr();
         
-            //     let c_str = CStr::from_ptr(sun_path_ptr);
-            //     let str_slice = c_str.to_str().expect("Failed to convert CStr to str");
+                let c_str = CStr::from_ptr(sun_path_ptr);
+                let str_slice = c_str.to_str().expect("Failed to convert CStr to str");
         
-            //     println!("sun_path: {}", str_slice);
-            //     io::stdout().flush().unwrap();
-            // }
-            // println!("[Bind] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
+                println!("sun_path: {}", str_slice);
+                io::stdout().flush().unwrap();
+            }
+            println!("[Bind] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
             return handle_errno(errno, "bind");
         }
         ret
