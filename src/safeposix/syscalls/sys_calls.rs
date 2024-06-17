@@ -53,7 +53,7 @@ impl Cage {
         let srccageid = self.cageid;
         let destcageid = child_cageid;
         // copy_fdtable_for_cage(self.cageid, child_cageid).unwrap();
-        copy_fdtable_for_cage(srccageid, destcageid).unwrap();
+        copy_fdtable_for_cage(1, 2).unwrap();
         //construct a new mutex in the child cage where each initialized mutex is in the parent cage
         let mutextable = self.mutex_table.read();
         let mut new_mutex_table = vec![];
