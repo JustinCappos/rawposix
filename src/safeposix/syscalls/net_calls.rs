@@ -75,12 +75,21 @@ impl Cage {
                 size_of::<SockaddrV4>(),
             ),
             GenSockaddr::Unix(addrrefu) => {
-                // Convert sun_path to LIND_ROOT path
-                let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
-                let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
+                let original_path_ptr;
+                let original_path_len;
+                unsafe {
+                    // Skip the first '/'
+                    original_path_ptr = addrrefu.sun_path.as_ptr().add(1); 
 
-                // Ensure the length of lind_path does not exceed sun_path capacity
-                if lind_path.len() >= addrrefu.sun_path.len() {
+                    original_path_len = libc::strlen(original_path_ptr as *const i8);
+                }
+                
+
+                // Create new path
+                let lind_root_len = LIND_ROOT.len();
+                let new_path_len = lind_root_len + original_path_len;
+
+                if new_path_len >= addrrefu.sun_path.len() {
                     panic!("New path is too long to fit in sun_path");
                 }
 
@@ -89,22 +98,59 @@ impl Cage {
                     sun_path: [0; 108],
                 };
 
-                // Copy the new path into sun_path
+                // First copy LIND_ROOT and then copy original path
                 unsafe {
-                    ptr::copy_nonoverlapping(
-                        lind_path.as_ptr(),
-                        new_addr.sun_path.as_mut_ptr() as *mut u8,
-                        lind_path.len()
+                    std::ptr::copy_nonoverlapping(
+                        LIND_ROOT.as_ptr(),
+                        new_addr.sun_path.as_mut_ptr(),
+                        lind_root_len
                     );
-                    *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+
+                    
+                    std::ptr::copy_nonoverlapping(
+                        original_path_ptr,
+                        new_addr.sun_path.as_mut_ptr().add(lind_root_len),
+                        original_path_len
+                    );
+
+                    // End with NULL
+                    *new_addr.sun_path.get_unchecked_mut(new_path_len) = 0;
                 }
 
-                println!("[bind] new_addr:{:?} ", new_addr);
-                io::stdout().flush().unwrap();
                 (
                     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
                 )
+                // // Convert sun_path to LIND_ROOT path
+                // let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
+                // let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
+
+                // // Ensure the length of lind_path does not exceed sun_path capacity
+                // if lind_path.len() >= addrrefu.sun_path.len() {
+                //     panic!("New path is too long to fit in sun_path");
+                // }
+
+                // let mut new_addr = SockaddrUnix {
+                //     sun_family: addrrefu.sun_family,
+                //     sun_path: [0; 108],
+                // };
+
+                // // Copy the new path into sun_path
+                // unsafe {
+                //     ptr::copy_nonoverlapping(
+                //         lind_path.as_ptr(),
+                //         new_addr.sun_path.as_mut_ptr() as *mut u8,
+                //         lind_path.len()
+                //     );
+                //     *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                // }
+
+                // println!("[bind] new_addr:{:?} ", new_addr);
+                // io::stdout().flush().unwrap();
+                // (
+                //     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                //     size_of::<SockaddrUnix>(),
+                // )
                 
             }
             
@@ -159,12 +205,21 @@ impl Cage {
                 size_of::<SockaddrV4>(),
             ),
             GenSockaddr::Unix(addrrefu) => {
-                // Convert sun_path to LIND_ROOT path
-                let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
-                let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
+                let original_path_ptr;
+                let original_path_len;
+                unsafe {
+                    // Skip the first '/'
+                    original_path_ptr = addrrefu.sun_path.as_ptr().add(1); 
 
-                // Ensure the length of lind_path does not exceed sun_path capacity
-                if lind_path.len() >= addrrefu.sun_path.len() {
+                    original_path_len = libc::strlen(original_path_ptr as *const i8);
+                }
+                
+
+                // Create new path
+                let lind_root_len = LIND_ROOT.len();
+                let new_path_len = lind_root_len + original_path_len;
+
+                if new_path_len >= addrrefu.sun_path.len() {
                     panic!("New path is too long to fit in sun_path");
                 }
 
@@ -173,21 +228,56 @@ impl Cage {
                     sun_path: [0; 108],
                 };
 
-                // Copy the new path into sun_path
+                // First copy LIND_ROOT and then copy original path
                 unsafe {
-                    ptr::copy_nonoverlapping(
-                        lind_path.as_ptr(),
-                        new_addr.sun_path.as_mut_ptr() as *mut u8,
-                        lind_path.len()
+                    std::ptr::copy_nonoverlapping(
+                        LIND_ROOT.as_ptr(),
+                        new_addr.sun_path.as_mut_ptr(),
+                        lind_root_len
                     );
-                    *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+
+                    
+                    std::ptr::copy_nonoverlapping(
+                        original_path_ptr,
+                        new_addr.sun_path.as_mut_ptr().add(lind_root_len),
+                        original_path_len
+                    );
+
+                    // End with NULL
+                    *new_addr.sun_path.get_unchecked_mut(new_path_len) = 0;
                 }
-                println!("[bind] new_addr:{:?} ", new_addr);
-                io::stdout().flush().unwrap();
+
                 (
                     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
                 )
+                // // Convert sun_path to LIND_ROOT path
+                // let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
+                // let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
+
+                // // Ensure the length of lind_path does not exceed sun_path capacity
+                // if lind_path.len() >= addrrefu.sun_path.len() {
+                //     panic!("New path is too long to fit in sun_path");
+                // }
+
+                // let mut new_addr = SockaddrUnix {
+                //     sun_family: addrrefu.sun_family,
+                //     sun_path: [0; 108],
+                // };
+
+                // // Copy the new path into sun_path
+                // unsafe {
+                //     ptr::copy_nonoverlapping(
+                //         lind_path.as_ptr(),
+                //         new_addr.sun_path.as_mut_ptr() as *mut u8,
+                //         lind_path.len()
+                //     );
+                //     *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                // }
+                // (
+                //     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                //     size_of::<SockaddrUnix>(),
+                // )
             }
         };
 
@@ -560,22 +650,6 @@ impl Cage {
                         }
                 
                         std::ptr::copy_nonoverlapping(temp_path.as_ptr(), sockaddr_unix.sun_path.as_mut_ptr(), new_path_len);
-                    // let sun_path_cstr = CStr::from_ptr(sockaddr_unix.sun_path.as_ptr() as *const i8);
-                    // let sun_path_str = sun_path_cstr.to_str().unwrap();
-            
-                    // if sun_path_str.starts_with(LIND_ROOT) {
-                    //     let new_path_str = &sun_path_str[LIND_ROOT.len()..];
-                    //     let new_path_bytes = new_path_str.as_bytes();
-            
-                    //     // Clear the existing sun_path
-                    //     for i in 0..sockaddr_unix.sun_path.len() {
-                    //         sockaddr_unix.sun_path[i] = 0;
-                    //     }
-            
-                    //     // Copy new path into sun_path
-                    //     for (i, &b) in new_path_bytes.iter().enumerate() {
-                    //         sockaddr_unix.sun_path[i] = b;
-                    //     }
                     }
                 }
             }
