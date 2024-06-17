@@ -117,9 +117,9 @@ use std::collections::HashMap;
 use super::cage::*;
 use super::syscalls::kernel_close;
 // use crate::example_grates::vanillaglobal::*;
-// use crate::example_grates::dashmapvecglobal::*;
+use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::muthashmaxglobal::*;
-use crate::example_grates::dashmaparrayglobal::*;
+// use crate::example_grates::dashmaparrayglobal::*;
 
 use std::io::{Read, Write};
 use std::io;

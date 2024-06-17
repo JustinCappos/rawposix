@@ -7,9 +7,9 @@ use crate::{interface::FdSet, safeposix::cage::*};
 use crate::interface::*;
 
 // use crate::example_grates::vanillaglobal::*;
-// use crate::example_grates::dashmapvecglobal::*;
+use crate::example_grates::dashmapvecglobal::*;
 // use crate::example_grates::muthashmaxglobal::*;
-use crate::example_grates::dashmaparrayglobal::*;
+// use crate::example_grates::dashmaparrayglobal::*;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
