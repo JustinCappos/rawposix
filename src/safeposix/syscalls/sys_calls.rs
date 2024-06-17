@@ -50,10 +50,7 @@ impl Cage {
 
     pub fn fork_syscall(&self, child_cageid: u64) -> i32 {
         // Modify the fdtable manually 
-        let srccageid = self.cageid;
-        let destcageid = child_cageid;
-        // copy_fdtable_for_cage(self.cageid, child_cageid).unwrap();
-        copy_fdtable_for_cage(1, 2).unwrap();
+        copy_fdtable_for_cage(self.cageid, child_cageid).unwrap();
         //construct a new mutex in the child cage where each initialized mutex is in the parent cage
         let mutextable = self.mutex_table.read();
         let mut new_mutex_table = vec![];
