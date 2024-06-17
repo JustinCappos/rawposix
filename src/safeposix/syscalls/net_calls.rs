@@ -544,22 +544,38 @@ impl Cage {
         if let Some(sockaddr) = addr {
             if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
                 unsafe {
-                    let sun_path_cstr = CStr::from_ptr(sockaddr_unix.sun_path.as_ptr() as *const i8);
-                    let sun_path_str = sun_path_cstr.to_str().unwrap();
-            
-                    if sun_path_str.starts_with(LIND_ROOT) {
-                        let new_path_str = &sun_path_str[LIND_ROOT.len()..];
-                        let new_path_bytes = new_path_str.as_bytes();
-            
-                        // Clear the existing sun_path
+                    if std::slice::from_raw_parts(sockaddr_unix.sun_path.as_ptr() as *const u8, LIND_ROOT.len()) == LIND_ROOT.as_bytes() {
+                        // Move ptr to exclue LIND_ROOT
+                        let new_path_ptr = sockaddr_unix.sun_path.as_ptr().add(LIND_ROOT.len());
+                
+                        // sun_path in RawPOSIX will always be 108
+                        let new_path_len = 108 - LIND_ROOT.len();
+                
+                        let mut temp_path = vec![0u8; sockaddr_unix.sun_path.len()];
+                
+                        std::ptr::copy_nonoverlapping(new_path_ptr, temp_path.as_mut_ptr(), new_path_len);
+                
                         for i in 0..sockaddr_unix.sun_path.len() {
                             sockaddr_unix.sun_path[i] = 0;
                         }
+                
+                        std::ptr::copy_nonoverlapping(temp_path.as_ptr(), sockaddr_unix.sun_path.as_mut_ptr(), new_path_len);
+                    // let sun_path_cstr = CStr::from_ptr(sockaddr_unix.sun_path.as_ptr() as *const i8);
+                    // let sun_path_str = sun_path_cstr.to_str().unwrap();
             
-                        // Copy new path into sun_path
-                        for (i, &b) in new_path_bytes.iter().enumerate() {
-                            sockaddr_unix.sun_path[i] = b;
-                        }
+                    // if sun_path_str.starts_with(LIND_ROOT) {
+                    //     let new_path_str = &sun_path_str[LIND_ROOT.len()..];
+                    //     let new_path_bytes = new_path_str.as_bytes();
+            
+                    //     // Clear the existing sun_path
+                    //     for i in 0..sockaddr_unix.sun_path.len() {
+                    //         sockaddr_unix.sun_path[i] = 0;
+                    //     }
+            
+                    //     // Copy new path into sun_path
+                    //     for (i, &b) in new_path_bytes.iter().enumerate() {
+                    //         sockaddr_unix.sun_path[i] = b;
+                    //     }
                     }
                 }
             }
