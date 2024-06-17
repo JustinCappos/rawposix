@@ -831,35 +831,45 @@ impl Cage {
        On error, -1 is returned 
     */
     pub fn fcntl_syscall(&self, virtual_fd: i32, cmd: i32, arg: i32) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
-            return syscall_error(Errno::EBADF, "fcntl", "Bad File Descriptor");
+        match (cmd, arg) {
+            (F_GETOWN, ..) => {
+                0 
+            }
+            (F_SETOWN, arg) if arg >= 0 => {
+                0
+            }
+            _ => {
+                let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+                if kfd.is_err() {
+                    return syscall_error(Errno::EBADF, "fcntl", "Bad File Descriptor");
+                }
+                let kernel_fd = kfd.unwrap();
+                if cmd == libc::F_DUPFD {
+                    let new_kernelfd = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
+                    // Get status
+                    let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd as u64, false, 0).unwrap();
+                    return new_virtualfd as i32;
+                }
+                let ret = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
+                if ret < 0 {
+                    // let err = unsafe {
+                    //     libc::__errno_location()
+                    // };
+                    // let err_str = unsafe {
+                    //     libc::strerror(*err)
+                    // };
+                    // let err_msg = unsafe {
+                    //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                    // };
+                    // println!("[fcntl] Error message: {:?}", err_msg);
+                    // println!("[fcntl] vfd: {:?}", virtual_fd);
+                    // io::stdout().flush().unwrap();
+                    let errno = get_errno();
+                    return handle_errno(errno, "fcntl");
+                }
+                ret
+            }
         }
-        let kernel_fd = kfd.unwrap();
-        if cmd == libc::F_DUPFD {
-            let new_kernelfd = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
-            // Get status
-            let new_virtualfd = get_unused_virtual_fd(self.cageid, new_kernelfd as u64, false, 0).unwrap();
-            return new_virtualfd as i32;
-        }
-        let ret = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
-        if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[fcntl] Error message: {:?}", err_msg);
-            // println!("[fcntl] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
-            let errno = get_errno();
-            return handle_errno(errno, "fcntl");
-        }
-        return ret;
         
     }
 
