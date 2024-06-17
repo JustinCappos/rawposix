@@ -182,7 +182,8 @@ impl Cage {
                     );
                     *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
                 }
-
+                println!("[bind] new_addr:{:?} ", new_addr);
+                io::stdout().flush().unwrap();
                 (
                     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
