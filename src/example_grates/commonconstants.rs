@@ -2,8 +2,8 @@
 // instead of editing each implementation...
 
 /// Per-process maximum number of fds...
-// pub const FD_PER_PROCESS_MAX: u64 = 1024;
-pub const FD_PER_PROCESS_MAX: u64 = 16;
+pub const FD_PER_PROCESS_MAX: u64 = 1024;
+// pub const FD_PER_PROCESS_MAX: u64 = 16;
 
 /// Use this to indicate there isn't a real fd backing an item
 pub const NO_REAL_FD: u64 = 0xff_abcd_ef01;
