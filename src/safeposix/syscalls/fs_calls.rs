@@ -2205,16 +2205,17 @@ pub fn kernel_close(kernelfd: u64) {
     };
     if ret != 0 {
         let err = unsafe {
-            libc::__errno_location()
+            *libc::__errno_location()
         };
         let err_str = unsafe {
-            libc::strerror(*err)
+            libc::strerror(err)
         };
         let err_msg = unsafe {
             CStr::from_ptr(err_str).to_string_lossy().into_owned()
         };
         println!("errno: {:?}", err);
         println!("Error message: {:?}", err_msg);
+        println!("kernel fd: {:?}", kernelfd);
         io::stdout().flush().unwrap();
         panic!("kernel close failed! ");
     }
