@@ -197,6 +197,8 @@ impl Cage {
         }
         let kernel_fd = kfd.unwrap();
 
+        let mut new_addr = SockaddrUnix::default();
+
         let (finalsockaddr, addrlen) = match addr {
             GenSockaddr::V6(addrref6) => (
                 (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
@@ -262,7 +264,7 @@ impl Cage {
                     panic!("New path is too long to fit in sun_path");
                 }
 
-                let mut new_addr = SockaddrUnix {
+                new_addr = SockaddrUnix {
                     sun_family: addrrefu.sun_family,
                     sun_path: [0; 108],
                 };
