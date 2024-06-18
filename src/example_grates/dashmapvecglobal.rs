@@ -520,6 +520,9 @@ fn _do_bitmods(myfdvec:Vec<Option<FDTableEntry>>, nfds:u64, infdset: fd_set, thi
                 }
                 else {
                     mappingtable.insert(entry.realfd, pos);
+                    if entry.realfd == 1045 {
+                        panic!("LINE 524");
+                    }
                     _fd_set(entry.realfd,thisfdset);
                     // I add one because select expects nfds to be the max+1
                     highestpos = cmp::max(highestpos, entry.realfd+1);
