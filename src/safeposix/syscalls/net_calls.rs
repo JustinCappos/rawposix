@@ -114,7 +114,7 @@ impl Cage {
                     );
 
                     // End with NULL
-                    *new_addr.sun_path.get_unchecked_mut(new_path_len) = 0;
+                    // *new_addr.sun_path.get_unchecked_mut(new_path_len) = 0;
                 }
 
                 (

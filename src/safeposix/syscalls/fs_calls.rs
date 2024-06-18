@@ -833,7 +833,8 @@ impl Cage {
     pub fn fcntl_syscall(&self, virtual_fd: i32, cmd: i32, arg: i32) -> i32 {
         match (cmd, arg) {
             (F_GETOWN, ..) => {
-                0 
+                // 
+                1000
             }
             (F_SETOWN, arg) if arg >= 0 => {
                 0
