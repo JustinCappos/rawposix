@@ -147,10 +147,14 @@ impl Cage {
 
                 // println!("[bind] new_addr:{:?} ", new_addr);
                 // io::stdout().flush().unwrap();
+                let a = &new_addr as *const SockaddrUnix;
+                let b= a.cast::<libc::sockaddr>();
+
                 (
-                    (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                    b,
                     size_of::<SockaddrUnix>(),
                 )
+                
             }
             
         };
