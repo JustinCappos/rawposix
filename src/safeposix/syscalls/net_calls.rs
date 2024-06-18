@@ -64,6 +64,7 @@ impl Cage {
 
         // println!("[Bind] Before GenSockaddr: {:?}", addr);
         // io::stdout().flush().unwrap();
+        let mut new_addr = SockaddrUnix::default();
 
         let (finalsockaddr, addrlen) = match addr {
             GenSockaddr::V6(addrref6) => (
@@ -130,7 +131,7 @@ impl Cage {
                     panic!("New path is too long to fit in sun_path");
                 }
 
-                let mut new_addr = SockaddrUnix {
+                new_addr = SockaddrUnix {
                     sun_family: addrrefu.sun_family,
                     sun_path: [0; 108],
                 };
@@ -147,11 +148,9 @@ impl Cage {
 
                 // println!("[bind] new_addr:{:?} ", new_addr);
                 // io::stdout().flush().unwrap();
-                let a = &new_addr as *const SockaddrUnix;
-                let b= a.cast::<libc::sockaddr>();
-
+                
                 (
-                    b,
+                    (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
                 )
                 
