@@ -491,6 +491,9 @@ pub fn _get_null_fd_set() -> fd_set {
 
 #[doc(hidden)]
 pub fn _fd_set(fd:u64, thisfdset:&mut fd_set) {
+    if fd < 0 || fd > 1023 {
+        panic!("TOO LARGE FD!!!! {:?}", fd);
+    }
     unsafe{libc::FD_SET(fd as i32,thisfdset)}
 }
 
