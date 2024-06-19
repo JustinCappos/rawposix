@@ -743,12 +743,13 @@ impl Cage {
         // println!("[Select] Before kernel select timeout: {:?}\nrposix_timeout: {:?}", timeout, rposix_timeout);
         // io::stdout().flush().unwrap();
 
+        // Ensured that null_mut is used if the Option is None for fd_set parameters.
         let ret = unsafe { 
             libc::select(
                 newnfds as i32, 
-                &mut real_readfds as *mut fd_set, 
-                &mut real_writefds as *mut fd_set, 
-                &mut real_errorfds as *mut fd_set, 
+                 real_readfds.as_mut().map_or(std::ptr::null_mut(), |fds| fds as *mut fd_set), 
+                real_writefds.as_mut().map_or(std::ptr::null_mut(), |fds| fds as *mut fd_set), 
+                real_errorfds.as_mut().map_or(std::ptr::null_mut(), |fds| fds as *mut fd_set), 
                 &mut timeout as *mut timeval)
         };
 
