@@ -772,7 +772,8 @@ impl Cage {
         }
 
         // Revert result
-        let (_retnfds, retreadfds, retwritefds, reterrorfds) = get_virtual_bitmasks_from_select_result(
+        // let (_retnfds, Some(retreadfds), Some(retwritefds), Some(reterrorfds)) = .unwrap();
+        match get_virtual_bitmasks_from_select_result(
             newnfds as u64,
             real_readfds,
             real_writefds,
@@ -782,23 +783,44 @@ impl Cage {
             HashSet::new(),
             &mappingtable,
             // mappingtable,
-        ).unwrap();
-        
+        ) {
+            Ok((_retnfds, retreadfds, retwritefds, reterrorfds)) => {
+                if let Some(rfds) = readfds.as_mut() {
+                    if let Some(ret_rfds) = retreadfds {
+                        **rfds = ret_rfds;
+                    } else {
+                        // Clear the fd_set if result is None
+                        unsafe { libc::FD_ZERO(&mut **rfds); } 
+                    }
+                }
+    
+                if let Some(wfds) = writefds.as_mut() {
+                    if let Some(ret_wfds) = retwritefds {
+                        **wfds = ret_wfds;
+                    } else {
+                        // Clear the fd_set if result is None
+                        unsafe { libc::FD_ZERO(&mut **wfds); }
+                    }
+                }
+    
+                if let Some(efds) = errorfds.as_mut() {
+                    if let Some(ret_efds) = reterrorfds {
+                        **efds = ret_efds;
+                    } else {
+                        // Clear the fd_set if result is None
+                        unsafe { libc::FD_ZERO(&mut **efds); }
+                    }
+                }
+            },
+            Err(e) => {
+                panic!("");
+            }
+        }
         // println!("[Select] retreadfds: {:?}", retreadfds);
         // println!("[Select] mappingtable: {:?}", mappingtable);
         // io::stdout().flush().unwrap();
 
-        if let Some(rfds) = readfds.as_mut() {
-            **rfds = retreadfds;
-        }
-
-        if let Some(wfds) = writefds.as_mut() {
-            **wfds = retwritefds;
-        }
-
-        if let Some(efds) = errorfds.as_mut() {
-            **efds = reterrorfds;
-        }
+        
         // println!("[Select] readfds: {:?}", readfds);
         // io::stdout().flush().unwrap();
         // println!("[Select] ret: {:?}", ret);
