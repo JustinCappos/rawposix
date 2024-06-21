@@ -487,7 +487,7 @@ fn _do_bitmods(myfdrow:&[Option<FDTableEntry>], nfds:u64, infdset: fd_set, thisf
                 }
                 else {
                     mappingtable.insert(entry.realfd, pos);
-                    println!("[SELECT] - vfd: {:?}", entry);
+                    println!("[SELECT] - vfd: {:?}", pos);
                     println!("[SELECT] - realfd: {:?}", entry.realfd);
                     io::stdout().flush().unwrap();
                     _fd_set(entry.realfd,thisfdset);
