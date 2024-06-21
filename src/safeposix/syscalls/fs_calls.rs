@@ -2200,6 +2200,10 @@ impl Cage {
 }
 
 pub fn kernel_close(kernelfd: u64) {
+
+    println!("[CLOSE] realfd: {:?}", kernelfd);
+    io::stdout().flush().unwrap();
+    
     let ret = unsafe {
         libc::close(kernelfd as i32)
     };
