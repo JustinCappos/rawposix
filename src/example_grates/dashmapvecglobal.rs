@@ -55,7 +55,7 @@ lazy_static! {
         // be. Otherwise, I'm not sure how I get this started. I think this
         // should be invalid from a 3i standpoint, etc. Could this mask an
         // error in the future?
-        m.insert(threei::TESTING_CAGEID,vec!(Option::None;FD_PER_PROCESS_MAX as usize));
+        // m.insert(threei::TESTING_CAGEID,vec!(Option::None;FD_PER_PROCESS_MAX as usize));
         m
     };
 }
