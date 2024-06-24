@@ -85,20 +85,20 @@ impl Cage {
         let should_cloexec = (oflag & O_CLOEXEC) != 0;
 
         let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, should_cloexec, 0).unwrap();
-        let mut count = 0;
-        FDTABLE.iter().for_each(|entry| {
-            // println!("Cage ID: {}", entry.key());
-            for (index, fd_entry) in entry.value().iter().enumerate() {
-                if let Some(entry) = fd_entry {
-                    // println!("  Index {}: {:?}", index, entry);
-                    count = count+1;
-                }
-            }
-        });
-        println!("[OPEN] vfd: {:?}", virtual_fd);
-        println!("[OPEN] realfd: {:?}", kernel_fd);
-        println!("[OPEN] Total: {:?}", count);
-        io::stdout().flush().unwrap();
+        // let mut count = 0;
+        // FDTABLE.iter().for_each(|entry| {
+        //     // println!("Cage ID: {}", entry.key());
+        //     for (index, fd_entry) in entry.value().iter().enumerate() {
+        //         if let Some(entry) = fd_entry {
+        //             // println!("  Index {}: {:?}", index, entry);
+        //             count = count+1;
+        //         }
+        //     }
+        // });
+        // println!("[OPEN] vfd: {:?}", virtual_fd);
+        // println!("[OPEN] realfd: {:?}", kernel_fd);
+        // println!("[OPEN] Total: {:?}", count);
+        // io::stdout().flush().unwrap();
         virtual_fd as i32
     }
 
@@ -2215,8 +2215,8 @@ impl Cage {
 
 pub fn kernel_close(kernelfd: u64) {
 
-    println!("[CLOSE] realfd: {:?}", kernelfd);
-    io::stdout().flush().unwrap();
+    // println!("[CLOSE] realfd: {:?}", kernelfd);
+    // io::stdout().flush().unwrap();
 
     let ret = unsafe {
         libc::close(kernelfd as i32)
