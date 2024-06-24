@@ -501,9 +501,9 @@ fn _do_bitmods(myfdrow:&[Option<FDTableEntry>], nfds:u64, infdset: fd_set, thisf
                     //     println!("Total: {:?}", count);
                     //     io::stdout().flush().unwrap();
                     // }
-                    println!("[SELECT] - vfd: {:?}", pos);
-                    println!("[SELECT] - realfd: {:?}", entry.realfd);
-                    io::stdout().flush().unwrap();
+                    // println!("[SELECT] - vfd: {:?}", pos);
+                    // println!("[SELECT] - realfd: {:?}", entry.realfd);
+                    // io::stdout().flush().unwrap();
                     _fd_set(entry.realfd,thisfdset);
                     // I add one because select expects nfds to be the max+1
                     highestpos = cmp::max(highestpos, entry.realfd+1);
@@ -551,6 +551,8 @@ pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set
         match inset {
             Some(virtualbits) => {
                 let mut retset = _init_fd_set();
+                println!("[SELECT] cageid: {:?}", cageid);
+                io::stdout().flush().unwrap();
                 let (thisnfds,myunrealhashset) = _do_bitmods(&thefdrow,nfds,*virtualbits, &mut retset,&mut mappingtable)?;
                 resultvec.push(Some(retset));
                 newnfds = cmp::max(thisnfds, newnfds);
