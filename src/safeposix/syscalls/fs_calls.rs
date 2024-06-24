@@ -95,10 +95,10 @@ impl Cage {
         //         }
         //     }
         // });
-        // println!("[OPEN] vfd: {:?}", virtual_fd);
-        // println!("[OPEN] realfd: {:?}", kernel_fd);
+        println!("[OPEN] vfd: {:?}", virtual_fd);
+        println!("[OPEN] realfd: {:?}", kernel_fd);
         // println!("[OPEN] Total: {:?}", count);
-        // io::stdout().flush().unwrap();
+        io::stdout().flush().unwrap();
         virtual_fd as i32
     }
 
