@@ -492,7 +492,9 @@ fn _do_bitmods(myfdrow:&[Option<FDTableEntry>], nfds:u64, infdset: fd_set, thisf
                         FDTABLE.iter().for_each(|entry| {
                             println!("Cage ID: {}", entry.key());
                             for (index, fd_entry) in entry.value().iter().enumerate() {
-                                println!("  Index {}: {:?}", index, fd_entry);
+                                if let Some(entry) = fd_entry {
+                                    println!("  Index {}: {:?}", index, entry);
+                                }
                             }
                         });
                         io::stdout().flush().unwrap();
