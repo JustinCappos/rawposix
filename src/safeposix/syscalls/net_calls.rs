@@ -826,18 +826,18 @@ impl Cage {
         // io::stdout().flush().unwrap();
         // println!("[Select] ret: {:?}", ret);
         // io::stdout().flush().unwrap();
-        let mut count = 0;
-        FDTABLE.iter().for_each(|entry| {
-            // println!("Cage ID: {}", entry.key());
-            for (index, fd_entry) in entry.value().iter().enumerate() {
-                if let Some(entry) = fd_entry {
-                    // println!("  Index {}: {:?}", index, entry);
-                    count = count+1;
-                }
-            }
-        });
-        println!("[SELECT] Total: {:?}", count);
-        io::stdout().flush().unwrap();
+        // let mut count = 0;
+        // FDTABLE.iter().for_each(|entry| {
+        //     // println!("Cage ID: {}", entry.key());
+        //     for (index, fd_entry) in entry.value().iter().enumerate() {
+        //         if let Some(entry) = fd_entry {
+        //             // println!("  Index {}: {:?}", index, entry);
+        //             count = count+1;
+        //         }
+        //     }
+        // });
+        // println!("[SELECT] Total: {:?}", count);
+        // io::stdout().flush().unwrap();
 
         ret
     }
