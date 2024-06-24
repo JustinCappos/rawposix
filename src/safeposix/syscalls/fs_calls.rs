@@ -796,6 +796,8 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
+        println!("[CLOSE] vfd: {:?}", virtual_fd);
+        io::stdout().flush().unwrap();
         match close_virtualfd(self.cageid, virtual_fd as u64) {
             Ok(()) => {
                 return 0;
@@ -2215,8 +2217,8 @@ impl Cage {
 
 pub fn kernel_close(kernelfd: u64) {
 
-    // println!("[CLOSE] realfd: {:?}", kernelfd);
-    // io::stdout().flush().unwrap();
+    println!("[KERNEL CLOSE] realfd: {:?}", kernelfd);
+    io::stdout().flush().unwrap();
 
     let ret = unsafe {
         libc::close(kernelfd as i32)

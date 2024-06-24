@@ -501,9 +501,9 @@ fn _do_bitmods(myfdrow:&[Option<FDTableEntry>], nfds:u64, infdset: fd_set, thisf
                     //     println!("Total: {:?}", count);
                     //     io::stdout().flush().unwrap();
                     // }
-                    // println!("[SELECT] - vfd: {:?}", pos);
-                    // println!("[SELECT] - realfd: {:?}", entry.realfd);
-                    // io::stdout().flush().unwrap();
+                    println!("[SELECT] - vfd: {:?}", pos);
+                    println!("[SELECT] - realfd: {:?}", entry.realfd);
+                    io::stdout().flush().unwrap();
                     _fd_set(entry.realfd,thisfdset);
                     // I add one because select expects nfds to be the max+1
                     highestpos = cmp::max(highestpos, entry.realfd+1);
