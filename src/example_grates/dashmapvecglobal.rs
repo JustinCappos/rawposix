@@ -489,7 +489,6 @@ fn _do_bitmods(myfdrow:&[Option<FDTableEntry>], nfds:u64, infdset: fd_set, thisf
                     mappingtable.insert(entry.realfd, pos);
                     if pos == 3 {
                         let mut count = 0;
-                        println!("FDTable: {:?}", FDTABLE);
                         FDTABLE.iter().for_each(|entry| {
                             println!("Cage ID: {}", entry.key());
                             for (index, fd_entry) in entry.value().iter().enumerate() {
