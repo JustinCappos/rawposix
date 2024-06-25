@@ -52,22 +52,22 @@ impl Cage {
         // Modify the fdtable manually 
         copy_fdtable_for_cage(self.cageid, child_cageid).unwrap();
 
-        println!("[FORK]");
-        io::stdout().flush().unwrap();
-        if child_cageid == 22 {
-            let mut count = 0;
-            FDTABLE.iter().for_each(|entry| {
-                println!("Cage ID: {}", entry.key());
-                for (index, fd_entry) in entry.value().iter().enumerate() {
-                    if let Some(entry) = fd_entry {
-                        println!("  Index {}: {:?}", index, entry);
-                        count = count+1;
-                    }
-                }
-            });
-            println!("Total: {:?}", count);
-            io::stdout().flush().unwrap();
-        }
+        // println!("[FORK]");
+        // io::stdout().flush().unwrap();
+        // if child_cageid == 22 {
+        //     let mut count = 0;
+        //     FDTABLE.iter().for_each(|entry| {
+        //         println!("Cage ID: {}", entry.key());
+        //         for (index, fd_entry) in entry.value().iter().enumerate() {
+        //             if let Some(entry) = fd_entry {
+        //                 println!("  Index {}: {:?}", index, entry);
+        //                 count = count+1;
+        //             }
+        //         }
+        //     });
+        //     println!("Total: {:?}", count);
+        //     io::stdout().flush().unwrap();
+        // }
         
         //construct a new mutex in the child cage where each initialized mutex is in the parent cage
         let mutextable = self.mutex_table.read();
