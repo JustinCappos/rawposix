@@ -955,7 +955,7 @@ impl Cage {
         }
         let kernel_fd = kfd.unwrap();
         
-        let (finalsockaddr, addrlen) = match address {
+        let (finalsockaddr, mut addrlen) = match address {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV6>() as u32,
