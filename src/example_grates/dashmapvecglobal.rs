@@ -416,6 +416,7 @@ fn _decrement_realfd(realfd:u64, cageid: u64) -> u64 {
     else{
         println!("[KERNEL CLOSE] cageid: {:?}", cageid);
         (closehandlers.last)(realfd);
+        REALFDCOUNT.remove(&realfd);
     }
     newcount
 }
