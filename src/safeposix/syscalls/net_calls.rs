@@ -971,6 +971,7 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
+        println!("[getpeername] addr BEFORE: {:?}", address);
         println!("[getpeername] finalsockaddr BEFORE: {:?}", finalsockaddr);
         io::stdout().flush().unwrap();
 
