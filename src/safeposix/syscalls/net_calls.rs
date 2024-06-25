@@ -971,12 +971,28 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
+        println!("[getpeername] finalsockaddr BEFORE: {:?}", finalsockaddr);
+        io::stdout().flush().unwrap();
+
         let ret = unsafe { libc::getpeername(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
 
         if ret < 0 {
+            let err = unsafe {
+                libc::__errno_location()
+            };
+            let err_str = unsafe {
+                libc::strerror(*err)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[getpeername] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "getpeername");
         }
+        println!("[getpeername] finalsockaddr After: {:?}", finalsockaddr);
+        io::stdout().flush().unwrap();
 
         if let Some(sockaddr) = address {
             if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
@@ -1001,6 +1017,9 @@ impl Cage {
                 }
             }
         }
+
+        println!("[getpeername] addr: {:?}", address);
+        io::stdout().flush().unwrap();
 
         ret
     }
