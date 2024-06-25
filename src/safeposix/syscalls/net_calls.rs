@@ -1021,8 +1021,8 @@ impl Cage {
             }
         }
 
-        println!("[getpeername] addr: {:?}", address);
-        io::stdout().flush().unwrap();
+        // println!("[getpeername] addr: {:?}", address);
+        // io::stdout().flush().unwrap();
 
         ret
     }
