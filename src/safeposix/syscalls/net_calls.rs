@@ -988,8 +988,10 @@ impl Cage {
                 CStr::from_ptr(err_str).to_string_lossy().into_owned()
             };
             println!("[getpeername] Error message: {:?}", err_msg);
-            io::stdout().flush().unwrap();
+            
             let errno = get_errno();
+            println!("[getpeername] Errno: {:?}", errno);
+            io::stdout().flush().unwrap();
             return handle_errno(errno, "getpeername");
         }
         println!("[getpeername] finalsockaddr After: {:?}", finalsockaddr);
