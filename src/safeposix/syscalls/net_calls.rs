@@ -45,6 +45,19 @@ impl Cage {
         /*
             get_unused_virtual_fd(cageid,realfd,is_cloexec,optionalinfo) -> Result<virtualfd, EMFILE>
         */
+        if kernel_fd < 0 {
+            let errno = get_errno();
+            let err_str = unsafe {
+                libc::strerror(errno)
+            };
+            let err_msg = unsafe {
+                CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            };
+            println!("[socket] Error message: {:?}", err_msg);
+            io::stdout().flush().unwrap();
+            return handle_errno(errno, "socket");
+        }
+
         return get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap() as i32;
     }
 
