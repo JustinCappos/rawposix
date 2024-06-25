@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use std::fs;
 use super::fs_constants;
 // File system related system calls
 use super::fs_constants::*;
@@ -62,6 +63,7 @@ impl Cage {
 
         let kernel_fd = unsafe { libc::open(c_path.as_ptr(), oflag, mode) };
 
+        
         if kernel_fd < 0 {
             // let err = unsafe {
             //     *libc::__errno_location()
@@ -95,11 +97,16 @@ impl Cage {
         //         }
         //     }
         // });
-        println!("[OPEN] cageid: {:?}", self.cageid);
-        println!("[OPEN] vfd: {:?}", virtual_fd);
-        println!("[OPEN] realfd: {:?}", kernel_fd);
-        // println!("[OPEN] Total: {:?}", count);
-        io::stdout().flush().unwrap();
+        // println!("[OPEN] cageid: {:?}", self.cageid);
+        // println!("[OPEN] vfd: {:?}", virtual_fd);
+        // println!("[OPEN] realfd: {:?}", kernel_fd);
+        // if kernel_fd > 1000 {
+        //     let entries = fs::read_dir("/proc/self/fd")?;
+        //     let count = entries.count();
+        //     println!("!!!![OPEN]!!!! TOTAL FD: {:?}", count);
+        // }
+        // // println!("[OPEN] Total: {:?}", count);
+        // io::stdout().flush().unwrap();
         virtual_fd as i32
     }
 
