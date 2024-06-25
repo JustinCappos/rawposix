@@ -698,8 +698,10 @@ pub fn set_gensockaddr(union_argument: Arg, len_argument: Arg) -> Result<interfa
         _ => {
             // println!("[Dispatcher] tmpsock.sa_family: {:?}", tmpsock.sa_family);
             // io::stdout().flush().unwrap();
-            let null_addr = interface::GenSockaddr::Unix(interface::SockaddrUnix::default());
-            return Ok(null_addr);
+            // let null_addr = interface::GenSockaddr::Unix(interface::SockaddrUnix::default());
+            // return Ok(null_addr);
+            let v4_addr = interface::GenSockaddr::V4(interface::SockaddrV4::default());
+            return Ok(v4_addr);
             // return Err(syscall_error(
             //     Errno::EOPNOTSUPP,
             //     "dispatcher",
