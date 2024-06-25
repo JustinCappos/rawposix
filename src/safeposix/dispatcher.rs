@@ -577,7 +577,7 @@ pub extern "C" fn dispatcher(
             }
         }
         GETPEERNAME_SYSCALL => {
-            let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
+            // let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
             if interface::arg_nullity(&arg2) || interface::arg_nullity(&arg3) {
                 return syscall_error(
                     Errno::EINVAL,
@@ -585,6 +585,7 @@ pub extern "C" fn dispatcher(
                     "Either the address or the length were null",
                 );
             }
+            let mut addr = interface::set_gensockaddr(arg2, arg3).unwrap();
             let rv = check_and_dispatch!(
                 cage.getpeername_syscall,
                 interface::get_int(arg1),

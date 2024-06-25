@@ -964,9 +964,10 @@ impl Cage {
                 (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV4>() as u32,
             ),
-            Some(_) => {
-                unreachable!()
-            }
+            Some(GenSockaddr::Unix(ref mut addrrefu)) => (
+                (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
+                size_of::<SockaddrUnix>() as u32,
+            ),
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
@@ -975,6 +976,30 @@ impl Cage {
         if ret < 0 {
             let errno = get_errno();
             return handle_errno(errno, "getpeername");
+        }
+
+        if let Some(sockaddr) = address {
+            if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
+                unsafe {
+                    if std::slice::from_raw_parts(sockaddr_unix.sun_path.as_ptr() as *const u8, LIND_ROOT.len()) == LIND_ROOT.as_bytes() {
+                        // Move ptr to exclue LIND_ROOT
+                        let new_path_ptr = sockaddr_unix.sun_path.as_ptr().add(LIND_ROOT.len());
+                
+                        // sun_path in RawPOSIX will always be 108
+                        let new_path_len = 108 - LIND_ROOT.len();
+                
+                        let mut temp_path = vec![0u8; sockaddr_unix.sun_path.len()];
+                
+                        std::ptr::copy_nonoverlapping(new_path_ptr, temp_path.as_mut_ptr(), new_path_len);
+                
+                        for i in 0..sockaddr_unix.sun_path.len() {
+                            sockaddr_unix.sun_path[i] = 0;
+                        }
+                
+                        std::ptr::copy_nonoverlapping(temp_path.as_ptr(), sockaddr_unix.sun_path.as_mut_ptr(), new_path_len);
+                    }
+                }
+            }
         }
 
         ret
