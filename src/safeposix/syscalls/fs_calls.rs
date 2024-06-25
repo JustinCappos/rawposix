@@ -806,19 +806,6 @@ impl Cage {
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
         println!("[CLOSE] cageid: {:?}", self.cageid);
         println!("[CLOSE] vfd: {:?}", virtual_fd);
-        if virtual_fd == 3 {
-            let mut count = 0;
-            FDTABLE.iter().for_each(|entry| {
-                for (index, fd_entry) in entry.value().iter().enumerate() {
-                    if let Some(entry) = fd_entry {
-                        println!("  Index {}: {:?}", index, entry);
-                        count = count+1;
-                    }
-                }
-            });
-            println!("Total: {:?}", count);
-            io::stdout().flush().unwrap();
-        }
         io::stdout().flush().unwrap();
         match close_virtualfd(self.cageid, virtual_fd as u64) {
             Ok(()) => {
