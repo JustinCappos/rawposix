@@ -651,9 +651,9 @@ pub fn set_gensockaddr(union_argument: Arg, len_argument: Arg) -> Result<interfa
     let received = unsafe { union_argument.dispatch_sockaddrstruct };
     let received_addrlen = unsafe { len_argument.dispatch_socklen_t_ptr } as u32;
     let tmpsock = unsafe { &*received };
-    println!("[Dispatcher set_gen] family: {:?}", tmpsock.sa_family);
-    println!("[Dispathcer set_gen] len: {:?}", received_addrlen);
-    io::stdout().flush().unwrap();
+    // println!("[Dispatcher set_gen] family: {:?}", tmpsock.sa_family);
+    // println!("[Dispathcer set_gen] len: {:?}", received_addrlen);
+    // io::stdout().flush().unwrap();
     match tmpsock.sa_family {
         /*AF_UNIX*/
         1 => {
