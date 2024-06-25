@@ -160,7 +160,8 @@ pub fn get_specific_virtual_fd(
     // is also how I'm tracking how many values you have open.  If this
     // changed, then these constants could be decoupled...
     if requested_virtualfd > FD_PER_PROCESS_MAX {
-        return Err(threei::Errno::EBADF as u64);
+        // return Err(threei::Errno::EBADF as u64);
+        panic!("FDTABLE");
     }
 
     // Set up the entry so it has the right info...
@@ -182,7 +183,7 @@ pub fn get_specific_virtual_fd(
             (closehandlers.unreal)(entry.optionalinfo);
         }
         else {
-            _decrement_realfd(entry.realfd);
+            _decrement_realfd(entry.realfd, cageid);
         }
     }
 
@@ -281,7 +282,7 @@ pub fn remove_cage_from_fdtable(cageid: u64) {
                 (closehandlers.unreal)(myfdrow[item].unwrap().optionalinfo);
             }
             else{
-                _decrement_realfd(therealfd);
+                _decrement_realfd(therealfd, cageid);
             }
         }
     }
@@ -310,7 +311,7 @@ pub fn empty_fds_for_exec(cageid: u64) {
                 (closehandlers.unreal)(myfdrow[item].unwrap().optionalinfo);
             }
             else{
-                _decrement_realfd(therealfd);
+                _decrement_realfd(therealfd, cageid);
             }
             myfdrow[item] = None;
         }
@@ -379,7 +380,7 @@ pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
             myfdrow[virtfd as usize] = None;
             return Ok(());
         }
-        _decrement_realfd(therealfd);
+        _decrement_realfd(therealfd, cageid);
         // Zero out this entry...
         myfdrow[virtfd as usize] = None;
         return Ok(());
@@ -402,7 +403,7 @@ pub fn register_close_handlers(intermediate: fn(u64), last: fn(u64), unreal: fn(
 
 // Helpers to track the count of times each realfd is used
 #[doc(hidden)]
-fn _decrement_realfd(realfd:u64) -> u64 {
+fn _decrement_realfd(realfd:u64, cageid: u64) -> u64 {
 
     assert!(realfd != NO_REAL_FD, "Called _decrement_realfd with NO_REAL_FD");
 
@@ -413,6 +414,7 @@ fn _decrement_realfd(realfd:u64) -> u64 {
         REALFDCOUNT.insert(realfd,newcount);
     }
     else{
+        println!("[KERNEL CLOSE] cageid: {:?}", cageid);
         (closehandlers.last)(realfd);
     }
     newcount
@@ -551,8 +553,8 @@ pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set
         match inset {
             Some(virtualbits) => {
                 let mut retset = _init_fd_set();
-                println!("[SELECT] cageid: {:?}", cageid);
-                io::stdout().flush().unwrap();
+                // println!("[SELECT] cageid: {:?}", cageid);
+                // io::stdout().flush().unwrap();
                 let (thisnfds,myunrealhashset) = _do_bitmods(&thefdrow,nfds,*virtualbits, &mut retset,&mut mappingtable)?;
                 resultvec.push(Some(retset));
                 newnfds = cmp::max(thisnfds, newnfds);
