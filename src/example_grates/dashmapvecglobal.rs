@@ -442,6 +442,7 @@ fn _decrement_realfd(realfd:u64) -> u64 {
         Some(refvalue) => refvalue.value() - 1,
         None => {
             println!("[FDTABLE] realfd: {:?}", realfd);
+            println!("[FDTABLE] REALFDCOUNT: {:?}", REALFDCOUNT);
             panic!();
         }
     };
