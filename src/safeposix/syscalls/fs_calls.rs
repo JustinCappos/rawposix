@@ -816,11 +816,14 @@ impl Cage {
         println!("[CLOSE] FDTABLE: ");
         io::stdout().flush().unwrap();
         for entry in FDTABLE.iter() {
-            let key = entry.key();
-            let value = entry.value();
-            let non_none_values: Vec<&FDTableEntry> = value.iter().filter_map(|v| v.as_ref()).collect();
-            println!("cageid: {:?}, Value: {:?}", key, non_none_values);
-            io::stdout().flush().unwrap();
+            let cageid = entry.key();
+            let fds = entry.value();
+            println!("cageid: {:?}", cageid);
+            for (vfd, fd_entry) in fds.iter().enumerate() {
+                if let Some(fd_entry) = fd_entry {
+                    println!("  virtual_fd: {}, FDTableEntry: {:?}", vfd, fd_entry);
+                }
+            }
         }
         io::stdout().flush().unwrap();
         println!("[CLOSE] cageid: {:?}", self.cageid);
