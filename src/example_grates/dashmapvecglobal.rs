@@ -51,7 +51,7 @@ pub const ALGONAME: &str = "DashMapVecGlobal";
 lazy_static! {
 
     #[derive(Debug)]
-    static ref FDTABLE: DashMap<u64, Vec<Option<FDTableEntry>>> = {
+    pub static ref FDTABLE: DashMap<u64, Vec<Option<FDTableEntry>>> = {
         let m = DashMap::new();
         // Insert a cage so that I have something to fork / test later, if need
         // be. Otherwise, I'm not sure how I get this started. I think this
@@ -66,7 +66,7 @@ lazy_static! {
     // This is needed for close and similar functionality.  I need track the
     // number of times a realfd is open
     #[derive(Debug)]
-    static ref REALFDCOUNT: DashMap<u64, u64> = {
+    pub static ref REALFDCOUNT: DashMap<u64, u64> = {
         DashMap::new()
     };
 
@@ -441,25 +441,25 @@ fn _decrement_realfd(realfd:u64) -> u64 {
     let newcount = match REALFDCOUNT.get(&realfd) {
         Some(refvalue) => refvalue.value() - 1,
         None => {
-            println!("[FDTABLE] realfd: {:?}", realfd);
-            println!("[FDTABLE] REALFDCOUNT:");
-            io::stdout().flush().unwrap();
-            for entry in REALFDCOUNT.iter() {
-                let key = entry.key();
-                let value = entry.value();
-                println!("realfd: {:?}, Value: {:?}", key, value);
-                io::stdout().flush().unwrap();
-            }
-            println!("[FDTABLE] FDTABLE: ");
-            io::stdout().flush().unwrap();
-            for entry in FDTABLE.iter() {
-                let key = entry.key();
-                let value = entry.value();
-                let non_none_values: Vec<&FDTableEntry> = value.iter().filter_map(|v| v.as_ref()).collect();
-                println!("cageid: {:?}, Value: {:?}", key, non_none_values);
-                io::stdout().flush().unwrap();
-            }
-            io::stdout().flush().unwrap();
+            // println!("[FDTABLE] realfd: {:?}", realfd);
+            // println!("[FDTABLE] REALFDCOUNT:");
+            // io::stdout().flush().unwrap();
+            // for entry in REALFDCOUNT.iter() {
+            //     let key = entry.key();
+            //     let value = entry.value();
+            //     println!("realfd: {:?}, Value: {:?}", key, value);
+            //     io::stdout().flush().unwrap();
+            // }
+            // println!("[FDTABLE] FDTABLE: ");
+            // io::stdout().flush().unwrap();
+            // for entry in FDTABLE.iter() {
+            //     let key = entry.key();
+            //     let value = entry.value();
+            //     let non_none_values: Vec<&FDTableEntry> = value.iter().filter_map(|v| v.as_ref()).collect();
+            //     println!("cageid: {:?}, Value: {:?}", key, non_none_values);
+            //     io::stdout().flush().unwrap();
+            // }
+            // io::stdout().flush().unwrap();
             panic!();
         }
     };

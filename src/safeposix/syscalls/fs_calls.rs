@@ -804,6 +804,25 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
+        println!();
+        println!("[CLOSE] REALFDCOUNT:");
+        io::stdout().flush().unwrap();
+        for entry in REALFDCOUNT.iter() {
+            let key = entry.key();
+            let value = entry.value();
+            println!("realfd: {:?}, Value: {:?}", key, value);
+            io::stdout().flush().unwrap();
+        }
+        println!("[CLOSE] FDTABLE: ");
+        io::stdout().flush().unwrap();
+        for entry in FDTABLE.iter() {
+            let key = entry.key();
+            let value = entry.value();
+            let non_none_values: Vec<&FDTableEntry> = value.iter().filter_map(|v| v.as_ref()).collect();
+            println!("cageid: {:?}, Value: {:?}", key, non_none_values);
+            io::stdout().flush().unwrap();
+        }
+        io::stdout().flush().unwrap();
         println!("[CLOSE] cageid: {:?}", self.cageid);
         println!("[CLOSE] vfd: {:?}", virtual_fd);
         io::stdout().flush().unwrap();
