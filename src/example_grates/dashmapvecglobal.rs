@@ -442,17 +442,18 @@ fn _decrement_realfd(realfd:u64) -> u64 {
         Some(refvalue) => refvalue.value() - 1,
         None => {
             println!("[FDTABLE] realfd: {:?}", realfd);
-            println!("[FDTABLE] REALFDCOUNT: {:?}", REALFDCOUNT);
+            println!("[FDTABLE] REALFDCOUNT:");
             for entry in REALFDCOUNT.iter() {
                 let key = entry.key();
                 let value = entry.value();
-                println!("Key: {:?}, Value: {:?}", key, value);
+                println!("realfd: {:?}, Value: {:?}", key, value);
             }
             println!("[FDTABLE] FDTABLE: ");
             for entry in FDTABLE.iter() {
                 let key = entry.key();
                 let value = entry.value();
-                println!("Key: {:?}, Value: {:?}", key, value);
+                let non_none_values: Vec<&FDTableEntry> = value.iter().filter_map(|v| v.as_ref()).collect();
+                println!("cageid: {:?}, Value: {:?}", key, non_none_values);
             }
             io::stdout().flush().unwrap();
             panic!();
