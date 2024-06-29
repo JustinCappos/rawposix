@@ -441,7 +441,7 @@ fn _decrement_realfd(realfd:u64) -> u64 {
     let newcount = match REALFDCOUNT.get(&realfd) {
         Some(refvalue) => refvalue.value() - 1,
         None => {
-            // println!("[FDTABLE] realfd: {:?}", realfd);
+            println!("[FDTABLE] realfd: {:?}", realfd);
             // println!("[FDTABLE] REALFDCOUNT:");
             // io::stdout().flush().unwrap();
             // for entry in REALFDCOUNT.iter() {
@@ -459,7 +459,7 @@ fn _decrement_realfd(realfd:u64) -> u64 {
             //     println!("cageid: {:?}, Value: {:?}", key, non_none_values);
             //     io::stdout().flush().unwrap();
             // }
-            // io::stdout().flush().unwrap();
+            io::stdout().flush().unwrap();
             panic!();
         }
     };
