@@ -804,31 +804,31 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
-        println!();
-        println!("[CLOSE] REALFDCOUNT:");
-        io::stdout().flush().unwrap();
-        for entry in REALFDCOUNT.iter() {
-            let key = entry.key();
-            let value = entry.value();
-            println!("realfd: {:?}, Value: {:?}", key, value);
-            io::stdout().flush().unwrap();
-        }
-        println!("[CLOSE] FDTABLE: ");
-        io::stdout().flush().unwrap();
-        for entry in FDTABLE.iter() {
-            let cageid = entry.key();
-            let fds = entry.value();
-            println!("cageid: {:?}", cageid);
-            for (vfd, fd_entry) in fds.iter().enumerate() {
-                if let Some(fd_entry) = fd_entry {
-                    println!("  virtual_fd: {}, FDTableEntry: {:?}", vfd, fd_entry);
-                }
-            }
-        }
-        io::stdout().flush().unwrap();
-        println!("[CLOSE] cageid: {:?}", self.cageid);
-        println!("[CLOSE] vfd: {:?}", virtual_fd);
-        io::stdout().flush().unwrap();
+        // println!();
+        // println!("[CLOSE] REALFDCOUNT:");
+        // io::stdout().flush().unwrap();
+        // for entry in REALFDCOUNT.iter() {
+        //     let key = entry.key();
+        //     let value = entry.value();
+        //     println!("realfd: {:?}, Value: {:?}", key, value);
+        //     io::stdout().flush().unwrap();
+        // }
+        // println!("[CLOSE] FDTABLE: ");
+        // io::stdout().flush().unwrap();
+        // for entry in FDTABLE.iter() {
+        //     let cageid = entry.key();
+        //     let fds = entry.value();
+        //     println!("cageid: {:?}", cageid);
+        //     for (vfd, fd_entry) in fds.iter().enumerate() {
+        //         if let Some(fd_entry) = fd_entry {
+        //             println!("  virtual_fd: {}, FDTableEntry: {:?}", vfd, fd_entry);
+        //         }
+        //     }
+        // }
+        // io::stdout().flush().unwrap();
+        // println!("[CLOSE] cageid: {:?}", self.cageid);
+        // println!("[CLOSE] vfd: {:?}", virtual_fd);
+        // io::stdout().flush().unwrap();
         match close_virtualfd(self.cageid, virtual_fd as u64) {
             Ok(()) => {
                 return 0;
@@ -2248,8 +2248,8 @@ impl Cage {
 
 pub fn kernel_close(kernelfd: u64) {
     // println!("[KERNEL CLOSE] cageid: {:?}", self.cageid);
-    println!("[KERNEL CLOSE] realfd: {:?}", kernelfd);
-    io::stdout().flush().unwrap();
+    // println!("[KERNEL CLOSE] realfd: {:?}", kernelfd);
+    // io::stdout().flush().unwrap();
 
     let ret = unsafe {
         libc::close(kernelfd as i32)
