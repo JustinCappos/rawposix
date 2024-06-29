@@ -443,6 +443,18 @@ fn _decrement_realfd(realfd:u64) -> u64 {
         None => {
             println!("[FDTABLE] realfd: {:?}", realfd);
             println!("[FDTABLE] REALFDCOUNT: {:?}", REALFDCOUNT);
+            for entry in REALFDCOUNT.iter() {
+                let key = entry.key();
+                let value = entry.value();
+                println!("Key: {:?}, Value: {:?}", key, value);
+            }
+            println!("[FDTABLE] FDTABLE: ");
+            for entry in FDTABLE.iter() {
+                let key = entry.key();
+                let value = entry.value();
+                println!("Key: {:?}, Value: {:?}", key, value);
+            }
+            io::stdout().flush().unwrap();
             panic!();
         }
     };
