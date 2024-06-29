@@ -15,6 +15,7 @@ use super::threei;
 use dashmap::DashMap;
 
 use lazy_static::lazy_static;
+use serde::de::value;
 
 use std::collections::HashMap;
 
@@ -436,7 +437,14 @@ fn _decrement_realfd(realfd:u64) -> u64 {
 
     assert!(realfd != NO_REAL_FD, "Called _decrement_realfd with NO_REAL_FD");
 
-    let newcount:u64 = REALFDCOUNT.get(&realfd).unwrap().value() - 1;
+    // let newcount:u64 = REALFDCOUNT.get(&realfd).unwrap().value() - 1;
+    let newcount = match REALFDCOUNT.get(&realfd) {
+        Some(refvalue) => refvalue.value() - 1,
+        None => {
+            println!("[FDTABLE] realfd: {:?}", realfd);
+            panic!();
+        }
+    };
 
     // Doing this to release the lock so I can call it recursively...
     let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
