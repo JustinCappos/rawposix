@@ -6,16 +6,11 @@
 use crate::safeposix::cage;
 use crate::safeposix::syscalls::fs_calls::*;
 
-use std::io::Write;
-use std::io;
-
 use super::threei;
-
 
 use dashmap::DashMap;
 
 use lazy_static::lazy_static;
-use serde::de::value;
 
 use std::collections::HashMap;
 
@@ -51,13 +46,13 @@ pub const ALGONAME: &str = "DashMapVecGlobal";
 lazy_static! {
 
     #[derive(Debug)]
-    pub static ref FDTABLE: DashMap<u64, Vec<Option<FDTableEntry>>> = {
+    static ref FDTABLE: DashMap<u64, Vec<Option<FDTableEntry>>> = {
         let m = DashMap::new();
         // Insert a cage so that I have something to fork / test later, if need
         // be. Otherwise, I'm not sure how I get this started. I think this
         // should be invalid from a 3i standpoint, etc. Could this mask an
         // error in the future?
-        // m.insert(threei::TESTING_CAGEID,vec!(Option::None;FD_PER_PROCESS_MAX as usize));
+        m.insert(threei::TESTING_CAGEID,vec!(Option::None;FD_PER_PROCESS_MAX as usize));
         m
     };
 }
@@ -66,7 +61,7 @@ lazy_static! {
     // This is needed for close and similar functionality.  I need track the
     // number of times a realfd is open
     #[derive(Debug)]
-    pub static ref REALFDCOUNT: DashMap<u64, u64> = {
+    static ref REALFDCOUNT: DashMap<u64, u64> = {
         DashMap::new()
     };
 
@@ -301,7 +296,7 @@ pub fn remove_cage_from_fdtable(cageid: u64) {
 
 // This removes all fds with the should_cloexec flag set.  They are returned
 // in a new hashmap...
-// #[doc = include_str!("../docs/empty_fds_for_exec.md")]
+// // #[doc = include_str!("../docs/empty_fds_for_exec.md")]
 pub fn empty_fds_for_exec(cageid: u64) {
 
     assert!(FDTABLE.contains_key(&cageid),"Unknown cageid in fdtable access");
@@ -343,7 +338,7 @@ pub fn empty_fds_for_exec(cageid: u64) {
 // Returns the HashMap returns a copy of the fdtable for a cage.  Useful 
 // helper function for a caller that needs to examine the table.  Likely could
 // be more efficient by letting the caller borrow this...
-// #[doc = include_str!("../docs/return_fdtable_copy.md")]
+// // #[doc = include_str!("../docs/return_fdtable_copy.md")]
 #[must_use] // must use the return value if you call it.
 pub fn return_fdtable_copy(cageid: u64) -> HashMap<u64, FDTableEntry> {
 
@@ -382,7 +377,7 @@ lazy_static! {
 
 // Helper for close.  Returns a tuple of realfd, number of references
 // remaining.
-// #[doc = include_str!("../docs/close_virtualfd.md")]
+// // #[doc = include_str!("../docs/close_virtualfd.md")]
 pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
 
     assert!(FDTABLE.contains_key(&cageid),"Unknown cageid in fdtable access");
@@ -408,7 +403,7 @@ pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
         }
         // Zero out this entry...
         myfdrow[virtfd as usize] = None;
-
+        // and reinsert it...
         FDTABLE.insert(cageid, myfdrow.clone());
 
         // always _decrement last as it may call the user handler...
@@ -421,7 +416,7 @@ pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
 
 // Register a series of helpers to be called for close.  Can be called
 // multiple times to override the older helpers.
-// #[doc = include_str!("../docs/register_close_handlers.md")]
+// // #[doc = include_str!("../docs/register_close_handlers.md")]
 pub fn register_close_handlers(intermediate: fn(u64), last: fn(u64), unreal: fn(u64)) {
     // Unlock the table and set the handlers...
     // TODO: I made a serious attempt to try to keep closehandlers that call
@@ -439,32 +434,7 @@ fn _decrement_realfd(realfd:u64) -> u64 {
 
     assert!(realfd != NO_REAL_FD, "Called _decrement_realfd with NO_REAL_FD");
 
-    // let newcount:u64 = REALFDCOUNT.get(&realfd).unwrap().value() - 1;
-    let newcount = match REALFDCOUNT.get(&realfd) {
-        Some(refvalue) => refvalue.value() - 1,
-        None => {
-            // println!("[FDTABLE] realfd: {:?}", realfd);
-            // println!("[FDTABLE] REALFDCOUNT:");
-            // io::stdout().flush().unwrap();
-            // for entry in REALFDCOUNT.iter() {
-            //     let key = entry.key();
-            //     let value = entry.value();
-            //     println!("realfd: {:?}, Value: {:?}", key, value);
-            //     io::stdout().flush().unwrap();
-            // }
-            // println!("[FDTABLE] FDTABLE: ");
-            // io::stdout().flush().unwrap();
-            // for entry in FDTABLE.iter() {
-            //     let key = entry.key();
-            //     let value = entry.value();
-            //     let non_none_values: Vec<&FDTableEntry> = value.iter().filter_map(|v| v.as_ref()).collect();
-            //     println!("cageid: {:?}, Value: {:?}", key, non_none_values);
-            //     io::stdout().flush().unwrap();
-            // }
-            // io::stdout().flush().unwrap();
-            panic!();
-        }
-    };
+    let newcount:u64 = REALFDCOUNT.get(&realfd).unwrap().value() - 1;
 
     // Doing this to release the lock so I can call it recursively...
     let closehandlers = CLOSEHANDLERTABLE.lock().unwrap();
@@ -577,7 +547,7 @@ fn _do_bitmods(myfdrow:&[Option<FDTableEntry>], nfds:u64, infdset: fd_set, thisf
 // I hate doing these, but don't know how to make this interface better...
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
-// #[doc = include_str!("../docs/get_real_bitmasks_for_select.md")]
+// // #[doc = include_str!("../docs/get_real_bitmasks_for_select.md")]
 pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set>, writebits:Option<fd_set>, exceptbits:Option<fd_set>) -> Result<(u64, Option<fd_set>, Option<fd_set>, Option<fd_set>, [HashSet<(u64,u64)>;3], HashMap<u64,u64>),threei::RetVal> {
     
     if nfds >= FD_PER_PROCESS_MAX {
@@ -630,7 +600,7 @@ pub fn get_real_bitmasks_for_select(cageid:u64, nfds:u64, readbits:Option<fd_set
 #[allow(clippy::too_many_arguments)]
 // I given them the hashmap, so don't need flexibility in what they return...
 #[allow(clippy::implicit_hasher)]
-// #[doc = include_str!("../docs/get_virtual_bitmasks_from_select_result.md")]
+// // #[doc = include_str!("../docs/get_virtual_bitmasks_from_select_result.md")]
 pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:Option<fd_set>, writebits:Option<fd_set>, exceptbits:Option<fd_set>,unrealreadset:HashSet<u64>, unrealwriteset:HashSet<u64>, unrealexceptset:HashSet<u64>, mappingtable:&HashMap<u64,u64>) -> Result<(u64, Option<fd_set>, Option<fd_set>, Option<fd_set>),threei::RetVal> {
 
     // Note, I don't need the cage_id here because I have the mappingtable...
@@ -678,7 +648,7 @@ pub fn get_virtual_bitmasks_from_select_result(nfds:u64, readbits:Option<fd_set>
 // the poll struct with virtual versions and returns the items you need
 // to check yourself...
 #[allow(clippy::type_complexity)]
-// #[doc = include_str!("../docs/convert_virtualfds_to_real.md")]
+// // #[doc = include_str!("../docs/convert_virtualfds_to_real.md")]
 #[must_use] // must use the return value if you call it.
 pub fn convert_virtualfds_to_real(cageid:u64, virtualfds:Vec<u64>) -> (Vec<u64>, Vec<(u64,u64)>, Vec<u64>, HashMap<u64,u64>) {
 
@@ -723,7 +693,7 @@ pub fn convert_virtualfds_to_real(cageid:u64, virtualfds:Vec<u64>) -> (Vec<u64>,
 
 // helper to call after calling poll.  replaces the realfds the vector
 // with virtual ones...
-// #[doc = include_str!("../docs/convert_realfds_back_to_virtual.md")]
+// // #[doc = include_str!("../docs/convert_realfds_back_to_virtual.md")]
 // I given them the hashmap, so don't need flexibility in what they return...
 #[allow(clippy::implicit_hasher)]
 #[must_use] // must use the return value if you call it.
@@ -798,159 +768,159 @@ pub fn convert_realfds_back_to_virtual(realfds:Vec<u64>, mappingtable:&HashMap<u
 // TODO: I don't clean up this table yet.  I probably should when the last 
 // reference to a fd is closed, but this bookkeeping seems excessive at this
 // time...
-// #[derive(Clone, Debug)]
-// struct EPollTable {
-//     highestneverusedentry: u64, // Never resets (even after close).  Used to
-//                                 // let us quickly get an unused entry
-//     thisepolltable: HashMap<u64,HashMap<u64,epoll_event>>, // the epollentry ->
-//                                                            // virtfd ->
-//                                                            // event map
-//     realfdtable: HashMap<u64,u64>, // the epollentry -> realfd map.  I need 
-//                                    // this because the realfd field in the
-//                                    // main data structure is EPOLLFD
-// }
+#[derive(Clone, Debug)]
+struct EPollTable {
+    highestneverusedentry: u64, // Never resets (even after close).  Used to
+                                // let us quickly get an unused entry
+    thisepolltable: HashMap<u64,HashMap<u64,epoll_event>>, // the epollentry ->
+                                                           // virtfd ->
+                                                           // event map
+    realfdtable: HashMap<u64,u64>, // the epollentry -> realfd map.  I need 
+                                   // this because the realfd field in the
+                                   // main data structure is EPOLLFD
+}
 
-// lazy_static! {
+lazy_static! {
 
-//     #[derive(Debug)]
-//     static ref EPOLLTABLE: Mutex<EPollTable> = {
-//         let newetable = HashMap::new();
-//         let newrealfdtable = HashMap::new();
-//         let m = EPollTable {
-//             highestneverusedentry:0, 
-//             thisepolltable:newetable,
-//             realfdtable:newrealfdtable,
-//         };
-//         Mutex::new(m)
-//     };
-// }
-
-
-// // #[doc = include_str!("../docs/epoll_create_helper.md")]
-// pub fn epoll_create_helper(cageid:u64, realfd:u64, should_cloexec:bool) -> Result<u64,threei::RetVal> {
-
-//     let mut ept = EPOLLTABLE.lock().unwrap();
-
-//     // I'll use my other functions to make this easier.
-//     // return the same errno (EMFile), if we get one 
-//     let newepollfd = get_unused_virtual_fd(cageid, EPOLLFD, should_cloexec, ept.highestneverusedentry)?; 
-
-//     let newentry = ept.highestneverusedentry;
-//     ept.highestneverusedentry+=1;
-//     // add in my realfd.
-//     ept.realfdtable.insert(newentry,realfd);
-//     // if it errored out above that is okay. I haven't changed any state yet.
-//     ept.thisepolltable.insert(newentry, HashMap::new());
-//     Ok(newepollfd)
-
-// }
+    #[derive(Debug)]
+    static ref EPOLLTABLE: Mutex<EPollTable> = {
+        let newetable = HashMap::new();
+        let newrealfdtable = HashMap::new();
+        let m = EPollTable {
+            highestneverusedentry:0, 
+            thisepolltable:newetable,
+            realfdtable:newrealfdtable,
+        };
+        Mutex::new(m)
+    };
+}
 
 
-// // #[doc = include_str!("../docs/try_epoll_ctl.md")]
-// pub fn try_epoll_ctl(cageid:u64, epfd:u64, op:i32, virtfd:u64, event:epoll_event) -> Result<(u64,u64),threei::RetVal> {
+// #[doc = include_str!("../docs/epoll_create_helper.md")]
+pub fn epoll_create_helper(cageid:u64, realfd:u64, should_cloexec:bool) -> Result<u64,threei::RetVal> {
 
-//     assert!(FDTABLE.contains_key(&cageid),"Unknown cageid in fdtable access");
+    let mut ept = EPOLLTABLE.lock().unwrap();
 
-//     if epfd == virtfd {
-//         return Err(threei::Errno::EINVAL as u64);
-//     }
+    // I'll use my other functions to make this easier.
+    // return the same errno (EMFile), if we get one 
+    let newepollfd = get_unused_virtual_fd(cageid, EPOLLFD, should_cloexec, ept.highestneverusedentry)?; 
 
-//     // Is the epfd ok?
-//     let epollentrynum:u64 = match FDTABLE.get(&cageid).unwrap()[epfd as usize] {
-//         None => {
-//             return Err(threei::Errno::EBADF as u64);
-//         },
-//         // Do I need to have EPOLLFDs here too?
-//         Some(tableentry) => { 
-//             if tableentry.realfd != EPOLLFD {
-//                 return Err(threei::Errno::EINVAL as u64);
-//             }
-//             tableentry.optionalinfo
-//         },
-//     };
+    let newentry = ept.highestneverusedentry;
+    ept.highestneverusedentry+=1;
+    // add in my realfd.
+    ept.realfdtable.insert(newentry,realfd);
+    // if it errored out above that is okay. I haven't changed any state yet.
+    ept.thisepolltable.insert(newentry, HashMap::new());
+    Ok(newepollfd)
 
-//     // Okay, I know which table entry and verified the virtfd...
-
-//     let mut epttable = EPOLLTABLE.lock().unwrap();
-//     let realepollfd = *epttable.realfdtable.get(&epollentrynum).unwrap();
-//     let eptentry = epttable.thisepolltable.get_mut(&epollentrynum).unwrap();
-
-//     // check if the virtfd is real and error...
-//     // I don't care about its contents except to ensure it isn't real...
-//     if let Some(tableentry) = FDTABLE.get(&cageid).unwrap()[virtfd as usize] {
-//         // Do I need to have EPOLLFDs here too?
-//         if tableentry.realfd != NO_REAL_FD {
-//             // Return realfds because the caller should handle them instead
-//             // I only track unrealfds.
-//             if tableentry.realfd == EPOLLFD {
-//                 // BUG: How should I be doing this, really!?!
-//                 println!("epollfds acting on epollfds is not supported!");
-//             }
-//             return Ok((realepollfd,tableentry.realfd)); 
-//         }
-//     }
-//     else {
-//         return Err(threei::Errno::EBADF as u64);
-//     }
-
-//     // okay, virtfd is real...
-
-//     match op {
-//         EPOLL_CTL_ADD => {
-//             if eptentry.contains_key(&virtfd) {
-//                 return Err(threei::Errno::EEXIST as u64);
-//             }
-//             // BUG: Need to check for ELOOP here...
-
-//             eptentry.insert(virtfd, event);
-//         },
-//         EPOLL_CTL_MOD => {
-//             if !eptentry.contains_key(&virtfd) {
-//                 return Err(threei::Errno::ENOENT as u64);
-//             }
-//             eptentry.insert(virtfd, event);
-//         },
-//         EPOLL_CTL_DEL => {
-//             if !eptentry.contains_key(&virtfd) {
-//                 return Err(threei::Errno::ENOENT as u64);
-//             }
-//             eptentry.remove(&virtfd);
-//         },
-//         _ => {
-//             return Err(threei::Errno::EINVAL as u64);
-//         },
-//     };
-//     Ok((realepollfd,NO_REAL_FD))
-// }
+}
 
 
-// // #[doc = include_str!("../docs/get_epoll_wait_data.md")]
-// pub fn get_epoll_wait_data(cageid:u64, epfd:u64) -> Result<(u64,HashMap<u64,epoll_event>),threei::RetVal> {
+// #[doc = include_str!("../docs/try_epoll_ctl.md")]
+pub fn try_epoll_ctl(cageid:u64, epfd:u64, op:i32, virtfd:u64, event:epoll_event) -> Result<(u64,u64),threei::RetVal> {
 
-//     assert!(FDTABLE.contains_key(&cageid),"Unknown cageid in fdtable access");
+    assert!(FDTABLE.contains_key(&cageid),"Unknown cageid in fdtable access");
 
-//     // Note that because I don't track realfds or deal with epollfds, I just
-//     // return the epolltable...
-//     let epollentrynum:u64 = match FDTABLE.get(&cageid).unwrap()[epfd as usize] {
-//         None => {
-//             return Err(threei::Errno::EBADF as u64);
-//         },
-//         // Do I need to have EPOLLFDs here too?
-//         Some(tableentry) => { 
-//             if tableentry.realfd != EPOLLFD {
-//                 return Err(threei::Errno::EINVAL as u64);
-//             }
-//             tableentry.optionalinfo
-//         },
-//     };
+    if epfd == virtfd {
+        return Err(threei::Errno::EINVAL as u64);
+    }
 
-//     let epttable = EPOLLTABLE.lock().unwrap();
-//     Ok((*epttable.realfdtable.get(&epollentrynum).unwrap(),epttable.thisepolltable[&epollentrynum].clone()))
-// }
+    // Is the epfd ok?
+    let epollentrynum:u64 = match FDTABLE.get(&cageid).unwrap()[epfd as usize] {
+        None => {
+            return Err(threei::Errno::EBADF as u64);
+        },
+        // Do I need to have EPOLLFDs here too?
+        Some(tableentry) => { 
+            if tableentry.realfd != EPOLLFD {
+                return Err(threei::Errno::EINVAL as u64);
+            }
+            tableentry.optionalinfo
+        },
+    };
+
+    // Okay, I know which table entry and verified the virtfd...
+
+    let mut epttable = EPOLLTABLE.lock().unwrap();
+    let realepollfd = *epttable.realfdtable.get(&epollentrynum).unwrap();
+    let eptentry = epttable.thisepolltable.get_mut(&epollentrynum).unwrap();
+
+    // check if the virtfd is real and error...
+    // I don't care about its contents except to ensure it isn't real...
+    if let Some(tableentry) = FDTABLE.get(&cageid).unwrap()[virtfd as usize] {
+        // Do I need to have EPOLLFDs here too?
+        if tableentry.realfd != NO_REAL_FD {
+            // Return realfds because the caller should handle them instead
+            // I only track unrealfds.
+            if tableentry.realfd == EPOLLFD {
+                // BUG: How should I be doing this, really!?!
+                println!("epollfds acting on epollfds is not supported!");
+            }
+            return Ok((realepollfd,tableentry.realfd)); 
+        }
+    }
+    else {
+        return Err(threei::Errno::EBADF as u64);
+    }
+
+    // okay, virtfd is real...
+
+    match op {
+        EPOLL_CTL_ADD => {
+            if eptentry.contains_key(&virtfd) {
+                return Err(threei::Errno::EEXIST as u64);
+            }
+            // BUG: Need to check for ELOOP here...
+
+            eptentry.insert(virtfd, event);
+        },
+        EPOLL_CTL_MOD => {
+            if !eptentry.contains_key(&virtfd) {
+                return Err(threei::Errno::ENOENT as u64);
+            }
+            eptentry.insert(virtfd, event);
+        },
+        EPOLL_CTL_DEL => {
+            if !eptentry.contains_key(&virtfd) {
+                return Err(threei::Errno::ENOENT as u64);
+            }
+            eptentry.remove(&virtfd);
+        },
+        _ => {
+            return Err(threei::Errno::EINVAL as u64);
+        },
+    };
+    Ok((realepollfd,NO_REAL_FD))
+}
+
+
+// #[doc = include_str!("../docs/get_epoll_wait_data.md")]
+pub fn get_epoll_wait_data(cageid:u64, epfd:u64) -> Result<(u64,HashMap<u64,epoll_event>),threei::RetVal> {
+
+    assert!(FDTABLE.contains_key(&cageid),"Unknown cageid in fdtable access");
+
+    // Note that because I don't track realfds or deal with epollfds, I just
+    // return the epolltable...
+    let epollentrynum:u64 = match FDTABLE.get(&cageid).unwrap()[epfd as usize] {
+        None => {
+            return Err(threei::Errno::EBADF as u64);
+        },
+        // Do I need to have EPOLLFDs here too?
+        Some(tableentry) => { 
+            if tableentry.realfd != EPOLLFD {
+                return Err(threei::Errno::EINVAL as u64);
+            }
+            tableentry.optionalinfo
+        },
+    };
+
+    let epttable = EPOLLTABLE.lock().unwrap();
+    Ok((*epttable.realfdtable.get(&epollentrynum).unwrap(),epttable.thisepolltable[&epollentrynum].clone()))
+}
 
 
 
-// /********************** TESTING HELPER FUNCTION **********************/
+/********************** TESTING HELPER FUNCTION **********************/
 
 // #[doc(hidden)]
 // // Helper to initialize / empty out state so we can test with a clean system...

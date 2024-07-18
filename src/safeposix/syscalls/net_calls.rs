@@ -23,6 +23,8 @@ use libc::*;
 use std::ffi::CString;
 use std::ffi::CStr;
 
+use crate::safeposix::impipe::*;
+
 use libc::*;
 use std::{os::fd::RawFd, ptr};
 use bit_set::BitSet;
@@ -1116,34 +1118,135 @@ impl Cage {
         nfds: u64,
         timeout: i32,
     ) -> i32 {
-        let mut real_fd = virtual_to_real_poll(self.cageid, virtual_fds);
-        let ret = unsafe { libc::poll(real_fd.as_mut_ptr(), nfds as u64, timeout) };
-        if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[POLL] Error message: {:?}", err_msg);
-            // println!("[POLL] kernel fd: {:?}", real_fd);
-            // io::stdout().flush().unwrap();
-            let errno = get_errno();
-            return handle_errno(errno, "poll");
+        /* 
+        *   1. Get virfd list
+        *   2. Get imp / real / invalid fd set list 
+        *   3. For impipe
+        *      For real fd
+        */
+
+        let mut virfdvec = Vec::with_capacity(virtual_fds.len());
+
+        for vpoll in &mut *virtual_fds {
+            let vfd = vpoll.fd as u64;
+            virfdvec.push(vfd);
         }
 
-        // Convert back to PollStruct
-        for (i, libcpoll) in real_fd.iter().enumerate() {
-            if let Some(rposix_poll) = virtual_fds.get_mut(i) {
-                rposix_poll.revents = libcpoll.revents;
+        let (mut realfdvec, mut impvec, mut invalidfdvec, mut mappingtable) = convert_virtualfds_to_real(self.cageid, virfdvec);
+        
+
+
+        // libc
+        let mut libc_nfds = 0;
+        let mut libc_pollfds: Vec<pollfd> = Vec::new();
+        for &real_fd in &realfdvec {
+            if let Some(&virtual_fd) = mappingtable.get(&real_fd) {
+                // Find corresponding PollStruct in virtual_fds 
+                if let Some(poll_struct) = virtual_fds.iter().find(|&ps| ps.fd == virtual_fd as i32) {
+                    // Convert PollStruct to libc::pollfd
+                    let libc_poll_struct = self.convert_to_libc_pollfd(poll_struct);
+                    libc_pollfds.push(libc_poll_struct);
+                    libc_nfds = libc_nfds + 1;
+                }
             }
         }
+        // For real fd, we call down to kernel
+        if libc_nfds != 0 {
+            let ret = unsafe { libc::poll(libc_pollfds.as_mut_ptr(), libc_nfds as u64, timeout) };
+            if ret < 0 {
+                // let err = unsafe {
+                //     libc::__errno_location()
+                // };
+                // let err_str = unsafe {
+                //     libc::strerror(*err)
+                // };
+                // let err_msg = unsafe {
+                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                // };
+                // println!("[POLL] Error message: {:?}", err_msg);
+                // println!("[POLL] kernel fd: {:?}", real_fd);
+                // io::stdout().flush().unwrap();
+                let errno = get_errno();
+                return handle_errno(errno, "poll");
+            }
+            // Convert back to PollStruct
+            for (i, libcpoll) in libc_pollfds.iter().enumerate() {
+                if let Some(rposix_poll) = virtual_fds.get_mut(i) {
+                    rposix_poll.revents = libcpoll.revents;
+                }
+            }
+            
+            return ret;
+        }
+
+        // In memory pipe
+        let start_time = starttimer();
+        let r_timeout = if timeout >= 0 {
+            Some(RustDuration::from_millis(
+                timeout as u64,
+            ))
+        } else {
+            None
+        };
+
+        let end_time = match r_timeout {
+            Some(time) => time,
+            None => RustDuration::MAX,
+        };
+
+        let mut return_code = 0;
+
+        loop {
+            let mut event_count = 0;
+
+            for (impfd, optinfo) in impvec.iter() {
+                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
+                    if pipe_entry.isreader == true {
+                        if pipe_entry.pipe.check_select_read() {
+                            return_code = return_code + 1;
+                            let mut r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                            r_pollstruct.revents = libc::POLLIN;
+                        }
+                        
+                    } else {
+                        if pipe_entry.pipe.check_select_write() {
+                            return_code = return_code + 1;
+                            let mut r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                            r_pollstruct.revents = libc::POLLOUT;
+                        }
+                        
+                    }
+                }
+            }
+
+             // we break if there is any file descriptor ready
+            // or timeout is reached
+            if return_code != 0 || readtimer(start_time) > end_time {
+                break;
+            } else {
+                // otherwise, check for signal and loop again
+                if sigcheck() {
+                    return syscall_error(Errno::EINTR, "poll", "interrupted function call");
+                }
+                // We yield to let other threads continue if we've found no ready descriptors
+                lind_yield();
+            }
+        }
+
+        return return_code;
         
-        ret
     }
+
+    /* POLL()
+    */
+    fn convert_to_libc_pollfd(&self, poll_struct: &PollStruct) -> pollfd {
+        pollfd {
+            fd: poll_struct.fd,
+            events: poll_struct.events,
+            revents: poll_struct.revents,
+        }
+    }
+
 
     /* EPOLL
     *   In normal Linux, epoll will perform the listed behaviors 
@@ -1422,29 +1525,4 @@ impl Cage {
 
 }
 
-/* POLL()
-*/
-pub fn virtual_to_real_poll(cageid: u64, virtual_poll: &mut [PollStruct]) -> Vec<pollfd> {
-    // Change from ptr to reference
-    // let virtual_fds = unsafe { &mut *virtual_poll };
 
-    let mut real_fds = Vec::with_capacity(virtual_poll.len());
-
-    for vfd in &mut *virtual_poll {
-
-        let rfd = translate_virtual_fd(cageid, vfd.fd as u64);
-        if rfd.is_err() {
-            // return syscall_error(Errno::EBADF, "poll", "Bad File Descriptor");
-            panic!();
-        }
-        let real_fd = rfd.unwrap();
-        let kernel_poll = pollfd {
-            fd: real_fd as i32,
-            events: vfd.events,
-            revents: vfd.revents,
-        };
-        real_fds.push(kernel_poll);
-    }
-
-    real_fds
-}
