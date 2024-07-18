@@ -4,3 +4,4 @@ pub mod filesystem;
 pub mod net;
 pub mod shm;
 pub mod syscalls;
+pub mod impipe;

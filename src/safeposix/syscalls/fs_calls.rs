@@ -4,7 +4,7 @@ use std::fs;
 use super::fs_constants;
 // File system related system calls
 use super::fs_constants::*;
-use super::sys_constants::*;
+use super::sys_constants;
 use crate::interface;
 use crate::interface::get_errno;
 use crate::interface::handle_errno;
@@ -18,6 +18,8 @@ use crate::safeposix::filesystem::normpath;
 use crate::safeposix::shm::*;
 use crate::interface::ShmidsStruct;
 use crate::interface::StatData;
+
+use crate::safeposix::impipe::*;
 
 use libc::*;
 use std::io::stdout;
@@ -471,33 +473,55 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn read_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: usize) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "read", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
-        let ret = unsafe {
-            libc::read(kernel_fd as i32, readbuf as *mut c_void, count) as i32
-        };
-        if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[READ] Error message: {:?}", err_msg);
-            // println!("kernel_fd: {:?}", kernel_fd);
-            // println!("vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
-            let errno = get_errno();
-            return handle_errno(errno, "read");
+
+        let vfd = wrappedvfd.unwrap();
+        if vfd == NO_REAL_FD {
+            self.read_impipe_syscall(virtual_fd, readbuf, count)
+        } else {
+            //kernel fd
+            let ret = unsafe {
+                libc::read(vfd as i32, readbuf as *mut c_void, count) as i32
+            };
+            if ret < 0 {
+                // let err = unsafe {
+                //     libc::__errno_location()
+                // };
+                // let err_str = unsafe {
+                //     libc::strerror(*err)
+                // };
+                // let err_msg = unsafe {
+                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                // };
+                // println!("[READ] Error message: {:?}", err_msg);
+                // println!("kernel_fd: {:?}", kernel_fd);
+                // println!("vfd: {:?}", virtual_fd);
+                // io::stdout().flush().unwrap();
+                let errno = get_errno();
+                return handle_errno(errno, "read");
+            }
+            return ret;
         }
+    }
+
+    pub fn read_impipe_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: usize) -> i32 {
+        //in memory pipe
+        let wrappedoptinfo = get_optionalinfo(self.cageid, virtual_fd as u64);
+        if wrappedoptinfo.is_err() {
+            return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
+        }
+        let optinfo = wrappedoptinfo.unwrap();
+
+        let pipe_entry = PIPE_TABLE.get(&optinfo).unwrap();
+
+        if !pipe_entry.isreader { return syscall_error(Errno::EBADF, "read", "File Descriptor not open for reading"); }
+
+        let ret = pipe_entry.pipe.read_from_pipe(readbuf, count, pipe_entry.blocking);
+            
         return ret;
-        
     }
 
     //------------------------------------PREAD SYSCALL------------------------------------
@@ -544,32 +568,57 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn write_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
-        let ret = unsafe {
-            libc::write(kernel_fd as i32, buf as *const c_void, count) as i32
-        };
-        if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[write] Error message: {:?}", err_msg);
-            // println!("[write] virtual fd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
-            let errno = get_errno();
-            return handle_errno(errno, "write");
+
+        let vfd = wrappedvfd.unwrap();
+        if vfd == NO_REAL_FD {
+            self.write_impipe_syscall(virtual_fd, buf, count)
+        } else {
+            // kernel fd
+            let ret = unsafe {
+                libc::write(vfd as i32, buf as *const c_void, count) as i32
+            };
+            if ret < 0 {
+                // let err = unsafe {
+                //     libc::__errno_location()
+                // };
+                // let err_str = unsafe {
+                //     libc::strerror(*err)
+                // };
+                // let err_msg = unsafe {
+                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                // };
+                // println!("[write] Error message: {:?}", err_msg);
+                // println!("[write] virtual fd: {:?}", virtual_fd);
+                // io::stdout().flush().unwrap();
+                let errno = get_errno();
+                return handle_errno(errno, "write");
+            }
+            return ret;
         }
-        return ret;
-        
+    }
+
+    pub fn write_impipe_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize) -> i32 {
+            let wrappedoptinfo = get_optionalinfo(self.cageid, virtual_fd as u64);
+            if wrappedoptinfo.is_err() {
+                return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
+            }
+            let optinfo = wrappedoptinfo.unwrap();
+
+            let pipe_entry = PIPE_TABLE.get(&optinfo).unwrap();
+
+            if pipe_entry.isreader { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
+
+            let ret = pipe_entry.pipe.write_to_pipe(buf, count, pipe_entry.blocking);
+
+            if ret == -(Errno::EPIPE as i32) {
+                interface::lind_kill_from_id(self.cageid, sys_constants::SIGPIPE);
+            }
+                
+            return ret;
     }
 
     //------------------------------------PWRITE SYSCALL------------------------------------
@@ -616,31 +665,61 @@ impl Cage {
         iovec: *const interface::IovecStruct,
         iovcnt: i32,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
-            return syscall_error(Errno::EBADF, "writev", "Bad File Descriptor");
+        let wrappedvfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
+            return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
-        let ret = unsafe {
-            libc::writev(kernel_fd as i32, iovec, iovcnt)
-        };
-        if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[writev] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
-            let errno = get_errno();
-            return handle_errno(errno, "writev");
+
+        let vfd = wrappedvfd.unwrap();
+        if vfd == NO_REAL_FD {
+            self.writev_impipe_syscall(virtual_fd, iovec, iovcnt)
+        } else {
+            let ret = unsafe {
+                libc::writev(vfd as i32, iovec, iovcnt)
+            };
+            if ret < 0 {
+                // let err = unsafe {
+                //     libc::__errno_location()
+                // };
+                // let err_str = unsafe {
+                //     libc::strerror(*err)
+                // };
+                // let err_msg = unsafe {
+                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+                // };
+                // println!("[writev] Error message: {:?}", err_msg);
+                // io::stdout().flush().unwrap();
+                let errno = get_errno();
+                return handle_errno(errno, "writev");
+            }
+            return ret as i32;
         }
-        return ret as i32;
-        
+    }
+
+    pub fn writev_impipe_syscall(
+        &self,
+        virtual_fd: i32,
+        iovec: *const interface::IovecStruct,
+        iovcnt: i32,
+    ) -> i32 {
+        //in memory pipe
+        let wrappedoptinfo = get_optionalinfo(self.cageid, virtual_fd as u64);
+        if wrappedoptinfo.is_err() {
+            return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
+        }
+        let optinfo = wrappedoptinfo.unwrap();
+
+        let pipe_entry = PIPE_TABLE.get(&optinfo).unwrap();
+
+        if pipe_entry.isreader { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
+
+        let ret = pipe_entry.pipe.write_vectored_to_pipe(iovec, iovcnt, pipe_entry.blocking);
+
+        if ret == -(Errno::EPIPE as i32) {
+            interface::lind_kill_from_id(self.cageid, sys_constants::SIGPIPE);
+        }
+            
+        return ret;
     }
 
     //------------------------------------LSEEK SYSCALL------------------------------------
@@ -1367,39 +1446,56 @@ impl Cage {
     *   pipe() will return 0 when sucess, -1 when fail 
     */
     pub fn pipe_syscall(&self, pipefd: &mut PipeArray) -> i32 {
-        let mut kernel_fds = [0; 2];
-        
-        let ret = unsafe { libc::pipe(kernel_fds.as_mut_ptr() as *mut i32) };
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "pipe");
-        }
-
-        pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0], false, 0).unwrap() as i32;
-        pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1], false, 0).unwrap() as i32;
-
-        return ret;
+        self.pipe2_syscall(pipefd, 0)
     }
 
     pub fn pipe2_syscall(&self, pipefd: &mut PipeArray, flags: i32) -> i32 {
-        let mut kernel_fds:[i32; 2] = [0; 2];
-        
-        let ret = unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) };
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "pipe2");
-        }
-
-        if flags == libc::O_CLOEXEC {
-            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0] as u64, true, 0).unwrap() as i32;
-            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1] as u64, true, 0).unwrap() as i32;
+        if USE_IM_PIPE {
+            self.pipe2_impipe_syscall(pipefd, flags)
         } else {
-            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0] as u64, false, 0).unwrap() as i32;
-            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1] as u64, false, 0).unwrap() as i32;
-        }
+            let mut kernel_fds:[i32; 2] = [0; 2];
+            
+            let ret = unsafe { libc::pipe2(kernel_fds.as_mut_ptr() as *mut i32, flags as i32) };
+            if ret < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "pipe2");
+            }
 
-        return ret;
+            let should_cloexec = if flags & O_CLOEXEC != 0 {
+                true
+            } else { false };
+
+            pipefd.readfd = get_unused_virtual_fd(self.cageid, kernel_fds[0] as u64, should_cloexec, 0).unwrap() as i32;
+            pipefd.writefd = get_unused_virtual_fd(self.cageid, kernel_fds[1] as u64, should_cloexec, 0).unwrap() as i32;
+
+            return ret;
+        }
     }
+
+    pub fn pipe2_impipe_syscall(&self, pipefd: &mut PipeArray, flags: i32) -> i32 {
+        // lets make a standard pipe of 65,536 bytes
+        let pipe = interface::RustRfc::new(IMPipe::new_with_capacity(PIPE_CAPACITY));
+
+        // check for nonblock and cloexec flags, we'll need nonblock for the pipeentry and cloexec for the virtualfd
+        let nonblock = if flags & O_NONBLOCK != 0 {
+            true
+        } else { false };
+
+        let should_cloexec = if flags & O_CLOEXEC != 0 {
+            true
+        } else { false };
+
+        //insert into pipe table for each end, get indexes
+        let pipereadidx = insert_next_pipe(pipe.clone(), nonblock, true).unwrap();
+        let pipewriteidx = insert_next_pipe(pipe.clone(), nonblock, false).unwrap();
+
+
+        pipefd.readfd = get_unused_virtual_fd(self.cageid, NO_REAL_FD, should_cloexec, pipereadidx).unwrap() as i32;
+        pipefd.writefd = get_unused_virtual_fd(self.cageid, NO_REAL_FD, should_cloexec, pipewriteidx).unwrap() as i32;
+
+        return 0;
+    }
+
 
     //------------------GETDENTS SYSCALL------------------
     /*

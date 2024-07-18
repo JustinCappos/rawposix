@@ -16,7 +16,7 @@ use crate::interface;
 // pub const ROOTDIRECTORYINODE: usize = 1;
 // pub const STREAMINODE: usize = 2;
 
-// pub const PIPE_CAPACITY: usize = 65536;
+pub const PIPE_CAPACITY: usize = 65536;
 
 // pub const F_OK: u32 = 0;
 // pub const X_OK: u32 = 1;

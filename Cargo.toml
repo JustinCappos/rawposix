@@ -24,6 +24,7 @@ ringbuf = "0.2.6"
 dashmap = { version = "5.1", features=["serde"] }
 parking_lot = "0.12"
 bit-set = "0.5"
+rb = "0.4.1"
 
 [dependencies.lazy_static]
 version = "1.0"
