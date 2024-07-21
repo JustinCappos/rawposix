@@ -12,3 +12,4 @@ pub mod interface;
 pub mod safeposix;
 pub mod tests;
 pub mod example_grates;
+pub mod fdtables;
