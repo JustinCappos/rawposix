@@ -6,10 +6,7 @@ use super::net_constants::*;
 use crate::{interface::FdSet, safeposix::cage::*};
 use crate::interface::*;
 
-// use crate::example_grates::vanillaglobal::*;
-use crate::example_grates::dashmapvecglobal::*;
-// use crate::example_grates::muthashmaxglobal::*;
-// use crate::example_grates::dashmaparrayglobal::*;
+use crate::fdtables;
 
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -60,7 +57,7 @@ impl Cage {
             return handle_errno(errno, "socket");
         }
 
-        return get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap() as i32;
+        return fdtables::get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap() as i32;
     }
 
     /* 
@@ -71,7 +68,7 @@ impl Cage {
         /*
             translate_virtual_fd(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetVal>
         */
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "bind", "Bad File Descriptor");
         }
@@ -206,7 +203,7 @@ impl Cage {
      *   connect() will return 0 when success and -1 when fail
      */
     pub fn connect_syscall(&self, virtual_fd: i32, addr: &GenSockaddr) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "connect", "Bad File Descriptor");
         }
@@ -334,7 +331,7 @@ impl Cage {
         flags: i32,
         dest_addr: &GenSockaddr,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "sendto", "Bad File Descriptor");
         }
@@ -412,7 +409,7 @@ impl Cage {
         buflen: usize,
         flags: i32,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "send", "Bad File Descriptor");
         }
@@ -454,7 +451,7 @@ impl Cage {
         flags: i32,
         addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "recvfrom", "Bad File Descriptor");
         }
@@ -506,7 +503,7 @@ impl Cage {
      *       - Fail: -1
      */
     pub fn recv_syscall(&self, virtual_fd: i32, buf: *mut u8, len: usize, flags: i32) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "recv", "Bad File Descriptor");
         }
@@ -537,7 +534,7 @@ impl Cage {
      *   listen() will return 0 when success and -1 when fail
      */
     pub fn listen_syscall(&self, virtual_fd: i32, backlog: i32) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "listen", "Bad File Descriptor");
         }
@@ -567,7 +564,7 @@ impl Cage {
      *   shutdown() will return 0 when success and -1 when fail
      */
     pub fn shutdown_syscall(&self, virtual_fd: i32, how: i32) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "shutdown", "Bad File Descriptor");
         }
@@ -598,7 +595,7 @@ impl Cage {
         virtual_fd: i32,
         addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "accept", "Bad File Descriptor");
         }
@@ -677,7 +674,7 @@ impl Cage {
             }
         }
 
-        let ret_virtualfd = get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
+        let ret_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
         
         ret_virtualfd as i32
     }
@@ -741,7 +738,7 @@ impl Cage {
         // io::stdout().flush().unwrap();
 
         let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, _unrealset, mappingtable) 
-            = get_real_bitmasks_for_select(
+            = fdtables::get_real_bitmasks_for_select(
                 self.cageid,
                 nfds as u64,
                 orfds.copied(),
@@ -789,7 +786,7 @@ impl Cage {
 
         // Revert result
         // let (_retnfds, Some(retreadfds), Some(retwritefds), Some(reterrorfds)) = .unwrap();
-        match get_virtual_bitmasks_from_select_result(
+        match fdtables::get_virtual_bitmasks_from_select_result(
             newnfds as u64,
             real_readfds,
             real_writefds,
@@ -870,7 +867,7 @@ impl Cage {
         optval: &mut i32,
         // optlen: u32,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "getsockopt", "Bad File Descriptor");
         }
@@ -915,7 +912,7 @@ impl Cage {
         optval: *mut u8,
         optlen: u32,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "setsockopt", "Bad File Descriptor");
         }
@@ -951,7 +948,7 @@ impl Cage {
         virtual_fd: i32,
         address: &mut Option<&mut GenSockaddr>
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "getpeername", "Bad File Descriptor");
         }
@@ -1038,7 +1035,7 @@ impl Cage {
         virtual_fd: i32,
         address: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() {
             return syscall_error(Errno::EBADF, "getsockname", "Bad File Descriptor");
         }
@@ -1132,7 +1129,7 @@ impl Cage {
             virfdvec.push(vfd);
         }
 
-        let (mut realfdvec, mut impvec, mut invalidfdvec, mut mappingtable) = convert_virtualfds_to_real(self.cageid, virfdvec);
+        let (mut realfdvec, mut impvec, mut invalidfdvec, mut mappingtable) = fdtables::convert_virtualfds_to_real(self.cageid, virfdvec);
         
 
 
@@ -1328,8 +1325,8 @@ impl Cage {
         virtual_fd: i32,
         epollevent: &mut EpollEvent,
     ) -> i32 {
-        let k_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64);
-        let kfd = translate_virtual_fd(self.cageid, virtual_fd as u64);
+        let k_epfd = fdtables::translate_virtual_fd(self.cageid, virtual_epfd as u64);
+        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if kfd.is_err() || k_epfd.is_err() {
             return syscall_error(Errno::EBADF, "epoll", "Bad File Descriptor");
         }
@@ -1401,7 +1398,7 @@ impl Cage {
         maxevents: i32,
         timeout: i32,
     ) -> i32 {
-        let k_epfd = translate_virtual_fd(self.cageid, virtual_epfd as u64);
+        let k_epfd = fdtables::translate_virtual_fd(self.cageid, virtual_epfd as u64);
         if k_epfd.is_err() {
             return syscall_error(Errno::EBADF, "epoll_wait", "Bad File Descriptor");
         }
@@ -1470,8 +1467,8 @@ impl Cage {
 
         let ksv_1 = kernel_socket_vector[0];
         let ksv_2 = kernel_socket_vector[1];
-        let vsv_1 = get_unused_virtual_fd(self.cageid, ksv_1 as u64, false, 0).unwrap();
-        let vsv_2 = get_unused_virtual_fd(self.cageid, ksv_2 as u64, false, 0).unwrap();
+        let vsv_1 = fdtables::get_unused_virtual_fd(self.cageid, ksv_1 as u64, false, 0).unwrap();
+        let vsv_2 = fdtables::get_unused_virtual_fd(self.cageid, ksv_2 as u64, false, 0).unwrap();
         virtual_socket_vector.sock1 = vsv_1 as i32;
         virtual_socket_vector.sock2 = vsv_2 as i32;
         return 0;

@@ -10,10 +10,7 @@ use crate::safeposix::cage;
 use crate::safeposix::cage::*;
 use crate::safeposix::shm::*;
 
-// use crate::example_grates::vanillaglobal::*;
-use crate::example_grates::dashmapvecglobal::*;
-// use crate::example_grates::muthashmaxglobal::*;
-// use crate::example_grates::dashmaparrayglobal::*;
+use crate::fdtables;
 
 use libc::*;
 
@@ -50,7 +47,7 @@ impl Cage {
 
     pub fn fork_syscall(&self, child_cageid: u64) -> i32 {
         // Modify the fdtable manually 
-        copy_fdtable_for_cage(self.cageid, child_cageid).unwrap();
+        fdtables::copy_fdtable_for_cage(self.cageid, child_cageid).unwrap();
 
         // println!("[FORK]");
         // io::stdout().flush().unwrap();
@@ -225,11 +222,11 @@ impl Cage {
     */
     pub fn exec_syscall(&self, child_cageid: u64) -> i32 {
         // Empty fd with flag should_cloexec 
-        empty_fds_for_exec(self.cageid);
+        fdtables::empty_fds_for_exec(self.cageid);
         // Add the new one to fdtable
-        let _ = copy_fdtable_for_cage(self.cageid, child_cageid);
+        let _ = fdtables::copy_fdtable_for_cage(self.cageid, child_cageid);
         // Delete the original one
-        let _newfdtable = remove_cage_from_fdtable(self.cageid);
+        let _newfdtable = fdtables::remove_cage_from_fdtable(self.cageid);
 
         interface::cagetable_remove(self.cageid);
 
@@ -289,7 +286,7 @@ impl Cage {
         interface::flush_stdout();
         self.unmap_shm_mappings();
 
-        let _ = remove_cage_from_fdtable(self.cageid);
+        let _ = fdtables::remove_cage_from_fdtable(self.cageid);
 
         //may not be removable in case of lindrustfinalize, we don't unwrap the remove result
         interface::cagetable_remove(self.cageid);
