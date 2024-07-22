@@ -286,7 +286,7 @@ impl Cage {
             return handle_errno(errno, "creat");
         }
         
-        let virtual_fd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        let virtual_fd = fdtables::get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
         virtual_fd as i32
     }
 

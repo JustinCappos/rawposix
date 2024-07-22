@@ -1303,7 +1303,7 @@ impl Cage {
         }
 
         // Get the virtual epfd
-        let virtual_epfd = get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        let virtual_epfd = fdtables::get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
         // println!("[epoll_create] virtual_epfd: {:?}", virtual_epfd);
         // io::stdout().flush().unwrap();
 
