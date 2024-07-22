@@ -708,11 +708,6 @@ impl Cage {
         // timeout: *mut timeval,
         rposix_timeout: Option<RustDuration>,
     ) -> i32 {
-        // println!("[Select] nfds: {:?}", nfds);
-        // println!("[Select] readfds: {:?}", readfds);
-        // println!("[Select] writefds: {:?}", writefds);
-        // println!("[Select] errorfds: {:?}", errorfds);
-        // io::stdout().flush().unwrap();
 
         let mut timeout;
         if rposix_timeout.is_none() {
@@ -726,18 +721,12 @@ impl Cage {
                 tv_usec: rposix_timeout.unwrap().subsec_micros() as i64,
             };
         }
-        
 
         let orfds = readfds.as_mut().map(|fds| &mut **fds);
         let owfds = writefds.as_mut().map(|fds| &mut **fds);
         let oefds = errorfds.as_mut().map(|fds| &mut **fds);
 
-        // println!("[Select] orfds: {:?}", orfds);
-        // println!("[Select] owfds: {:?}", owfds);
-        // println!("[Select] oefds: {:?}", oefds);
-        // io::stdout().flush().unwrap();
-
-        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, _unrealset, mappingtable) 
+        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) 
             = fdtables::get_real_bitmasks_for_select(
                 self.cageid,
                 nfds as u64,
@@ -746,15 +735,7 @@ impl Cage {
                 oefds.copied(),
             ).unwrap();
 
-        // println!("[Select] real_readfds: {:?}", real_readfds);
-        // println!("[Select] real_writefds: {:?}", real_writefds);
-        // println!("[Select] real_errorfds: {:?}", real_errorfds);
-        // io::stdout().flush().unwrap();
-
-        // println!("[Select] Before kernel select real_readfds: {:?}", real_readfds);
-        // println!("[Select] Before kernel select timeout: {:?}\nrposix_timeout: {:?}", timeout, rposix_timeout);
-        // io::stdout().flush().unwrap();
-
+        // libc select()
         // Ensured that null_mut is used if the Option is None for fd_set parameters.
         let ret = unsafe { 
             libc::select(
@@ -765,34 +746,69 @@ impl Cage {
                 &mut timeout as *mut timeval)
         };
 
-        // println!("[Select] After kernel select real_readfds: {:?}", real_readfds);
-        // io::stdout().flush().unwrap();
-
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Select] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "select");
         }
 
+        // impipe select()
+        let start_time = starttimer();
+
+        let end_time = match rposix_timeout {
+            Some(time) => time,
+            None => RustDuration::MAX,
+        };
+
+        let mut return_code = 0;
+        let mut unrealreadset = HashSet::new();
+        let mut unrealwriteset = HashSet::new();
+
+        loop {
+            for (impfd_read, optinfo) in unrealset[0].iter() {
+                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
+                    if pipe_entry.pipe.check_select_read() {
+                        return_code = return_code + 1;
+                        unrealreadset.insert(*impfd_read);
+                    }
+                }
+            }
+
+            for (impfd_write, optinfo) in unrealset[1].iter() {
+                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
+                    if pipe_entry.pipe.check_select_write() {
+                        return_code = return_code + 1;
+                        unrealwriteset.insert(*impfd_write);
+                    }
+                }
+            }
+
+            for (impfd_err, optinfo) in unrealset[2].iter() {
+                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
+                    // TODO
+                }
+            }
+
+             // we break if there is any file descriptor ready
+            // or timeout is reached
+            if return_code != 0 || readtimer(start_time) > end_time {
+                break;
+            } else {
+                // otherwise, check for signal and loop again
+                if sigcheck() {
+                    return syscall_error(Errno::EINTR, "poll", "interrupted function call");
+                }
+                // We yield to let other threads continue if we've found no ready descriptors
+                lind_yield();
+            }
+        }
         // Revert result
-        // let (_retnfds, Some(retreadfds), Some(retwritefds), Some(reterrorfds)) = .unwrap();
         match fdtables::get_virtual_bitmasks_from_select_result(
             newnfds as u64,
             real_readfds,
             real_writefds,
             real_errorfds,
-            HashSet::new(),
-            HashSet::new(),
+            unrealreadset,
+            unrealwriteset,
             HashSet::new(),
             &mappingtable,
             // mappingtable,
@@ -829,28 +845,8 @@ impl Cage {
                 panic!("");
             }
         }
-        // println!("[Select] retreadfds: {:?}", retreadfds);
-        // println!("[Select] mappingtable: {:?}", mappingtable);
-        // io::stdout().flush().unwrap();
 
-        
-        // println!("[Select] readfds: {:?}", readfds);
-        // io::stdout().flush().unwrap();
-        // println!("[Select] ret: {:?}", ret);
-        // io::stdout().flush().unwrap();
-        // let mut count = 0;
-        // FDTABLE.iter().for_each(|entry| {
-        //     // println!("Cage ID: {}", entry.key());
-        //     for (index, fd_entry) in entry.value().iter().enumerate() {
-        //         if let Some(entry) = fd_entry {
-        //             // println!("  Index {}: {:?}", index, entry);
-        //             count = count+1;
-        //         }
-        //     }
-        // });
-        // println!("[SELECT] Total: {:?}", count);
-        // io::stdout().flush().unwrap();
-
+        // Which should modify..?
         ret
     }
 
