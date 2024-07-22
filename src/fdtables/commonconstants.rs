@@ -15,7 +15,7 @@ pub const EPOLLFD: u64 = 0xff_abcd_ef02;
 pub const INVALID_FD: u64 = 0xff_abcd_ef00;
 
 // These are the values we look up with at the end...
-#[doc = include_str!("../docs/fdtableentry.md")]
+// #[doc = include_str!("../docs/fdtableentry.md")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 /// This is a table entry, looked up by virtual fd.
 pub struct FDTableEntry {

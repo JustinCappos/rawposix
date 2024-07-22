@@ -116,10 +116,7 @@ use std::collections::HashMap;
 
 use super::cage::*;
 use super::syscalls::kernel_close;
-// use crate::example_grates::vanillaglobal::*;
-use crate::example_grates::dashmapvecglobal::*;
-// use crate::example_grates::muthashmaxglobal::*;
-// use crate::example_grates::dashmaparrayglobal::*;
+
 
 use std::io::{Read, Write};
 use std::io;
@@ -131,7 +128,7 @@ use std::io;
 // use super::net::NET_METADATA;
 // use super::shm::SHM_METADATA;
 // use super::syscalls::{fs_constants::IPC_STAT, sys_constants::*};
-use crate::{example_grates, interface};
+use crate::{fdtables, interface};
 use crate::interface::errnos::*;
 // use crate::lib_fs_utils::{lind_deltree, visit_children};
 
@@ -1170,7 +1167,7 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
 
     // fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp/").unwrap();
     // std::env::set_current_dir("/").unwrap();
-    register_close_handlers(NULL_FUNC, kernel_close, NULL_FUNC);
+    fdtables::register_close_handlers(fdtables::NULL_FUNC, kernel_close, fdtables::NULL_FUNC);
     
     let utilcage = Cage {
         cageid: 0,
@@ -1196,14 +1193,14 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
 
     interface::cagetable_insert(0, utilcage);
     // let mut fdtable = FDTABLE;
-    init_empty_cage(0);
+    fdtables::init_empty_cage(0);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
-    get_specific_virtual_fd(0, 0, 0, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(0, 0, 0, false, 0).unwrap();
     // STDOUT
-    get_specific_virtual_fd(0, 1, 1, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(0, 1, 1, false, 0).unwrap();
     // STDERR
-    get_specific_virtual_fd(0, 2, 2, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(0, 2, 2, false, 0).unwrap();
 
     //init cage is its own parent
     let initcage = Cage {
@@ -1228,14 +1225,14 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
         interval_timer: interface::IntervalTimer::new(1),
     };
     interface::cagetable_insert(1, initcage);
-    init_empty_cage(1);
+    fdtables::init_empty_cage(1);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
-    get_specific_virtual_fd(1, 0, 0, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(1, 0, 0, false, 0).unwrap();
     // STDOUT
-    get_specific_virtual_fd(1, 1, 1, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(1, 1, 1, false, 0).unwrap();
     // STDERR
-    get_specific_virtual_fd(1, 2, 2, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(1, 2, 2, false, 0).unwrap();
     // make sure /tmp is clean
     // cleartmp(true);
 }
