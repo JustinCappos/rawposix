@@ -11,6 +11,7 @@ use crate::fdtables;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use dashmap::mapref::entry;
 use parking_lot::Mutex;
 use lazy_static::lazy_static;
 use std::io::{Read, Write};
@@ -708,7 +709,6 @@ impl Cage {
         mut readfds: Option<&mut fd_set>,
         mut writefds: Option<&mut fd_set>,
         mut errorfds: Option<&mut fd_set>,
-        // timeout: *mut timeval,
         rposix_timeout: Option<RustDuration>,
     ) -> i32 {
 
@@ -791,14 +791,14 @@ impl Cage {
                 }
             }
 
-             // we break if there is any file descriptor ready
+            // we break if there is any file descriptor ready
             // or timeout is reached
             if return_code != 0 || readtimer(start_time) > end_time {
                 break;
             } else {
                 // otherwise, check for signal and loop again
                 if sigcheck() {
-                    return syscall_error(Errno::EINTR, "poll", "interrupted function call");
+                    return syscall_error(Errno::EINTR, "select", "interrupted function call");
                 }
                 // We yield to let other threads continue if we've found no ready descriptors
                 lind_yield();
@@ -1114,68 +1114,72 @@ impl Cage {
         nfds: u64,
         timeout: i32,
     ) -> i32 {
-        /* 
-        *   1. Get virfd list
-        *   2. Get imp / real / invalid fd set list 
-        *   3. For impipe
-        *      For real fd
-        */
 
-        let mut virfdvec = Vec::with_capacity(virtual_fds.len());
+        let mut virfdvec = HashSet::new();
 
         for vpoll in &mut *virtual_fds {
             let vfd = vpoll.fd as u64;
-            virfdvec.push(vfd);
+            virfdvec.insert(vfd);
         }
 
-        let (mut realfdvec, mut impvec, mut invalidfdvec, mut mappingtable) = fdtables::convert_virtualfds_to_real(self.cageid, virfdvec);
-        
+        let (allhashmap, mappingtable) = fdtables::convert_virtualfds_for_poll(self.cageid, virfdvec);
 
-
-        // libc
         let mut libc_nfds = 0;
         let mut libc_pollfds: Vec<pollfd> = Vec::new();
-        for &real_fd in &realfdvec {
-            if let Some(&virtual_fd) = mappingtable.get(&real_fd) {
-                // Find corresponding PollStruct in virtual_fds 
-                if let Some(poll_struct) = virtual_fds.iter().find(|&ps| ps.fd == virtual_fd as i32) {
-                    // Convert PollStruct to libc::pollfd
-                    let libc_poll_struct = self.convert_to_libc_pollfd(poll_struct);
-                    libc_pollfds.push(libc_poll_struct);
-                    libc_nfds = libc_nfds + 1;
+        for (fd_kind, fdtuple) in allhashmap {
+            match fd_kind {
+                FDKIND_KERNEL => {
+                    for (virtfd, entry) in fdtuple {
+                        if let Some(vpollstruct) = virtual_fds.iter().find(|&ps| ps.fd == virtfd as i32) {
+                            // Convert PollStruct to libc::pollfd
+                            let libcpollstruct = self.convert_to_libc_pollfd(vpollstruct);
+                            libc_pollfds.push(libcpollstruct);
+                            libc_nfds = libc_nfds + 1;
+                        }
+                    }
+                    if libc_nfds != 0 {
+                        let ret = unsafe { libc::poll(libc_pollfds.as_mut_ptr(), libc_nfds as u64, timeout) };
+                        if ret < 0 {
+                            let errno = get_errno();
+                            return handle_errno(errno, "poll");
+                        }
+                        // Convert back to PollStruct
+                        for (i, libcpoll) in libc_pollfds.iter().enumerate() {
+                            if let Some(rposix_poll) = virtual_fds.get_mut(i) {
+                                rposix_poll.revents = libcpoll.revents;
+                            }
+                        }
+                        
+                        return ret;
+                    }
+                }
+
+                FDKIND_IMPIPE => {
+                    let mut impipe_vec: Vec<(u64, fdtables::FDTableEntry)> = Vec::new();
+                    for (virtfd, entry) in fdtuple {
+                        impipe_vec.push((virtfd, entry.clone()));
+                    }
+                    return self.poll_impipe_syscall(virtual_fds, impipe_vec, timeout);
                 }
             }
-        }
-        // For real fd, we call down to kernel
-        if libc_nfds != 0 {
-            let ret = unsafe { libc::poll(libc_pollfds.as_mut_ptr(), libc_nfds as u64, timeout) };
-            if ret < 0 {
-                // let err = unsafe {
-                //     libc::__errno_location()
-                // };
-                // let err_str = unsafe {
-                //     libc::strerror(*err)
-                // };
-                // let err_msg = unsafe {
-                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-                // };
-                // println!("[POLL] Error message: {:?}", err_msg);
-                // println!("[POLL] kernel fd: {:?}", real_fd);
-                // io::stdout().flush().unwrap();
-                let errno = get_errno();
-                return handle_errno(errno, "poll");
-            }
-            // Convert back to PollStruct
-            for (i, libcpoll) in libc_pollfds.iter().enumerate() {
-                if let Some(rposix_poll) = virtual_fds.get_mut(i) {
-                    rposix_poll.revents = libcpoll.revents;
-                }
-            }
-            
-            return ret;
         }
 
-        // In memory pipe
+        // TODO: Return check...?
+        0
+        
+    }
+
+    /* POLL()
+    */
+    fn convert_to_libc_pollfd(&self, poll_struct: &PollStruct) -> pollfd {
+        pollfd {
+            fd: poll_struct.fd,
+            events: poll_struct.events,
+            revents: poll_struct.revents,
+        }
+    }
+
+    pub fn poll_impipe_syscall(&self, virtual_fds: &mut [PollStruct], impvec: Vec<(u64, fdtables::FDTableEntry)>, timeout: i32) -> i32 {
         let start_time = starttimer();
         let r_timeout = if timeout >= 0 {
             Some(RustDuration::from_millis(
@@ -1193,23 +1197,21 @@ impl Cage {
         let mut return_code = 0;
 
         loop {
-            let mut event_count = 0;
-
-            for (impfd, optinfo) in impvec.iter() {
-                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
+            for (impfd, entry) in impvec.iter() {
+                if let Some(pipe_entry) = PIPE_TABLE.get(&impfd) {
                     //impipe_entry.perfdinfo as i32 & O_RDONLY != 0
-                    if pipe_entry.isreader == true {
+                    if entry.perfdinfo as i32 & O_RDONLY != 0 {
                         if pipe_entry.pipe.check_select_read() {
                             return_code = return_code + 1;
-                            let mut r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
                             r_pollstruct.revents = libc::POLLIN;
-                        }
+                        } 
                         
                     } else {
                         //impipe_entry.perfdinfo as i32 & O_WRONLY != 0
                         if pipe_entry.pipe.check_select_write() {
                             return_code = return_code + 1;
-                            let mut r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
                             r_pollstruct.revents = libc::POLLOUT;
                         }
                         
@@ -1232,19 +1234,7 @@ impl Cage {
         }
 
         return return_code;
-        
     }
-
-    /* POLL()
-    */
-    fn convert_to_libc_pollfd(&self, poll_struct: &PollStruct) -> pollfd {
-        pollfd {
-            fd: poll_struct.fd,
-            events: poll_struct.events,
-            revents: poll_struct.revents,
-        }
-    }
-
 
     /* EPOLL
     *   In normal Linux, epoll will perform the listed behaviors 
