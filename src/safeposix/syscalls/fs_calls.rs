@@ -38,6 +38,8 @@ use crate::fdtables;
 
 static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
 
+const FDKIND_KERNEL = 0;
+
 /* 
 *   We will receive parameters with type u64 by default, then we will do type conversion inside
 *   of each syscall
@@ -89,7 +91,7 @@ impl Cage {
 
         let should_cloexec = (oflag & O_CLOEXEC) != 0;
 
-        let virtual_fd = fdtables::get_unused_virtual_fd(self.cageid, kernel_fd as u64, should_cloexec, 0).unwrap();
+        let virtual_fd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, should_cloexec, 0).unwrap();
         // let mut count = 0;
         // FDTABLE.iter().for_each(|entry| {
         //     // println!("Cage ID: {}", entry.key());
@@ -286,7 +288,7 @@ impl Cage {
             return handle_errno(errno, "creat");
         }
         
-        let virtual_fd = fdtables::get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        let virtual_fd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, false, 0).unwrap();
         virtual_fd as i32
     }
 
@@ -362,15 +364,16 @@ impl Cage {
     //     }
     // }
     pub fn fstat_syscall(&self, virtual_fd: i32, rposix_statbuf: &mut StatData) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "fstat", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
+
         // Declare statbuf by ourselves 
         let mut libc_statbuf: stat = unsafe { std::mem::zeroed() };
         let libcret = unsafe {
-        libc::fstat(kernel_fd as i32, &mut libc_statbuf)
+        libc::fstat(vfd.underfd as i32, &mut libc_statbuf)
         };
 
         if libcret < 0 {

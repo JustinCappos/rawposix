@@ -12,58 +12,58 @@
 // Define some cageid constants that may be useful.  These are not valid for
 // normal use as cageids
 
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const INVALID_CAGEID: u64 = 0xffff_ffff_ffff_fffe;
 
 // Used for internal testing.  Not valid for a normal cageid...
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID: u64 = 0xffff_ffff_ffff_ffe0;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID0: u64 = 0xffff_ffff_ffff_ffe0;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID1: u64 = 0xffff_ffff_ffff_ffe1;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID2: u64 = 0xffff_ffff_ffff_ffe2;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID3: u64 = 0xffff_ffff_ffff_ffe3;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID4: u64 = 0xffff_ffff_ffff_ffe4;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID5: u64 = 0xffff_ffff_ffff_ffe5;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID6: u64 = 0xffff_ffff_ffff_ffe6;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID7: u64 = 0xffff_ffff_ffff_ffe7;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID8: u64 = 0xffff_ffff_ffff_ffe8;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID9: u64 = 0xffff_ffff_ffff_ffe9;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID10: u64 = 0xffff_ffff_ffff_ffea;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID11: u64 = 0xffff_ffff_ffff_ffeb;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID12: u64 = 0xffff_ffff_ffff_ffec;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID13: u64 = 0xffff_ffff_ffff_ffed;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID14: u64 = 0xffff_ffff_ffff_ffee;
-#[doc(hidden)]
+// #[doc(hidden)]
 pub const TESTING_CAGEID15: u64 = 0xffff_ffff_ffff_ffef;
 
-#[doc(hidden)]
+// #[doc(hidden)]
 macro_rules! reversible_enum {
     ($(#[$settings: meta])* $visibility: vis enum $enumname:ident {
         $($valuename: ident = $value: expr,)*
     }) => {
         $(#[$settings])*
-        #[doc(hidden)]
+        // #[doc(hidden)]
         $visibility enum $enumname {
             $($valuename = $value,)*
         }
 
         impl $enumname {
-            #[doc(hidden)]
+            // #[doc(hidden)]
             $visibility fn from_discriminant(v: u64) -> Result<Self, ()> {
                 match v {
                     $($value => Ok($enumname::$valuename),)*
