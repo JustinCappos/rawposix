@@ -35,7 +35,7 @@ use crate::fdtables;
 static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
 
 const FDKIND_KERNEL: u32 = 0;
-const NO_REAL_FD: u32 = 0xff_abcd_ef01;
+const FDKIND_IMPIPE: u32 = 1;
 
 impl Cage {
     //------------------------------------OPEN SYSCALL------------------------------------
@@ -339,8 +339,8 @@ impl Cage {
         }
 
         let vfd = wrappedvfd.unwrap();
-        if vfd.fdkind == NO_REAL_FD {
-            self.read_impipe_syscall(virtual_fd, readbuf, count)
+        if vfd.fdkind == FDKIND_IMPIPE {
+            self.read_impipe_syscall(vfd, readbuf, count)
         } else {
             //kernel fd
             let ret = unsafe {
@@ -354,20 +354,19 @@ impl Cage {
         }
     }
 
-    pub fn read_impipe_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: usize) -> i32 {
+    pub fn read_impipe_syscall(&self, impipe_entry: fdtables::FDTableEntry, readbuf: *mut u8, count: usize) -> i32 {
         //in memory pipe
-        // AW: Should we use FDTableEntry.perfdinfo to get optional info?
-        let wrappedoptinfo = fdtables::get_optionalinfo(self.cageid, virtual_fd as u64);
-        if wrappedoptinfo.is_err() {
-            return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
+
+        let pipe_entry = PIPE_TABLE.get(&impipe_entry.underfd).unwrap();
+
+        if impipe_entry.perfdinfo as i32 & O_WRONLY != 0 { return syscall_error(Errno::EBADF, "read", "File Descriptor not open for reading"); }
+
+        let mut nonblocking = false;
+        if impipe_entry.perfdinfo as i32 & O_NONBLOCK != 0 {
+            nonblocking = true;
         }
-        let optinfo = wrappedoptinfo.unwrap();
 
-        let pipe_entry = PIPE_TABLE.get(&optinfo).unwrap();
-
-        if !pipe_entry.isreader { return syscall_error(Errno::EBADF, "read", "File Descriptor not open for reading"); }
-
-        let ret = pipe_entry.pipe.read_from_pipe(readbuf, count, pipe_entry.blocking);
+        let ret = pipe_entry.pipe.read_from_pipe(readbuf, count, nonblocking);
             
         return ret;
     }
@@ -410,8 +409,8 @@ impl Cage {
         }
 
         let vfd = wrappedvfd.unwrap();
-        if vfd.fdkind == NO_REAL_FD {
-            self.write_impipe_syscall(virtual_fd, buf, count)
+        if vfd.fdkind == FDKIND_IMPIPE {
+            self.write_impipe_syscall(vfd, buf, count)
         } else {
             // kernel fd
             let ret = unsafe {
@@ -425,18 +424,17 @@ impl Cage {
         }
     }
 
-    pub fn write_impipe_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize) -> i32 {
-            let wrappedoptinfo = fdtables::get_optionalinfo(self.cageid, virtual_fd as u64);
-            if wrappedoptinfo.is_err() {
-                return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
+    pub fn write_impipe_syscall(&self, impipe_entry: fdtables::FDTableEntry, buf: *const u8, count: usize) -> i32 {
+            let pipe_entry = PIPE_TABLE.get(&impipe_entry.underfd).unwrap();
+
+            if impipe_entry.perfdinfo as i32 & O_RDONLY != 0 { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
+
+            let mut nonblocking = false;
+            if impipe_entry.perfdinfo as i32 & O_NONBLOCK != 0 {
+                nonblocking = true;
             }
-            let optinfo = wrappedoptinfo.unwrap();
-
-            let pipe_entry = PIPE_TABLE.get(&optinfo).unwrap();
-
-            if pipe_entry.isreader { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
-
-            let ret = pipe_entry.pipe.write_to_pipe(buf, count, pipe_entry.blocking);
+    
+            let ret = pipe_entry.pipe.write_to_pipe(buf, count, nonblocking);
 
             if ret == -(Errno::EPIPE as i32) {
                 interface::lind_kill_from_id(self.cageid, sys_constants::SIGPIPE);
@@ -483,8 +481,8 @@ impl Cage {
         }
 
         let vfd = wrappedvfd.unwrap();
-        if vfd.fdkind == NO_REAL_FD {
-            self.writev_impipe_syscall(virtual_fd, iovec, iovcnt)
+        if vfd.fdkind == FDKIND_IMPIPE {
+            self.writev_impipe_syscall(vfd, iovec, iovcnt)
         } else {
             let ret = unsafe {
                 libc::writev(vfd.underfd as i32, iovec, iovcnt)
@@ -499,22 +497,22 @@ impl Cage {
 
     pub fn writev_impipe_syscall(
         &self,
-        virtual_fd: i32,
+        impipe_entry: fdtables::FDTableEntry,
         iovec: *const interface::IovecStruct,
         iovcnt: i32,
     ) -> i32 {
         //in memory pipe
-        let wrappedoptinfo = fdtables::get_optionalinfo(self.cageid, virtual_fd as u64);
-        if wrappedoptinfo.is_err() {
-            return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
+
+        let pipe_entry = PIPE_TABLE.get(&impipe_entry.underfd).unwrap();
+
+        if impipe_entry.perfdinfo as i32 & O_RDONLY != 0 { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
+
+        let mut nonblocking = false;
+        if impipe_entry.perfdinfo as i32 & O_NONBLOCK != 0 {
+            nonblocking = true;
         }
-        let optinfo = wrappedoptinfo.unwrap();
 
-        let pipe_entry = PIPE_TABLE.get(&optinfo).unwrap();
-
-        if pipe_entry.isreader { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
-
-        let ret = pipe_entry.pipe.write_vectored_to_pipe(iovec, iovcnt, pipe_entry.blocking);
+        let ret = pipe_entry.pipe.write_vectored_to_pipe(iovec, iovcnt, nonblocking);
 
         if ret == -(Errno::EPIPE as i32) {
             interface::lind_kill_from_id(self.cageid, sys_constants::SIGPIPE);
@@ -1062,22 +1060,18 @@ impl Cage {
         // lets make a standard pipe of 65,536 bytes
         let pipe = interface::RustRfc::new(IMPipe::new_with_capacity(PIPE_CAPACITY));
 
-        // check for nonblock and cloexec flags, we'll need nonblock for the pipeentry and cloexec for the virtualfd
-        let nonblock = if flags & O_NONBLOCK != 0 {
-            true
-        } else { false };
+        // check for cloexec flags, we'll need cloexec for the virtualfd
 
         let should_cloexec = if flags & O_CLOEXEC != 0 {
             true
         } else { false };
 
         //insert into pipe table for each end, get indexes
-        let pipereadidx = insert_next_pipe(pipe.clone(), nonblock, true).unwrap();
-        let pipewriteidx = insert_next_pipe(pipe.clone(), nonblock, false).unwrap();
+        let pipereadidx = insert_next_pipe(pipe.clone()).unwrap();
+        let pipewriteidx = insert_next_pipe(pipe.clone()).unwrap();
 
-
-        pipefd.readfd = fdtables::get_unused_virtual_fd(self.cageid, fdtables::NO_REAL_FD, should_cloexec, pipereadidx).unwrap() as i32;
-        pipefd.writefd = fdtables::get_unused_virtual_fd(self.cageid, fdtables::NO_REAL_FD, should_cloexec, pipewriteidx).unwrap() as i32;
+        pipefd.readfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMPIPE, pipereadidx, should_cloexec, (flags & O_RDONLY) as u64).unwrap() as i32;
+        pipefd.writefd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMPIPE, pipewriteidx, should_cloexec, (flags & O_WRONLY) as u64).unwrap() as i32;
 
         return 0;
     }

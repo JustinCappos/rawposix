@@ -393,8 +393,6 @@ const MAXPIPE: u64 = 1024;
 
 pub struct PipeTableEntry {
     pub pipe: Arc<IMPipe>,
-    pub blocking: bool,
-    pub isreader: bool
 }
 
 pub static PIPE_TABLE: LazyLock<DashMap<u64, Arc<PipeTableEntry>>> = 
@@ -402,9 +400,9 @@ pub static PIPE_TABLE: LazyLock<DashMap<u64, Arc<PipeTableEntry>>> =
         DashMap::new()
 );
 
-pub fn insert_next_pipe(pipe: Arc<IMPipe>, blocking: bool, isreader: bool) -> Option<u64> {
+pub fn insert_next_pipe(pipe: Arc<IMPipe>) -> Option<u64> {
 
-    let ptentry = PipeTableEntry{pipe, blocking, isreader};
+    let ptentry = PipeTableEntry{pipe};
 
     for pipeno in 0..MAXPIPE {
         if let Entry::Vacant(v) = PIPE_TABLE.entry(pipeno) {

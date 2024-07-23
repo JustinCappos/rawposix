@@ -27,6 +27,9 @@ use std::{os::fd::RawFd, ptr};
 use bit_set::BitSet;
 
 static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp/";
+const FDKIND_KERNEL: u32 = 0;
+const FDKIND_IMPIPE: u32 = 1;
+const FDKIND_IMSOCK: u32 = 2;
 
 lazy_static! {
     // A hashmap used to store epoll mapping relationships 
@@ -57,7 +60,7 @@ impl Cage {
             return handle_errno(errno, "socket");
         }
 
-        return fdtables::get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap() as i32;
+        return fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, false, 0).unwrap() as i32;
     }
 
     /* 
@@ -68,11 +71,11 @@ impl Cage {
         /*
             translate_virtual_fd(cageid: u64, virtualfd: u64) -> Result<u64, threei::RetVal>
         */
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "bind", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         // println!("[Bind] Before GenSockaddr: {:?}", addr);
         // io::stdout().flush().unwrap();
@@ -170,7 +173,7 @@ impl Cage {
             
         };
 
-        let ret = unsafe { libc::bind(kernel_fd as i32, finalsockaddr, addrlen as u32) };
+        let ret = unsafe { libc::bind(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
         if ret < 0 {
             let errno = get_errno();
             let err_str = unsafe {
@@ -203,11 +206,11 @@ impl Cage {
      *   connect() will return 0 when success and -1 when fail
      */
     pub fn connect_syscall(&self, virtual_fd: i32, addr: &GenSockaddr) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "connect", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         let mut new_addr = SockaddrUnix::default();
 
@@ -300,7 +303,7 @@ impl Cage {
             }
         };
 
-        let ret = unsafe { libc::connect(kernel_fd as i32, finalsockaddr, addrlen as u32) };
+        let ret = unsafe { libc::connect(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
         if ret < 0 {
             // let err = unsafe {
             //     libc::__errno_location()
@@ -331,11 +334,11 @@ impl Cage {
         flags: i32,
         dest_addr: &GenSockaddr,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "sendto", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         let (finalsockaddr, addrlen) = match dest_addr {
             GenSockaddr::V6(addrref6) => (
@@ -381,7 +384,7 @@ impl Cage {
 
        let ret = unsafe {
             libc::sendto(
-                kernel_fd as i32,
+                vfd.underfd as i32,
                 buf as *const c_void,
                 buflen,
                 flags,
@@ -409,13 +412,13 @@ impl Cage {
         buflen: usize,
         flags: i32,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "send", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::send(kernel_fd as i32, buf as *const c_void, buflen, flags) as i32};
+        let ret = unsafe { libc::send(vfd.underfd as i32, buf as *const c_void, buflen, flags) as i32};
         if ret < 0 {
             // let err = unsafe {
             //     libc::__errno_location()
@@ -451,11 +454,11 @@ impl Cage {
         flags: i32,
         addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "recvfrom", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         let (finalsockaddr, mut addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
@@ -473,7 +476,7 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        let ret = unsafe { libc::recvfrom(kernel_fd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, &mut addrlen as *mut u32) as i32 };
+        let ret = unsafe { libc::recvfrom(vfd.underfd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, &mut addrlen as *mut u32) as i32 };
 
         if ret < 0 {
             // let err = unsafe {
@@ -503,13 +506,13 @@ impl Cage {
      *       - Fail: -1
      */
     pub fn recv_syscall(&self, virtual_fd: i32, buf: *mut u8, len: usize, flags: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "recv", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::recv(kernel_fd as i32, buf as *mut c_void, len, flags) as i32 };
+        let ret = unsafe { libc::recv(vfd.underfd as i32, buf as *mut c_void, len, flags) as i32 };
         if ret < 0 {
             // let err = unsafe {
             //     libc::__errno_location()
@@ -534,13 +537,13 @@ impl Cage {
      *   listen() will return 0 when success and -1 when fail
      */
     pub fn listen_syscall(&self, virtual_fd: i32, backlog: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "listen", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::listen(kernel_fd as i32, backlog) };
+        let ret = unsafe { libc::listen(vfd.underfd as i32, backlog) };
         if ret < 0 {
             // let err = unsafe {
             //     libc::__errno_location()
@@ -564,13 +567,13 @@ impl Cage {
      *   shutdown() will return 0 when success and -1 when fail
      */
     pub fn shutdown_syscall(&self, virtual_fd: i32, how: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "shutdown", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::shutdown(kernel_fd as i32, how) };
+        let ret = unsafe { libc::shutdown(vfd.underfd as i32, how) };
 
         if ret < 0 {
             let errno = get_errno();
@@ -595,11 +598,11 @@ impl Cage {
         virtual_fd: i32,
         addr: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "accept", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         let (finalsockaddr, mut addrlen) = match addr {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
@@ -620,7 +623,7 @@ impl Cage {
         // println!("[Accept] Before GenSockaddr: {:?}", addr);
         // io::stdout().flush().unwrap();
 
-        let ret_kernelfd = unsafe { libc::accept(kernel_fd as i32, finalsockaddr, &mut addrlen as *mut u32) };
+        let ret_kernelfd = unsafe { libc::accept(vfd.underfd as i32, finalsockaddr, &mut addrlen as *mut u32) };
 
         if ret_kernelfd < 0 {
             // let errno = unsafe {
@@ -674,7 +677,7 @@ impl Cage {
             }
         }
 
-        let ret_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
+        let ret_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, ret_kernelfd as u64, false, 0).unwrap();
         
         ret_virtualfd as i32
     }
@@ -863,17 +866,17 @@ impl Cage {
         optval: &mut i32,
         // optlen: u32,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "getsockopt", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         // let mut optlen: u32 = 4;
         let mut optlen: socklen_t = 4;
 
-        // let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
-        let ret = unsafe { libc::getsockopt(kernel_fd as i32, level, optname, optval as *mut c_int as *mut c_void, &mut optlen as *mut socklen_t) };
+        // let ret = unsafe { libc::getsockopt(vfd.underfd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
+        let ret = unsafe { libc::getsockopt(vfd.underfd as i32, level, optname, optval as *mut c_int as *mut c_void, &mut optlen as *mut socklen_t) };
         if ret < 0 {
             // let err = unsafe {
             //     libc::__errno_location()
@@ -908,14 +911,14 @@ impl Cage {
         optval: *mut u8,
         optlen: u32,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "setsockopt", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         let ret = unsafe { 
-            libc::setsockopt(kernel_fd as i32, level, optname, optval as *mut c_void, optlen)
+            libc::setsockopt(vfd.underfd as i32, level, optname, optval as *mut c_void, optlen)
         };
         if ret < 0 {
             // let err = unsafe {
@@ -944,11 +947,11 @@ impl Cage {
         virtual_fd: i32,
         address: &mut Option<&mut GenSockaddr>
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "getpeername", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         
         let (finalsockaddr, mut addrlen) = match address {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
@@ -970,7 +973,7 @@ impl Cage {
         // println!("[getpeername] finalsockaddr BEFORE: {:?}", finalsockaddr);
         // io::stdout().flush().unwrap();
 
-        let ret = unsafe { libc::getpeername(kernel_fd as i32, finalsockaddr, &mut addrlen as *mut u32) };
+        let ret = unsafe { libc::getpeername(vfd.underfd as i32, finalsockaddr, &mut addrlen as *mut u32) };
 
         if ret < 0 {
             let err = unsafe {
@@ -1031,11 +1034,11 @@ impl Cage {
         virtual_fd: i32,
         address: &mut Option<&mut GenSockaddr>,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "getsockname", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
 
         let (finalsockaddr, mut addrlen) = match address {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
@@ -1054,8 +1057,8 @@ impl Cage {
         };
 
         let mut testlen = 128 as u32;
-        // let ret = unsafe { libc::getsockname(kernel_fd as i32, finalsockaddr, addrlen as *mut u32) };
-        let ret = unsafe { libc::getsockname(kernel_fd as i32, finalsockaddr, &mut testlen as *mut u32) };
+        // let ret = unsafe { libc::getsockname(vfd.underfd as i32, finalsockaddr, addrlen as *mut u32) };
+        let ret = unsafe { libc::getsockname(vfd.underfd as i32, finalsockaddr, &mut testlen as *mut u32) };
 
         if ret < 0  {
             // let err = unsafe {
@@ -1194,6 +1197,7 @@ impl Cage {
 
             for (impfd, optinfo) in impvec.iter() {
                 if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
+                    //impipe_entry.perfdinfo as i32 & O_RDONLY != 0
                     if pipe_entry.isreader == true {
                         if pipe_entry.pipe.check_select_read() {
                             return_code = return_code + 1;
@@ -1202,6 +1206,7 @@ impl Cage {
                         }
                         
                     } else {
+                        //impipe_entry.perfdinfo as i32 & O_WRONLY != 0
                         if pipe_entry.pipe.check_select_write() {
                             return_code = return_code + 1;
                             let mut r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
@@ -1299,7 +1304,7 @@ impl Cage {
         }
 
         // Get the virtual epfd
-        let virtual_epfd = fdtables::get_unused_virtual_fd(self.cageid, kernel_fd as u64, false, 0).unwrap();
+        let virtual_epfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, false, 0).unwrap();
         // println!("[epoll_create] virtual_epfd: {:?}", virtual_epfd);
         // io::stdout().flush().unwrap();
 
@@ -1321,22 +1326,22 @@ impl Cage {
         virtual_fd: i32,
         epollevent: &mut EpollEvent,
     ) -> i32 {
-        let k_epfd = fdtables::translate_virtual_fd(self.cageid, virtual_epfd as u64);
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() || k_epfd.is_err() {
+        let wrappedepfd = fdtables::translate_virtual_fd(self.cageid, virtual_epfd as u64);
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() || wrappedepfd.is_err() {
             return syscall_error(Errno::EBADF, "epoll", "Bad File Descriptor");
         }
 
-        let kernel_epfd = k_epfd.unwrap();
-        let kernel_fd = kfd.unwrap();
+        let vepfd = wrappedepfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         // EpollEvent conversion
         let event = epollevent.events;
         let mut epoll_event = epoll_event {
             events: event,
-            u64: kernel_fd as u64,
+            u64: vfd.underfd as u64,
         };
 
-        let ret = unsafe { libc::epoll_ctl(kernel_epfd as i32, op, kernel_fd as i32, &mut epoll_event) };
+        let ret = unsafe { libc::epoll_ctl(vepfd.underfd as i32, op, vfd.underfd as i32, &mut epoll_event) };
         if ret < 0 {
             // let err = unsafe {
             //     libc::__errno_location()
@@ -1361,17 +1366,17 @@ impl Cage {
         // Update the mapping table for epoll
         if op == libc::EPOLL_CTL_DEL {
             let mut epollmapping = REAL_EPOLL_MAP.lock();
-            if let Some(fdmap) = epollmapping.get_mut(&(virtual_epfd as u64)) {
-                if fdmap.remove(&(kernel_fd as i32)).is_some() {
+            if let Some(fdmap) = epollmapping.get_mut(&(vepfd.underfd as u64)) {
+                if fdmap.remove(&(vfd.underfd as i32)).is_some() {
                     if fdmap.is_empty() {
-                        epollmapping.remove(&(virtual_epfd as u64));
+                        epollmapping.remove(&(vepfd.underfd as u64));
                     }
                     return ret;
                 }
             }
         } else {
             let mut epollmapping = REAL_EPOLL_MAP.lock();
-            epollmapping.entry(virtual_epfd as u64).or_insert_with(HashMap::new).insert(kernel_fd as i32, virtual_fd as u64);
+            epollmapping.entry(vepfd.underfd as u64).or_insert_with(HashMap::new).insert(vfd.underfd as i32, virtual_fd as u64);
             return ret;
         }
 
@@ -1394,11 +1399,11 @@ impl Cage {
         maxevents: i32,
         timeout: i32,
     ) -> i32 {
-        let k_epfd = fdtables::translate_virtual_fd(self.cageid, virtual_epfd as u64);
-        if k_epfd.is_err() {
+        let wrappedepfd = fdtables::translate_virtual_fd(self.cageid, virtual_epfd as u64);
+        if wrappedepfd.is_err() {
             return syscall_error(Errno::EBADF, "epoll_wait", "Bad File Descriptor");
         }
-        let kernel_epfd = k_epfd.unwrap();
+        let vepfd = wrappedepfd.unwrap();
         
         let mut kernel_events: Vec<epoll_event> = Vec::with_capacity(maxevents as usize);
 
@@ -1410,7 +1415,7 @@ impl Cage {
             }
         );
 
-        let ret = unsafe { libc::epoll_wait(kernel_epfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout as i32) };
+        let ret = unsafe { libc::epoll_wait(vepfd.underfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout as i32) };
         if ret < 0 {
             // let err = unsafe {
             //     libc::__errno_location()
@@ -1433,7 +1438,7 @@ impl Cage {
 
             let ret_kernelfd = kernel_events[i].u64;
             let epollmapping = REAL_EPOLL_MAP.lock();
-            let ret_virtualfd = epollmapping.get(&(virtual_epfd as u64)).and_then(|kernel_map| kernel_map.get(&(ret_kernelfd as i32)).copied());
+            let ret_virtualfd = epollmapping.get(&(vepfd.underfd as u64)).and_then(|kernel_map| kernel_map.get(&(ret_kernelfd as i32)).copied());
 
             events[i].fd = ret_virtualfd.unwrap() as i32;
             events[i].events = kernel_events[i].events;
@@ -1463,8 +1468,8 @@ impl Cage {
 
         let ksv_1 = kernel_socket_vector[0];
         let ksv_2 = kernel_socket_vector[1];
-        let vsv_1 = fdtables::get_unused_virtual_fd(self.cageid, ksv_1 as u64, false, 0).unwrap();
-        let vsv_2 = fdtables::get_unused_virtual_fd(self.cageid, ksv_2 as u64, false, 0).unwrap();
+        let vsv_1 = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, ksv_1 as u64, false, 0).unwrap();
+        let vsv_2 = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, ksv_2 as u64, false, 0).unwrap();
         virtual_socket_vector.sock1 = vsv_1 as i32;
         virtual_socket_vector.sock2 = vsv_2 as i32;
         return 0;
