@@ -30,25 +30,12 @@ use std::ffi::CString;
 use std::ptr;
 use std::mem;
 
-// use crate::example_grates::vanillaglobal::*;
-// use crate::example_grates::dashmapvecglobal::*;
-// use crate::example_grates::muthashmaxglobal::*;
-// use crate::example_grates::dashmaparrayglobal::*;
 use crate::fdtables;
 
 static LIND_ROOT: &str = "/home/lind/lind_project/src/safeposix-rust/tmp";
 
-const FDKIND_KERNEL = 0;
-
-/* 
-*   We will receive parameters with type u64 by default, then we will do type conversion inside
-*   of each syscall
-*   
-*   [Concerns]
-*   - cloexec in get_unused_virtual_fd()..?
-*   - there's no getdents() API in rust libc
-*   
-*/
+const FDKIND_KERNEL: u32 = 0;
+const NO_REAL_FD: u32 = 0xff_abcd_ef01;
 
 impl Cage {
     //------------------------------------OPEN SYSCALL------------------------------------
@@ -60,7 +47,6 @@ impl Cage {
     pub fn open_syscall(&self, path: &str, oflag: i32, mode: u32) -> i32 {
 
         // Convert data type from &str into *const i8
-        // let c_path = CString::new(path).unwrap();
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
@@ -70,21 +56,6 @@ impl Cage {
 
         
         if kernel_fd < 0 {
-            // let err = unsafe {
-            //     *libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[open] Error message: {:?}", err_msg);
-            // println!("[open] c_path: {:?}", c_path);
-            // println!("[open] oflag: {:?}", oflag);
-            // println!("[open] mode: {:?}", mode);
-            // println!("[open] kernel fd: {:?}", kernel_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "open");
         }
@@ -92,26 +63,7 @@ impl Cage {
         let should_cloexec = (oflag & O_CLOEXEC) != 0;
 
         let virtual_fd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, should_cloexec, 0).unwrap();
-        // let mut count = 0;
-        // FDTABLE.iter().for_each(|entry| {
-        //     // println!("Cage ID: {}", entry.key());
-        //     for (index, fd_entry) in entry.value().iter().enumerate() {
-        //         if let Some(entry) = fd_entry {
-        //             // println!("  Index {}: {:?}", index, entry);
-        //             count = count+1;
-        //         }
-        //     }
-        // });
-        // println!("[OPEN] cageid: {:?}", self.cageid);
-        // println!("[OPEN] vfd: {:?}", virtual_fd);
-        // println!("[OPEN] realfd: {:?}", kernel_fd);
-        // if kernel_fd > 1000 {
-        //     let entries = fs::read_dir("/proc/self/fd")?;
-        //     let count = entries.count();
-        //     println!("!!!![OPEN]!!!! TOTAL FD: {:?}", count);
-        // }
-        // // println!("[OPEN] Total: {:?}", count);
-        // io::stdout().flush().unwrap();
+
         virtual_fd as i32
     }
 
@@ -121,7 +73,6 @@ impl Cage {
     */
     pub fn mkdir_syscall(&self, path: &str, mode: u32) -> i32 {
         // Convert data type from &str into *const i8
-        // let c_path = CString::new(path).expect("CString::new failed");
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
@@ -131,18 +82,6 @@ impl Cage {
             libc::mkdir(c_path.as_ptr(), mode)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[mkdir] Error message: {:?}", err_msg);
-            // println!("[mkdir] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "mkdir");
         }
@@ -155,7 +94,6 @@ impl Cage {
     */
     pub fn mknod_syscall(&self, path: &str, mode: u32, dev: u64) -> i32 {
         // Convert data type from &str into *const i8
-        // let c_path = CString::new(path).expect("CString::new failed");
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
@@ -164,18 +102,6 @@ impl Cage {
             libc::mknod(c_path.as_ptr(), mode, dev)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[mknod] Error message: {:?}", err_msg);
-            // println!("[mknod] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "mknod");
         }
@@ -202,18 +128,6 @@ impl Cage {
             libc::link(old_cpath.as_ptr(), new_cpath.as_ptr())
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[link] Error message: {:?}", err_msg);
-            // println!("[link] c_path: {:?}", old_cpath);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "link");
         }
@@ -236,21 +150,6 @@ impl Cage {
         };
 
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // let errno = unsafe {
-            //     *libc::__errno_location() 
-            // } as i32;
-            // println!("[unlink] Error message: {:?}", err_msg);
-            // println!("[unlink] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "unlink");
         }
@@ -272,18 +171,6 @@ impl Cage {
             libc::creat(c_path.as_ptr(), mode)
         };
         if kernel_fd < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[creat] Error message: {:?}", err_msg);
-            // println!("[creat] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "creat");
         }
@@ -296,16 +183,6 @@ impl Cage {
     /*
     *   stat() will return 0 when success and -1 when fail 
     */
-    // pub fn stat_syscall(&self, path: &str, statbuf: &mut stat) -> i32 {
-    //     // let c_path = CString::new(path).expect("CString::new failed");
-    //     let relpath = normpath(convpath(path), self);
-    //     let relative_path = relpath.to_str().unwrap();
-    //     let full_path = format!("{}{}", LIND_ROOT, relative_path);
-    //     let c_path = CString::new(full_path).unwrap();
-    //     unsafe {
-    //         libc::stat(c_path.as_ptr(), statbuf)
-    //     }
-    // }
     pub fn stat_syscall(&self, path: &str, rposix_statbuf: &mut StatData) -> i32 {
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
@@ -319,21 +196,6 @@ impl Cage {
         };
         
         if libcret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // let errno = unsafe {
-            //     *libc::__errno_location() 
-            // } as i32;
-            // println!("[stat] Error message: {:?}", err_msg);
-            // println!("[stat] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "stat");
         }
@@ -357,12 +219,6 @@ impl Cage {
     *   Get the kernel fd with provided virtual fd first
     *   fstat() will return 0 when success and -1 when fail 
     */
-    // pub fn fstat_syscall(&self, virtual_fd: i32, statbuf: &mut stat) -> i32 {
-    //     let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd).unwrap();
-    //     unsafe {
-    //         libc::fstat(kernel_fd, statbuf)
-    //     }
-    // }
     pub fn fstat_syscall(&self, virtual_fd: i32, rposix_statbuf: &mut StatData) -> i32 {
         let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if wrappedvfd.is_err() {
@@ -438,14 +294,14 @@ impl Cage {
     *   fstatfs() will return 0 when success and -1 when fail 
     */
     pub fn fstatfs_syscall(&self, virtual_fd: i32, rposix_databuf: &mut FSData) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "fstatfs", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let mut libc_databuf: statfs = unsafe { mem::zeroed() };
         let libcret = unsafe {
-            libc::fstatfs(kernel_fd as i32, &mut libc_databuf)
+            libc::fstatfs(vfd.underfd as i32, &mut libc_databuf)
         };
 
         if libcret < 0 {
@@ -483,27 +339,14 @@ impl Cage {
         }
 
         let vfd = wrappedvfd.unwrap();
-        if vfd == fdtables::NO_REAL_FD {
+        if vfd.fdkind == NO_REAL_FD {
             self.read_impipe_syscall(virtual_fd, readbuf, count)
         } else {
             //kernel fd
             let ret = unsafe {
-                libc::read(vfd as i32, readbuf as *mut c_void, count) as i32
+                libc::read(vfd.underfd as i32, readbuf as *mut c_void, count) as i32
             };
             if ret < 0 {
-                // let err = unsafe {
-                //     libc::__errno_location()
-                // };
-                // let err_str = unsafe {
-                //     libc::strerror(*err)
-                // };
-                // let err_msg = unsafe {
-                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-                // };
-                // println!("[READ] Error message: {:?}", err_msg);
-                // println!("kernel_fd: {:?}", kernel_fd);
-                // println!("vfd: {:?}", virtual_fd);
-                // io::stdout().flush().unwrap();
                 let errno = get_errno();
                 return handle_errno(errno, "read");
             }
@@ -513,6 +356,7 @@ impl Cage {
 
     pub fn read_impipe_syscall(&self, virtual_fd: i32, readbuf: *mut u8, count: usize) -> i32 {
         //in memory pipe
+        // AW: Should we use FDTableEntry.perfdinfo to get optional info?
         let wrappedoptinfo = fdtables::get_optionalinfo(self.cageid, virtual_fd as u64);
         if wrappedoptinfo.is_err() {
             return syscall_error(Errno::EBADF, "write", "Bad File Descriptor");
@@ -536,27 +380,15 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn pread_syscall(&self, virtual_fd: i32, buf: *mut u8, count: usize, offset: i64) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "pread", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::pread(kernel_fd as i32, buf as *mut c_void, count, offset) as i32
+            libc::pread(vfd.underfd as i32, buf as *mut c_void, count, offset) as i32
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[pread] Error message: {:?}", err_msg);
-            // println!("[pread] virtual fd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "pread");
         }
@@ -578,26 +410,14 @@ impl Cage {
         }
 
         let vfd = wrappedvfd.unwrap();
-        if vfd == fdtables::NO_REAL_FD {
+        if vfd.fdkind == NO_REAL_FD {
             self.write_impipe_syscall(virtual_fd, buf, count)
         } else {
             // kernel fd
             let ret = unsafe {
-                libc::write(vfd as i32, buf as *const c_void, count) as i32
+                libc::write(vfd.underfd as i32, buf as *const c_void, count) as i32
             };
             if ret < 0 {
-                // let err = unsafe {
-                //     libc::__errno_location()
-                // };
-                // let err_str = unsafe {
-                //     libc::strerror(*err)
-                // };
-                // let err_msg = unsafe {
-                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-                // };
-                // println!("[write] Error message: {:?}", err_msg);
-                // println!("[write] virtual fd: {:?}", virtual_fd);
-                // io::stdout().flush().unwrap();
                 let errno = get_errno();
                 return handle_errno(errno, "write");
             }
@@ -633,27 +453,15 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn pwrite_syscall(&self, virtual_fd: i32, buf: *const u8, count: usize, offset: i64) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "pwrite", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::pwrite(kernel_fd as i32, buf as *const c_void, count, offset) as i32
+            libc::pwrite(vfd.underfd as i32, buf as *const c_void, count, offset) as i32
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[pwrite] Error message: {:?}", err_msg);
-            // println!("[pwrite] virtual fd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "pwrite");
         }
@@ -675,24 +483,13 @@ impl Cage {
         }
 
         let vfd = wrappedvfd.unwrap();
-        if vfd == fdtables::NO_REAL_FD {
+        if vfd.fdkind == NO_REAL_FD {
             self.writev_impipe_syscall(virtual_fd, iovec, iovcnt)
         } else {
             let ret = unsafe {
-                libc::writev(vfd as i32, iovec, iovcnt)
+                libc::writev(vfd.underfd as i32, iovec, iovcnt)
             };
             if ret < 0 {
-                // let err = unsafe {
-                //     libc::__errno_location()
-                // };
-                // let err_str = unsafe {
-                //     libc::strerror(*err)
-                // };
-                // let err_msg = unsafe {
-                //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-                // };
-                // println!("[writev] Error message: {:?}", err_msg);
-                // io::stdout().flush().unwrap();
                 let errno = get_errno();
                 return handle_errno(errno, "writev");
             }
@@ -734,27 +531,15 @@ impl Cage {
     *   - -1, fail 
     */
     pub fn lseek_syscall(&self, virtual_fd: i32, offset: isize, whence: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "lseek", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::lseek(kernel_fd as i32, offset as i64, whence) as i32
+            libc::lseek(vfd.underfd as i32, offset as i64, whence) as i32
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[lseek] Error message: {:?}", err_msg);
-            // println!("[lseek] virtual fd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "lseek");
         }
@@ -767,7 +552,6 @@ impl Cage {
     *   access() will return 0 when sucess, -1 when fail 
     */
     pub fn access_syscall(&self, path: &str, amode: i32) -> i32 {
-        // let c_path = CString::new(path).expect("CString::new failed");
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
@@ -776,18 +560,6 @@ impl Cage {
             libc::access(c_path.as_ptr(), amode)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[access] Error message: {:?}", err_msg);
-            // println!("[access] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "access");
         }
@@ -800,27 +572,15 @@ impl Cage {
     *   fchdir() will return 0 when sucess, -1 when fail 
     */
     pub fn fchdir_syscall(&self, virtual_fd: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "fchdir", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::fchdir(kernel_fd as i32)
+            libc::fchdir(vfd.underfd as i32)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[fchdir] Error message: {:?}", err_msg);
-            // println!("[fchdir] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fchdir");
         }
@@ -849,13 +609,13 @@ impl Cage {
     *   Then return virtual fd
     */
     pub fn dup_syscall(&self, virtual_fd: i32, _start_desc: Option<i32>) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "dup", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
-        let ret_kernelfd = unsafe{ libc::dup(kernel_fd as i32) };
-        let ret_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, ret_kernelfd as u64, false, 0).unwrap();
+        let vfd = wrappedvfd.unwrap();
+        let ret_kernelfd = unsafe{ libc::dup(vfd.underfd as i32) };
+        let ret_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, vfd.fdkind, ret_kernelfd as u64, false, 0).unwrap();
         return ret_virtualfd as i32;
         
     }
@@ -864,14 +624,13 @@ impl Cage {
     */
     pub fn dup2_syscall(&self, old_virtualfd: i32, new_virtualfd: i32) -> i32 {
         match fdtables::translate_virtual_fd(self.cageid, old_virtualfd as u64) {
-            Ok(old_kernelfd) => {
+            Ok(old_vfd) => {
                 let new_kernelfd = unsafe {
-                    libc::dup(old_kernelfd as i32)
+                    libc::dup(old_vfd.underfd as i32)
                 };
                 // Map new kernel fd with provided kernel fd
-                let _ret_kernelfd = unsafe{ libc::dup2(old_kernelfd as i32, new_kernelfd) };
-                let optinfo = fdtables::get_optionalinfo(self.cageid, old_virtualfd as u64).unwrap();
-                let _ = fdtables::get_specific_virtual_fd(self.cageid, new_virtualfd as u64, new_kernelfd as u64, false, optinfo).unwrap();
+                let _ret_kernelfd = unsafe{ libc::dup2(old_vfd.underfd as i32, new_kernelfd) };
+                let _ = fdtables::get_specific_virtual_fd(self.cageid, new_virtualfd as u64, old_vfd.fdkind, new_kernelfd as u64, false, old_vfd.perfdinfo).unwrap();
                 return new_virtualfd;
             },
             Err(_e) => {
@@ -887,31 +646,6 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
-        // println!();
-        // println!("[CLOSE] REALFDCOUNT:");
-        // io::stdout().flush().unwrap();
-        // for entry in REALFDCOUNT.iter() {
-        //     let key = entry.key();
-        //     let value = entry.value();
-        //     println!("realfd: {:?}, Value: {:?}", key, value);
-        //     io::stdout().flush().unwrap();
-        // }
-        // println!("[CLOSE] FDTABLE: ");
-        // io::stdout().flush().unwrap();
-        // for entry in FDTABLE.iter() {
-        //     let cageid = entry.key();
-        //     let fds = entry.value();
-        //     println!("cageid: {:?}", cageid);
-        //     for (vfd, fd_entry) in fds.iter().enumerate() {
-        //         if let Some(fd_entry) = fd_entry {
-        //             println!("  virtual_fd: {}, FDTableEntry: {:?}", vfd, fd_entry);
-        //         }
-        //     }
-        // }
-        // io::stdout().flush().unwrap();
-        // println!("[CLOSE] cageid: {:?}", self.cageid);
-        // println!("[CLOSE] vfd: {:?}", virtual_fd);
-        // io::stdout().flush().unwrap();
         match fdtables::close_virtualfd(self.cageid, virtual_fd as u64) {
             Ok(()) => {
                 return 0;
@@ -970,31 +704,19 @@ impl Cage {
                 0
             }
             _ => {
-                let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-                if kfd.is_err() {
+                let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+                if wrappedvfd.is_err() {
                     return syscall_error(Errno::EBADF, "fcntl", "Bad File Descriptor");
                 }
-                let kernel_fd = kfd.unwrap();
+                let vfd = wrappedvfd.unwrap();
                 if cmd == libc::F_DUPFD {
-                    let new_kernelfd = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
+                    let new_kernelfd = unsafe { libc::fcntl(vfd.underfd as i32, cmd, arg) };
                     // Get status
-                    let new_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, new_kernelfd as u64, false, 0).unwrap();
+                    let new_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, vfd.fdkind, new_kernelfd as u64, false, 0).unwrap();
                     return new_virtualfd as i32;
                 }
-                let ret = unsafe { libc::fcntl(kernel_fd as i32, cmd, arg) };
+                let ret = unsafe { libc::fcntl(vfd.underfd as i32, cmd, arg) };
                 if ret < 0 {
-                    // let err = unsafe {
-                    //     libc::__errno_location()
-                    // };
-                    // let err_str = unsafe {
-                    //     libc::strerror(*err)
-                    // };
-                    // let err_msg = unsafe {
-                    //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-                    // };
-                    // println!("[fcntl] Error message: {:?}", err_msg);
-                    // println!("[fcntl] vfd: {:?}", virtual_fd);
-                    // io::stdout().flush().unwrap();
                     let errno = get_errno();
                     return handle_errno(errno, "fcntl");
                 }
@@ -1013,25 +735,13 @@ impl Cage {
     *   a nonnegative value on success.
     */
     pub fn ioctl_syscall(&self, virtual_fd: i32, request: u64, ptrunion: *mut u8) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "ioctl", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
-        let ret = unsafe { libc::ioctl(kernel_fd as i32, request, ptrunion as *mut c_void) };
+        let vfd = wrappedvfd.unwrap();
+        let ret = unsafe { libc::ioctl(vfd.underfd as i32, request, ptrunion as *mut c_void) };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[ioctl] Error message: {:?}", err_msg);
-            // println!("[ioctl] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "ioctl");
         }
@@ -1045,7 +755,6 @@ impl Cage {
     *   chmod() will return 0 when success and -1 when fail 
     */
     pub fn chmod_syscall(&self, path: &str, mode: u32) -> i32 {
-        // let c_path = CString::new(path).expect("CString::new failed");
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
@@ -1054,18 +763,6 @@ impl Cage {
             libc::chmod(c_path.as_ptr(), mode)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[chmod] Error message: {:?}", err_msg);
-            // println!("[chmod] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "chmod");
         }
@@ -1078,27 +775,15 @@ impl Cage {
     *   fchmod() will return 0 when sucess, -1 when fail 
     */
     pub fn fchmod_syscall(&self, virtual_fd: i32, mode: u32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "fchmod", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::fchmod(kernel_fd as i32, mode)
+            libc::fchmod(vfd.underfd as i32, mode)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[fchmod] Error message: {:?}", err_msg);
-            // println!("[fchmod] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fchmod");
         }
@@ -1124,15 +809,11 @@ impl Cage {
     ) -> i32 {
         if virtual_fd != -1 {
             match fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64) {
-                Ok(kernel_fd) => {
+                Ok(vfd) => {
                     let ret = unsafe {
-                        ((libc::mmap(addr as *mut c_void, len, prot, flags, kernel_fd as i32, off) as i64) 
+                        ((libc::mmap(addr as *mut c_void, len, prot, flags, vfd.underfd as i32, off) as i64) 
                             & 0xffffffff) as i32
                     };
-                    // if ret < 0 {
-                    //     let errno = get_errno();
-                    //     return handle_errno(errno, "mmap");
-                    // }
                     return ret;
                 },
                 Err(_e) => {
@@ -1171,27 +852,15 @@ impl Cage {
     *   flock() will return 0 when sucess, -1 when fail 
     */
     pub fn flock_syscall(&self, virtual_fd: i32, operation: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "flock", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::flock(kernel_fd as i32, operation)
+            libc::flock(vfd.underfd as i32, operation)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[flock] Error message: {:?}", err_msg);
-            // println!("[flock] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "flock");
         }
@@ -1204,7 +873,6 @@ impl Cage {
     *   rmdir() will return 0 when sucess, -1 when fail 
     */
     pub fn rmdir_syscall(&self, path: &str) -> i32 {
-        // let c_path = CString::new(path).expect("CString::new failed");
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
@@ -1213,18 +881,6 @@ impl Cage {
             libc::rmdir(c_path.as_ptr())
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[rmdir] Error message: {:?}", err_msg);
-            // println!("[rmdir] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "rmdir");
         }
@@ -1250,19 +906,6 @@ impl Cage {
             libc::rename(old_cpath.as_ptr(), new_cpath.as_ptr())
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[rename] Error message: {:?}", err_msg);
-            // println!("[rename] old: {:?}", old_cpath);
-            // println!("[rename] new: {:?}", new_cpath);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "rename");
         }
@@ -1275,27 +918,15 @@ impl Cage {
     *   fsync() will return 0 when sucess, -1 when fail 
     */
     pub fn fsync_syscall(&self, virtual_fd: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "fsync", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::fsync(kernel_fd as i32)
+            libc::fsync(vfd.underfd as i32)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[fsync] Error message: {:?}", err_msg);
-            // println!("[fsync] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fsync");
         }
@@ -1309,27 +940,15 @@ impl Cage {
     *   fdatasync() will return 0 when sucess, -1 when fail 
     */
     pub fn fdatasync_syscall(&self, virtual_fd: i32) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "fdatasync", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::fdatasync(kernel_fd as i32)
+            libc::fdatasync(vfd.underfd as i32)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[fdatasync] Error message: {:?}", err_msg);
-            // println!("[fdatasync] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "fdatasync");
         }
@@ -1349,27 +968,15 @@ impl Cage {
         nbytes: isize,
         flags: u32,
     ) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "sync", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::sync_file_range(kernel_fd as i32, offset as i64, nbytes as i64, flags)
+            libc::sync_file_range(vfd.underfd as i32, offset as i64, nbytes as i64, flags)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[sync file range] Error message: {:?}", err_msg);
-            // println!("[sync file range] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "sync_file_range");
         }
@@ -1382,27 +989,15 @@ impl Cage {
     *   ftruncate() will return 0 when sucess, -1 when fail 
     */
     pub fn ftruncate_syscall(&self, virtual_fd: i32, length: isize) -> i32 {
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "ftruncate", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
+        let vfd = wrappedvfd.unwrap();
         let ret = unsafe {
-            libc::ftruncate(kernel_fd as i32, length as i64)
+            libc::ftruncate(vfd.underfd as i32, length as i64)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[ftruncate] Error message: {:?}", err_msg);
-            // println!("[ftruncate] vfd: {:?}", virtual_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "ftruncate");
         }
@@ -1414,7 +1009,6 @@ impl Cage {
     *   truncate() will return 0 when sucess, -1 when fail 
     */
     pub fn truncate_syscall(&self, path: &str, length: isize) -> i32 {
-        // let c_path = CString::new(path).expect("CString::new failed");
         let relpath = normpath(convpath(path), self);
         let relative_path = relpath.to_str().unwrap();
         let full_path = format!("{}{}", LIND_ROOT, relative_path);
@@ -1423,18 +1017,6 @@ impl Cage {
             libc::truncate(c_path.as_ptr(), length as i64)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[truncate] Error message: {:?}", err_msg);
-            // println!("[truncate] c_path: {:?}", c_path);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "truncate");
         }
@@ -1469,8 +1051,8 @@ impl Cage {
                 true
             } else { false };
 
-            pipefd.readfd = fdtables::get_unused_virtual_fd(self.cageid, kernel_fds[0] as u64, should_cloexec, 0).unwrap() as i32;
-            pipefd.writefd = fdtables::get_unused_virtual_fd(self.cageid, kernel_fds[1] as u64, should_cloexec, 0).unwrap() as i32;
+            pipefd.readfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fds[0] as u64, should_cloexec, 0).unwrap() as i32;
+            pipefd.writefd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fds[1] as u64, should_cloexec, 0).unwrap() as i32;
 
             return ret;
         }
@@ -1509,15 +1091,13 @@ impl Cage {
     *   - 0, EOF
     *   - -1, fail 
     */
-
     pub fn getdents_syscall(&self, virtual_fd: i32, buf: *mut u8, nbytes: u32) -> i32 {
-        // let kernel_fd = translate_virtual_fd(self.cageid, virtual_fd as u64);
-        let kfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
-        if kfd.is_err() {
+        let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
+        if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "getdents", "Bad File Descriptor");
         }
-        let kernel_fd = kfd.unwrap();
-        let ret = unsafe { libc::syscall(libc::SYS_getdents as c_long, kernel_fd as i32, buf as *mut c_void, nbytes) as i32 };
+        let vfd = wrappedvfd.unwrap();
+        let ret = unsafe { libc::syscall(libc::SYS_getdents as c_long, vfd.underfd as i32, buf as *mut c_void, nbytes) as i32 };
         if ret < 0 {
             let errno = get_errno();
             return handle_errno(errno, "getdents");
@@ -2347,27 +1927,23 @@ impl Cage {
 }
 
 pub fn kernel_close(kernelfd: u64) {
-    // println!("[KERNEL CLOSE] cageid: {:?}", self.cageid);
-    // println!("[KERNEL CLOSE] realfd: {:?}", kernelfd);
-    // io::stdout().flush().unwrap();
-
-    let ret = unsafe {
+    let _ret = unsafe {
         libc::close(kernelfd as i32)
     };
-    if ret != 0 {
-        let err = unsafe {
-            *libc::__errno_location()
-        };
-        let err_str = unsafe {
-            libc::strerror(err)
-        };
-        let err_msg = unsafe {
-            CStr::from_ptr(err_str).to_string_lossy().into_owned()
-        };
-        println!("errno: {:?}", err);
-        println!("Error message: {:?}", err_msg);
-        println!("kernel fd: {:?}", kernelfd);
-        io::stdout().flush().unwrap();
-        panic!("kernel close failed! ");
-    }
+    // if ret != 0 {
+    //     let err = unsafe {
+    //         *libc::__errno_location()
+    //     };
+    //     let err_str = unsafe {
+    //         libc::strerror(err)
+    //     };
+    //     let err_msg = unsafe {
+    //         CStr::from_ptr(err_str).to_string_lossy().into_owned()
+    //     };
+    //     println!("errno: {:?}", err);
+    //     println!("Error message: {:?}", err_msg);
+    //     println!("kernel fd: {:?}", kernelfd);
+    //     io::stdout().flush().unwrap();
+    //     panic!("kernel close failed! ");
+    // }
 }
