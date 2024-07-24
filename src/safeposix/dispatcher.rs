@@ -116,7 +116,8 @@ use std::collections::HashMap;
 
 use super::cage::*;
 use super::syscalls::kernel_close;
-
+const FDKIND_KERNEL: u32 = 0;
+const FDKIND_IMPIPE: u32 = 1;
 
 use std::io::{Read, Write};
 use std::io;
@@ -390,12 +391,6 @@ pub extern "C" fn dispatcher(
                 interface::get_int(arg1),
                 Ok::<&interface::GenSockaddr, i32>(&addr)
             )
-            // check_and_dispatch!(
-            //     cage.bind_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_constsockaddr(arg2),
-            //     interface::get_uint(arg3)
-            // )
         }
         SEND_SYSCALL => {
             check_and_dispatch!(
@@ -417,15 +412,6 @@ pub extern "C" fn dispatcher(
                 interface::get_int(arg4),
                 Ok::<&interface::GenSockaddr, i32>(&addr)
             )
-            // check_and_dispatch!(
-            //     cage.sendto_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_cbuf(arg2),
-            //     interface::get_usize(arg3),
-            //     interface::get_int(arg4),
-            //     interface::get_constsockaddr(arg5),
-            //     interface::get_uint(arg6)
-            // )
         }
         RECV_SYSCALL => {
             check_and_dispatch!(
@@ -474,15 +460,6 @@ pub extern "C" fn dispatcher(
                     "exactly one of the last two arguments was zero",
                 )
             }
-            // check_and_dispatch!(
-            //     cage.recvfrom_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_mutcbuf(arg2),
-            //     interface::get_usize(arg3),
-            //     interface::get_int(arg4),
-            //     interface::get_sockaddr(arg5),
-            //     interface::get_uint(arg6)
-            // )
         }
         CONNECT_SYSCALL => {
             let addrlen = get_onearg!(interface::get_uint(arg3));
@@ -492,12 +469,6 @@ pub extern "C" fn dispatcher(
                 interface::get_int(arg1),
                 Ok::<&interface::GenSockaddr, i32>(&addr)
             )
-            // check_and_dispatch!(
-            //     cage.connect_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_constsockaddr(arg2),
-            //     interface::get_uint(arg3)
-            // )
         }
         LISTEN_SYSCALL => {
             check_and_dispatch!(
@@ -507,41 +478,6 @@ pub extern "C" fn dispatcher(
             )
         }
         ACCEPT_SYSCALL => {
-            /* We don't care the type of addr
-            *   We will directly copy all stuffs in copy_out_sockaddr
-            */
-            // let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); 
-
-            // let nullity1 = interface::arg_nullity(&arg2);
-            // let nullity2 = interface::arg_nullity(&arg3);
-
-            // if nullity1 && nullity2 {
-            //     check_and_dispatch!(
-            //         cage.accept_syscall,
-            //         interface::get_int(arg1),
-            //         Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
-            //             &mut addr
-            //         ))
-            //     )
-            // } else if !(nullity1 || nullity2) {
-            //     let rv = check_and_dispatch!(
-            //         cage.accept_syscall,
-            //         interface::get_int(arg1),
-            //         Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
-            //             &mut addr
-            //         ))
-            //     );
-            //     if rv >= 0 {
-            //         interface::copy_out_sockaddr(arg2, arg3, addr);
-            //     }
-            //     rv
-            // } else {
-            //     syscall_error(
-            //         Errno::EINVAL,
-            //         "accept",
-            //         "exactly one of the last two arguments was zero",
-            //     )
-            // }
             
             let nullity1 = interface::arg_nullity(&arg2);
             let nullity2 = interface::arg_nullity(&arg3);
@@ -574,7 +510,6 @@ pub extern "C" fn dispatcher(
             }
         }
         GETPEERNAME_SYSCALL => {
-            // let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
             if interface::arg_nullity(&arg2) || interface::arg_nullity(&arg3) {
                 return syscall_error(
                     Errno::EINVAL,
@@ -586,7 +521,6 @@ pub extern "C" fn dispatcher(
             let rv = check_and_dispatch!(
                 cage.getpeername_syscall,
                 interface::get_int(arg1),
-                // Ok::<&mut interface::GenSockaddr, i32>(&mut addr)
                 Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
                     &mut addr
                 ))
@@ -596,19 +530,11 @@ pub extern "C" fn dispatcher(
                 interface::copy_out_sockaddr(arg2, arg3, addr);
             }
             rv
-            // check_and_dispatch!(
-            //     cage.getpeername_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_sockaddr(arg2)
-            // )
         }
         GETSOCKNAME_SYSCALL => {
-            // let mut addr = interface::GenSockaddr::V4(interface::SockaddrV4::default()); //value doesn't matter
             let mut addr = interface::set_gensockaddr(arg2, arg3).unwrap();
 
             let len = interface::get_socklen_t_ptr(arg3).unwrap();
-            // println!("[Dispatcher getsockname] socklen: {:?}", len);
-            // io::stdout().flush().unwrap();
 
             if interface::arg_nullity(&arg2) || interface::arg_nullity(&arg3) {
                 return syscall_error(
@@ -620,7 +546,6 @@ pub extern "C" fn dispatcher(
             let rv = check_and_dispatch!(
                 cage.getsockname_syscall,
                 interface::get_int(arg1),
-                // Ok::<&mut interface::GenSockaddr, i32>(&mut addr)
                 Ok::<&mut Option<&mut interface::GenSockaddr>, i32>(&mut Some(
                     &mut addr
                 ))
@@ -630,12 +555,6 @@ pub extern "C" fn dispatcher(
                 interface::copy_out_sockaddr(arg2, arg3, addr);
             }
             rv
-            // check_and_dispatch!(
-            //     cage.getsockname_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_sockaddr(arg2),
-            //     interface::get_uint(arg3)
-            // )
         }
         GETIFADDRS_SYSCALL => {
             check_and_dispatch!(
@@ -670,34 +589,8 @@ pub extern "C" fn dispatcher(
             //we take it as a given that the length is 4 both in and out
             rv
 
-            // let mut optval: Vec<u8> = vec![0; 4 as usize];
-            // check_and_dispatch!(
-            //     cage.getsockopt_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_int(arg2),
-            //     interface::get_int(arg3),
-            //     // interface::get_mutcbuf(arg4)
-            //     Ok::<&mut Vec<u8>, i32>(&mut optval)
-            //     // interface::get_uint(arg5)
-            // )
         }
         SETSOCKOPT_SYSCALL => {
-            // let sockval;
-            // if !interface::arg_nullity(&arg4) {
-            //     if get_onearg!(interface::get_uint(arg5)) != 4 {
-            //         return syscall_error(Errno::EINVAL, "setsockopt", "Invalid optlen passed");
-            //     }
-            //     sockval = interface::get_int_from_intptr(arg4);
-            // } else {
-            //     sockval = 0;
-            // }
-            // check_and_dispatch!(
-            //     cage.setsockopt_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_int(arg2),
-            //     interface::get_int(arg3),
-            //     Ok::<i32, i32>(sockval)
-            // )
             check_and_dispatch!(
                 cage.setsockopt_syscall,
                 interface::get_int(arg1),
@@ -740,20 +633,10 @@ pub extern "C" fn dispatcher(
                 cage.poll_syscall,
                 interface::get_pollstruct_slice(arg1, nfds),
                 interface::get_ulong(arg2),
-                // interface::get_duration_from_millis(arg3)
                 interface::get_int(arg3)
             )
         }
         SOCKETPAIR_SYSCALL => {
-            /* [TODO] - WHY */
-            // check_and_dispatch_socketpair!(
-            //     Cage::socketpair_syscall,
-            //     cage,
-            //     interface::get_int(arg1),
-            //     interface::get_int(arg2),
-            //     interface::get_int(arg3),
-            //     interface::get_sockpair(arg4)
-            // )
             check_and_dispatch!(
                 cage.socketpair_syscall,
                 interface::get_int(arg1),
@@ -855,14 +738,6 @@ pub extern "C" fn dispatcher(
                     "The number of fds passed was invalid",
                 );
             }
-
-            // check_and_dispatch!(
-            //     cage.epoll_wait_syscall,
-            //     interface::get_int(arg1),
-            //     interface::get_epollevent_slice(arg2, nfds),
-            //     Ok::<i32, i32>(nfds),
-            //     interface::get_duration_from_millis(arg4)
-            // )
             check_and_dispatch!(
                 cage.epoll_wait_syscall,
                 interface::get_int(arg1),
@@ -1111,27 +986,6 @@ pub extern "C" fn lindthreadremove(cageid: u64, pthreadid: u64) {
     cage.thread_table.remove(&pthreadid);
 }
 
-// fn cleartmp(init: bool) {
-//     let path = "/tmp";
-
-//     let cage = interface::cagetable_getref(0);
-//     let mut statdata = StatData::default();
-
-//     if cage.stat_syscall(path, &mut statdata) == 0 {
-//         visit_children(&cage, path, None, |childcage, childpath, isdir, _| {
-//             if isdir {
-//                 lind_deltree(childcage, childpath);
-//             } else {
-//                 childcage.unlink_syscall(childpath);
-//             }
-//         });
-//     } else {
-//         if init == true {
-//             cage.mkdir_syscall(path, S_IRWXA);
-//         }
-//     }
-// }
-
 #[no_mangle]
 pub extern "C" fn lindgetsighandler(cageid: u64, signo: i32) -> u32 {
     let cage = interface::cagetable_getref(cageid);
@@ -1161,19 +1015,14 @@ pub extern "C" fn lindgetsighandler(cageid: u64, signo: i32) -> u32 {
 pub extern "C" fn lindrustinit(verbosity: isize) {
     let _ = interface::VERBOSE.set(verbosity); //assigned to suppress unused result warning
     interface::cagetable_init();
-    // load_fs();
-    // incref_root();
-    // incref_root();
 
-    // fs::chroot("/home/lind/lind_project/src/safeposix-rust/tmp/").unwrap();
-    // std::env::set_current_dir("/").unwrap();
-    fdtables::register_close_handlers(fdtables::NULL_FUNC, kernel_close, fdtables::NULL_FUNC);
+    // TODO: needs to add close() that handling im-pipe
+    fdtables::register_close_handlers(FDKIND_KERNEL, fdtables::NULL_FUNC, kernel_close);
     
     let utilcage = Cage {
         cageid: 0,
         cwd: interface::RustLock::new(interface::RustRfc::new(interface::RustPathBuf::from("/"))),
         parent: 0,
-        // filedescriptortable: init_fdtable(),
         cancelstatus: interface::RustAtomicBool::new(false),
         getgid: interface::RustAtomicI32::new(-1),
         getuid: interface::RustAtomicI32::new(-1),
@@ -1192,15 +1041,14 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     };
 
     interface::cagetable_insert(0, utilcage);
-    // let mut fdtable = FDTABLE;
     fdtables::init_empty_cage(0);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
-    fdtables::get_specific_virtual_fd(0, 0, 0, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(0, 0, FDKIND_KERNEL, 0, false, 0).unwrap();
     // STDOUT
-    fdtables::get_specific_virtual_fd(0, 1, 1, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(0, 1, FDKIND_KERNEL, 1, false, 0).unwrap();
     // STDERR
-    fdtables::get_specific_virtual_fd(0, 2, 2, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(0, 2, FDKIND_KERNEL, 2, false, 0).unwrap();
 
     //init cage is its own parent
     let initcage = Cage {
@@ -1228,32 +1076,15 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     fdtables::init_empty_cage(1);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
-    fdtables::get_specific_virtual_fd(1, 0, 0, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(1, 0, FDKIND_KERNEL, 0, false, 0).unwrap();
     // STDOUT
-    fdtables::get_specific_virtual_fd(1, 1, 1, false, 0).unwrap();
+    fdtables::get_specific_virtual_fd(1, 1, FDKIND_KERNEL, 1, false, 0).unwrap();
     // STDERR
-    fdtables::get_specific_virtual_fd(1, 2, 2, false, 0).unwrap();
-    // make sure /tmp is clean
-    // cleartmp(true);
+    fdtables::get_specific_virtual_fd(1, 2, FDKIND_KERNEL, 2, false, 0).unwrap();
+
 }
 
 #[no_mangle]
 pub extern "C" fn lindrustfinalize() {
-    // remove any open domain socket inodes
-    // for truepath in NET_METADATA.get_domainsock_paths() {
-    //     remove_domain_sock(truepath);
-    // }
-
-    // clear /tmp folder
-    // cleartmp(false);
     interface::cagetable_clear();
-    // if we get here, persist and delete log
-    // persist_metadata(&FS_METADATA);
-    // if interface::pathexists(LOGFILENAME.to_string()) {
-    //     // remove file if it exists, assigning it to nothing to avoid the compiler yelling about unused result
-    //     let mut logobj = LOGMAP.write();
-    //     let log = logobj.take().unwrap();
-    //     let _close = log.close().unwrap();
-    //     let _logremove = interface::removefile(LOGFILENAME.to_string());
-    // }
 }
