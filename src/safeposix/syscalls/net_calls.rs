@@ -537,9 +537,9 @@ impl Cage {
 
         let (selectbittables, unparsedtables, mappingtable) = fdtables::prepare_bitmasks_for_select(self.cageid, nfds as u64, orfds.copied(), owfds.copied(), oefds.copied(), &fdkindset).unwrap();
         // libc select()
-        let (mut readnfd, mut real_readfds) = selectbittables[0].get(&FDKIND_KERNEL).unwrap();
-        let (mut writenfd, mut real_writefds) = selectbittables[1].get(&FDKIND_KERNEL).unwrap();
-        let (mut errornfd, mut real_errorfds) = selectbittables[2].get(&FDKIND_KERNEL).unwrap();
+        let (readnfd, mut real_readfds) = selectbittables[0].get(&FDKIND_KERNEL).unwrap();
+        let (writenfd, mut real_writefds) = selectbittables[1].get(&FDKIND_KERNEL).unwrap();
+        let (errornfd, mut real_errorfds) = selectbittables[2].get(&FDKIND_KERNEL).unwrap();
         
         let mut realnewnfds = readnfd;
         if realnewnfds < writenfd {
@@ -572,8 +572,6 @@ impl Cage {
         };
 
         let mut return_code = 0;
-        let mut unrealreadset = HashSet::new();
-        let mut unrealwriteset = HashSet::new();
 
         /* TODO
             We need to handle results of impipe select results
@@ -610,7 +608,7 @@ impl Cage {
             for (fdkind_flag, entry) in unparsedtables[2].iter() {
                 if *fdkind_flag == FDKIND_IMPIPE {
                     for impipe_entry in entry {
-                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
+                        if let Some(_pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
                             // ...
                         }
                     }
@@ -637,7 +635,7 @@ impl Cage {
             nfds as u64, 
             Some(real_readfds), 
             unrealreadset.clone(), 
-            orfds.copied(), 
+            None, 
             &mappingtable
         );
     
@@ -650,7 +648,7 @@ impl Cage {
             nfds as u64, 
             Some(real_writefds), 
             unrealwriteset.clone(), 
-            owfds.copied(), 
+            None, 
             &mappingtable
         );
     
@@ -663,7 +661,7 @@ impl Cage {
             nfds as u64, 
             Some(real_errorfds), 
             HashSet::new(), // Assuming there are no unreal errorsets
-            oefds.copied(), 
+            None, 
             &mappingtable
         );
     
@@ -868,7 +866,7 @@ impl Cage {
     pub fn poll_syscall(
         &self,
         virtual_fds: &mut [PollStruct], // lots of fds, a ptr
-        nfds: u64,
+        _nfds: u64,
         timeout: i32,
     ) -> i32 {
 
@@ -879,14 +877,14 @@ impl Cage {
             virfdvec.insert(vfd);
         }
 
-        let (allhashmap, mappingtable) = fdtables::convert_virtualfds_for_poll(self.cageid, virfdvec);
+        let (allhashmap, _mappingtable) = fdtables::convert_virtualfds_for_poll(self.cageid, virfdvec);
 
         let mut libc_nfds = 0;
         let mut libc_pollfds: Vec<pollfd> = Vec::new();
         for (fd_kind, fdtuple) in allhashmap {
             match fd_kind {
                 FDKIND_KERNEL => {
-                    for (virtfd, entry) in fdtuple {
+                    for (virtfd, _entry) in fdtuple {
                         if let Some(vpollstruct) = virtual_fds.iter().find(|&ps| ps.fd == virtfd as i32) {
                             // Convert PollStruct to libc::pollfd
                             let libcpollstruct = self.convert_to_libc_pollfd(vpollstruct);
