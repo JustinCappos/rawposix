@@ -729,23 +729,30 @@ impl Cage {
         let owfds = writefds.as_mut().map(|fds| &mut **fds);
         let oefds = errorfds.as_mut().map(|fds| &mut **fds);
 
-        let (newnfds, mut real_readfds, mut real_writefds, mut real_errorfds, unrealset, mappingtable) 
-            = fdtables::get_real_bitmasks_for_select(
-                self.cageid,
-                nfds as u64,
-                orfds.copied(),
-                owfds.copied(),
-                oefds.copied(),
-            ).unwrap();
+        let mut fdkindset = HashSet::new();
+        // fdkindset.insert(FDKIND_IMPIPE);
+        fdkindset.insert(FDKIND_KERNEL);
 
+        let (selectbittables, unparsedtables, mappingtable) = fdtables::prepare_bitmasks_for_select(self.cageid, nfds as u64, orfds.copied(), owfds.copied(), oefds.copied(), &fdkindset).unwrap();
         // libc select()
+        let (mut readnfd, mut real_readfds) = selectbittables[0].get(&FDKIND_KERNEL).unwrap();
+        let (mut writenfd, mut real_writefds) = selectbittables[1].get(&FDKIND_KERNEL).unwrap();
+        let (mut errornfd, mut real_errorfds) = selectbittables[2].get(&FDKIND_KERNEL).unwrap();
+        
+        let mut realnewnfds = readnfd;
+        if realnewnfds < writenfd {
+            realnewnfds = writenfd;
+        } else if realnewnfds < errornfd {
+            realnewnfds = errornfd;
+        }
+
         // Ensured that null_mut is used if the Option is None for fd_set parameters.
         let ret = unsafe { 
             libc::select(
-                newnfds as i32, 
-                 real_readfds.as_mut().map_or(std::ptr::null_mut(), |fds| fds as *mut fd_set), 
-                real_writefds.as_mut().map_or(std::ptr::null_mut(), |fds| fds as *mut fd_set), 
-                real_errorfds.as_mut().map_or(std::ptr::null_mut(), |fds| fds as *mut fd_set), 
+                realnewnfds as i32, 
+                &mut real_readfds as *mut fd_set, 
+                &mut real_writefds as *mut fd_set,
+                &mut real_errorfds as *mut fd_set,
                 &mut timeout as *mut timeval)
         };
 
@@ -767,27 +774,41 @@ impl Cage {
         let mut unrealwriteset = HashSet::new();
 
         loop {
-            for (impfd_read, optinfo) in unrealset[0].iter() {
-                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
-                    if pipe_entry.pipe.check_select_read() {
-                        return_code = return_code + 1;
-                        unrealreadset.insert(*impfd_read);
+
+            for (fdkind_flag, entry) in unparsedtables[0].iter() {
+                if *fdkind_flag == FDKIND_IMPIPE {
+                    for impipe_entry in entry {
+                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
+                            if pipe_entry.pipe.check_select_read() {
+                                return_code = return_code + 1;
+                                unrealreadset.insert(*);
+                            }
+                        }
                     }
                 }
             }
 
-            for (impfd_write, optinfo) in unrealset[1].iter() {
-                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
-                    if pipe_entry.pipe.check_select_write() {
-                        return_code = return_code + 1;
-                        unrealwriteset.insert(*impfd_write);
+            for (fdkind_flag, entry) in unparsedtables[1].iter() {
+                if *fdkind_flag == FDKIND_IMPIPE {
+                    for impipe_entry in entry {
+                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
+                            if pipe_entry.pipe.check_select_write() {
+                                return_code = return_code + 1;
+                                // unrealreadset.insert(*impfd_write);
+                            }
+                        }
                     }
                 }
             }
 
-            for (impfd_err, optinfo) in unrealset[2].iter() {
-                if let Some(pipe_entry) = PIPE_TABLE.get(&optinfo) {
-                    // TODO
+
+            for (fdkind_flag, entry) in unparsedtables[2].iter() {
+                if *fdkind_flag == FDKIND_IMPIPE {
+                    for impipe_entry in entry {
+                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
+                            // ...
+                        }
+                    }
                 }
             }
 
@@ -805,52 +826,48 @@ impl Cage {
             }
         }
         // Revert result
-        match fdtables::get_virtual_bitmasks_from_select_result(
-            newnfds as u64,
-            real_readfds,
-            real_writefds,
-            real_errorfds,
-            unrealreadset,
-            unrealwriteset,
-            HashSet::new(),
-            &mappingtable,
-            // mappingtable,
-        ) {
-            Ok((_retnfds, retreadfds, retwritefds, reterrorfds)) => {
-                if let Some(rfds) = readfds.as_mut() {
-                    if let Some(ret_rfds) = retreadfds {
-                        **rfds = ret_rfds;
-                    } else {
-                        // Clear the fd_set if result is None
-                        unsafe { libc::FD_ZERO(&mut **rfds); } 
-                    }
-                }
+        // HOW we convert im-pipe result back with kernek result..? We don't know the virtual fd value...
+        let (read_flags, read_result) = fdtables::get_one_virtual_bitmask_from_select_result(
+            FDKIND_KERNEL, 
+            nfds as u64, 
+            Some(real_readfds), 
+            unrealreadset.clone(), 
+            orfds.copied(), 
+            &mappingtable
+        );
     
-                if let Some(wfds) = writefds.as_mut() {
-                    if let Some(ret_wfds) = retwritefds {
-                        **wfds = ret_wfds;
-                    } else {
-                        // Clear the fd_set if result is None
-                        unsafe { libc::FD_ZERO(&mut **wfds); }
-                    }
-                }
-    
-                if let Some(efds) = errorfds.as_mut() {
-                    if let Some(ret_efds) = reterrorfds {
-                        **efds = ret_efds;
-                    } else {
-                        // Clear the fd_set if result is None
-                        unsafe { libc::FD_ZERO(&mut **efds); }
-                    }
-                }
-            },
-            Err(e) => {
-                panic!("");
-            }
+        if let Some(readfds) = readfds.as_mut() {
+            **readfds = read_result.unwrap();
         }
-
-        // Which should modify..?
-        ret
+    
+        let (write_flags, write_result) = fdtables::get_one_virtual_bitmask_from_select_result(
+            FDKIND_KERNEL, 
+            nfds as u64, 
+            Some(real_writefds), 
+            unrealwriteset.clone(), 
+            owfds.copied(), 
+            &mappingtable
+        );
+    
+        if let Some(writefds) = writefds.as_mut() {
+            **writefds = write_result.unwrap();
+        }
+    
+        let (error_flags, error_result) = fdtables::get_one_virtual_bitmask_from_select_result(
+            FDKIND_KERNEL, 
+            nfds as u64, 
+            Some(real_errorfds), 
+            HashSet::new(), // Assuming there are no unreal errorsets
+            oefds.copied(), 
+            &mappingtable
+        );
+    
+        if let Some(errorfds) = errorfds.as_mut() {
+            **errorfds = error_result.unwrap();
+        }
+    
+        // The total number of descriptors ready
+        (read_flags + write_flags + error_flags) as i32
     }
 
     /*  
@@ -862,9 +879,7 @@ impl Cage {
         virtual_fd: i32,
         level: i32,
         optname: i32,
-        // optval: *mut u8,
         optval: &mut i32,
-        // optlen: u32,
     ) -> i32 {
         let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if wrappedvfd.is_err() {
@@ -872,30 +887,14 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        // let mut optlen: u32 = 4;
         let mut optlen: socklen_t = 4;
 
-        // let ret = unsafe { libc::getsockopt(vfd.underfd as i32, level, optname, optval as *mut c_void, optlen as *mut u32) };
         let ret = unsafe { libc::getsockopt(vfd.underfd as i32, level, optname, optval as *mut c_int as *mut c_void, &mut optlen as *mut socklen_t) };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Getsockopt] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "getsockopt");
         }
         
-
-        // println!("[Getsockopt] optval: {:?}", optval);
-        // io::stdout().flush().unwrap();
         ret
     }
 
