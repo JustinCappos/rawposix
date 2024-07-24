@@ -78,8 +78,6 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        // println!("[Bind] Before GenSockaddr: {:?}", addr);
-        // io::stdout().flush().unwrap();
         let mut new_addr = SockaddrUnix::default();
 
         let (finalsockaddr, addrlen) = match addr {
@@ -92,52 +90,6 @@ impl Cage {
                 size_of::<SockaddrV4>(),
             ),
             GenSockaddr::Unix(addrrefu) => {
-                // let original_path_ptr;
-                // let original_path_len;
-                // unsafe {
-                //     // Skip the first '/'
-                //     original_path_ptr = addrrefu.sun_path.as_ptr().add(1); 
-
-                //     original_path_len = libc::strlen(original_path_ptr as *const i8);
-                // }
-                
-
-                // // Create new path
-                // let lind_root_len = LIND_ROOT.len();
-                // let new_path_len = lind_root_len + original_path_len;
-
-                // if new_path_len >= addrrefu.sun_path.len() {
-                //     panic!("New path is too long to fit in sun_path");
-                // }
-
-                // let mut new_addr = SockaddrUnix {
-                //     sun_family: addrrefu.sun_family,
-                //     sun_path: [0; 108],
-                // };
-
-                // // First copy LIND_ROOT and then copy original path
-                // unsafe {
-                //     std::ptr::copy_nonoverlapping(
-                //         LIND_ROOT.as_ptr(),
-                //         new_addr.sun_path.as_mut_ptr(),
-                //         lind_root_len
-                //     );
-
-                    
-                //     std::ptr::copy_nonoverlapping(
-                //         original_path_ptr,
-                //         new_addr.sun_path.as_mut_ptr().add(lind_root_len),
-                //         original_path_len
-                //     );
-
-                //     // End with NULL
-                //     // *new_addr.sun_path.get_unchecked_mut(new_path_len) = 0;
-                // }
-
-                // (
-                //     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
-                //     size_of::<SockaddrUnix>(),
-                // )
                 // Convert sun_path to LIND_ROOT path
                 let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
                 let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
@@ -161,9 +113,6 @@ impl Cage {
                     );
                     *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
                 }
-
-                // println!("[bind] new_addr:{:?} ", new_addr);
-                // io::stdout().flush().unwrap();
                 
                 (
                     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
@@ -177,26 +126,6 @@ impl Cage {
         let ret = unsafe { libc::bind(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
         if ret < 0 {
             let errno = get_errno();
-            let err_str = unsafe {
-                libc::strerror(errno)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            unsafe {
-                let sockaddr_un_ptr = finalsockaddr as *const sockaddr_un;
-        
-                let sun_path_ptr = (*sockaddr_un_ptr).sun_path.as_ptr();
-        
-                let c_str = CStr::from_ptr(sun_path_ptr);
-                let str_slice = c_str.to_str().expect("Failed to convert CStr to str");
-                
-                println!("[bind] addr: {:?}", addr);
-                println!("[bind] sun_path: {}", str_slice);
-                io::stdout().flush().unwrap();
-            }
-            println!("[Bind] Error message: {:?}", err_msg);
-            io::stdout().flush().unwrap();
             return handle_errno(errno, "bind");
         }
         ret
@@ -225,52 +154,6 @@ impl Cage {
                 size_of::<SockaddrV4>(),
             ),
             GenSockaddr::Unix(addrrefu) => {
-                // let original_path_ptr;
-                // let original_path_len;
-                // unsafe {
-                //     // Skip the first '/'
-                //     original_path_ptr = addrrefu.sun_path.as_ptr().add(1); 
-
-                //     original_path_len = libc::strlen(original_path_ptr as *const i8);
-                // }
-                
-
-                // // Create new path
-                // let lind_root_len = LIND_ROOT.len();
-                // let new_path_len = lind_root_len + original_path_len;
-
-                // if new_path_len >= addrrefu.sun_path.len() {
-                //     panic!("New path is too long to fit in sun_path");
-                // }
-
-                // let mut new_addr = SockaddrUnix {
-                //     sun_family: addrrefu.sun_family,
-                //     sun_path: [0; 108],
-                // };
-
-                // // First copy LIND_ROOT and then copy original path
-                // unsafe {
-                //     std::ptr::copy_nonoverlapping(
-                //         LIND_ROOT.as_ptr(),
-                //         new_addr.sun_path.as_mut_ptr(),
-                //         lind_root_len
-                //     );
-
-                    
-                //     std::ptr::copy_nonoverlapping(
-                //         original_path_ptr,
-                //         new_addr.sun_path.as_mut_ptr().add(lind_root_len),
-                //         original_path_len
-                //     );
-
-                //     // End with NULL
-                //     *new_addr.sun_path.get_unchecked_mut(new_path_len) = 0;
-                // }
-
-                // (
-                //     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
-                //     size_of::<SockaddrUnix>(),
-                // )
                 // Convert sun_path to LIND_ROOT path
                 let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
                 let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
@@ -294,8 +177,7 @@ impl Cage {
                     );
                     *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
                 }
-                // println!("[connect] new_addr:{:?} ", new_addr);
-                // io::stdout().flush().unwrap();
+                
                 (
                     (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
                     size_of::<SockaddrUnix>(),
@@ -306,17 +188,6 @@ impl Cage {
 
         let ret = unsafe { libc::connect(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Connect] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "connect");
         }
@@ -421,18 +292,6 @@ impl Cage {
 
         let ret = unsafe { libc::send(vfd.underfd as i32, buf as *const c_void, buflen, flags) as i32};
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Send] Error message: {:?}", err_msg);
-            // println!("[Send] kernel fd: {:?}", kernel_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "send");
         }
@@ -480,18 +339,6 @@ impl Cage {
         let ret = unsafe { libc::recvfrom(vfd.underfd as i32, buf as *mut c_void, buflen, flags, finalsockaddr, &mut addrlen as *mut u32) as i32 };
 
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Recvfrom] Error message: {:?}", err_msg);
-            // println!("[Recvfrom] addr: {:?}", addr);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "recvfrom");
         }
@@ -515,18 +362,6 @@ impl Cage {
 
         let ret = unsafe { libc::recv(vfd.underfd as i32, buf as *mut c_void, len, flags) as i32 };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Recv] Error message: {:?}", err_msg);
-            // println!("[Recv] kernel fd: {:?}", kernel_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "recv");
         }
@@ -546,17 +381,6 @@ impl Cage {
 
         let ret = unsafe { libc::listen(vfd.underfd as i32, backlog) };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Listen] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "listen");
         }
@@ -621,28 +445,9 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        // println!("[Accept] Before GenSockaddr: {:?}", addr);
-        // io::stdout().flush().unwrap();
-
         let ret_kernelfd = unsafe { libc::accept(vfd.underfd as i32, finalsockaddr, &mut addrlen as *mut u32) };
 
         if ret_kernelfd < 0 {
-            // let errno = unsafe {
-            //     *libc::__errno_location() 
-            // } as i32;
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Accept] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
-            // println!("[Accept] errno: {:?}", errno);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "accept");
         }
@@ -650,9 +455,6 @@ impl Cage {
         // change the GenSockaddr type according to the sockaddr we received 
         // GenSockAddr will be modified after libc::accept returns 
         // So we only need to modify values in GenSockAddr, and rest of the things will be finished in dispatcher stage
-        // println!("[Accept] After GenSockaddr: {:?}", addr);
-        // println!("[Accept] finalsockaddr: {:?}", finalsockaddr);
-        // io::stdout().flush().unwrap();
 
         if let Some(sockaddr) = addr {
             if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
@@ -773,6 +575,9 @@ impl Cage {
         let mut unrealreadset = HashSet::new();
         let mut unrealwriteset = HashSet::new();
 
+        /* TODO
+            We need to handle results of impipe select results
+        */
         loop {
 
             for (fdkind_flag, entry) in unparsedtables[0].iter() {
@@ -781,7 +586,7 @@ impl Cage {
                         if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
                             if pipe_entry.pipe.check_select_read() {
                                 return_code = return_code + 1;
-                                unrealreadset.insert(*);
+                                // unrealreadset.insert(*);
                             }
                         }
                     }
@@ -920,17 +725,6 @@ impl Cage {
             libc::setsockopt(vfd.underfd as i32, level, optname, optval as *mut c_void, optlen)
         };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[Setsockopt] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "setsockopt");
         }
@@ -968,31 +762,12 @@ impl Cage {
             None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
         };
 
-        // println!("[getpeername] addr BEFORE: {:?}", address);
-        // println!("[getpeername] finalsockaddr BEFORE: {:?}", finalsockaddr);
-        // io::stdout().flush().unwrap();
-
         let ret = unsafe { libc::getpeername(vfd.underfd as i32, finalsockaddr, &mut addrlen as *mut u32) };
 
         if ret < 0 {
-            let err = unsafe {
-                libc::__errno_location()
-            };
-            let err_str = unsafe {
-                libc::strerror(*err)
-            };
-            let err_msg = unsafe {
-                CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            };
-            println!("[getpeername] Error message: {:?}", err_msg);
-            
             let errno = get_errno();
-            println!("[getpeername] Errno: {:?}", errno);
-            io::stdout().flush().unwrap();
             return handle_errno(errno, "getpeername");
         }
-        // println!("[getpeername] finalsockaddr After: {:?}", finalsockaddr);
-        // io::stdout().flush().unwrap();
 
         if let Some(sockaddr) = address {
             if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
@@ -1018,9 +793,6 @@ impl Cage {
             }
         }
 
-        // println!("[getpeername] addr: {:?}", address);
-        // io::stdout().flush().unwrap();
-
         ret
     }
 
@@ -1039,7 +811,7 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let (finalsockaddr, mut addrlen) = match address {
+        let (finalsockaddr, mut _addrlen) = match address {
             Some(GenSockaddr::V6(ref mut addrref6)) => (
                 (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
                 size_of::<SockaddrV6>() as u32,
@@ -1056,23 +828,9 @@ impl Cage {
         };
 
         let mut testlen = 128 as u32;
-        // let ret = unsafe { libc::getsockname(vfd.underfd as i32, finalsockaddr, addrlen as *mut u32) };
         let ret = unsafe { libc::getsockname(vfd.underfd as i32, finalsockaddr, &mut testlen as *mut u32) };
 
         if ret < 0  {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[getsockname] Error message: {:?}", err_msg);
-            // println!("[getsockname] address: {:?}", address);
-            // println!("[getsockname] finalsockaddr: {:?}", finalsockaddr);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "getsockname");
         }
@@ -1159,6 +917,13 @@ impl Cage {
                         impipe_vec.push((virtfd, entry.clone()));
                     }
                     return self.poll_impipe_syscall(virtual_fds, impipe_vec, timeout);
+                }
+
+                _ => {
+                    /*TODO 
+                        Need to confirm the error num (we could add fdkind specific error..? eg: EFDKIND)
+                    */
+                    return syscall_error(Errno::EBADFD, "poll", "Invalid fdkind");
                 }
             }
         }
@@ -1275,27 +1040,12 @@ impl Cage {
         let kernel_fd = unsafe { libc::epoll_create(size) };
         
         if kernel_fd < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("Error message: {:?}", err_msg);
-            // println!("[EPOLL] size: {:?}", size);
-            // println!("[EPOLL] kernelfd: {:?}", kernel_fd);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "epoll_create");
         }
 
         // Get the virtual epfd
         let virtual_epfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, false, 0).unwrap();
-        // println!("[epoll_create] virtual_epfd: {:?}", virtual_epfd);
-        // io::stdout().flush().unwrap();
 
         // We don't need to update mapping table at now
         // Return virtual epfd
@@ -1332,17 +1082,6 @@ impl Cage {
 
         let ret = unsafe { libc::epoll_ctl(vepfd.underfd as i32, op, vfd.underfd as i32, &mut epoll_event) };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[epoll_ctl] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "epoll_ctl");
         }
@@ -1406,17 +1145,6 @@ impl Cage {
 
         let ret = unsafe { libc::epoll_wait(vepfd.underfd as i32, kernel_events.as_mut_ptr(), maxevents, timeout as i32) };
         if ret < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("[epoll_wait] Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
             let errno = get_errno();
             return handle_errno(errno, "epoll_wait");
         }
@@ -1473,11 +1201,6 @@ impl Cage {
 
         unsafe {
             if getifaddrs(&mut ifaddr) < 0 {
-                // let err = libc::__errno_location();
-                // let err_str = libc::strerror(*err);
-                // let err_msg = CStr::from_ptr(err_str).to_string_lossy().into_owned();
-                // println!("Error message: {:?}", err_msg);
-                // io::stdout().flush().unwrap();
                 let errno = get_errno();
                 return handle_errno(errno, "getifaddrs");
             }
