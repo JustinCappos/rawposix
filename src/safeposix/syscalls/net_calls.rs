@@ -551,7 +551,7 @@ impl Cage {
         // Ensured that null_mut is used if the Option is None for fd_set parameters.
         let ret = unsafe { 
             libc::select(
-                realnewnfds as i32, 
+                *realnewnfds as i32, 
                 &mut real_readfds as *mut fd_set, 
                 &mut real_writefds as *mut fd_set,
                 &mut real_errorfds as *mut fd_set,
@@ -634,7 +634,7 @@ impl Cage {
             FDKIND_KERNEL, 
             nfds as u64, 
             Some(real_readfds), 
-            unrealreadset.clone(), 
+            HashSet::new(), 
             None, 
             &mappingtable
         );
@@ -647,7 +647,7 @@ impl Cage {
             FDKIND_KERNEL, 
             nfds as u64, 
             Some(real_writefds), 
-            unrealwriteset.clone(), 
+            HashSet::new(), 
             None, 
             &mappingtable
         );
