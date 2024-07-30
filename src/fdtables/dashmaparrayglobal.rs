@@ -56,10 +56,11 @@ lazy_static! {
 
 lazy_static! {
     // This is needed for close and similar functionality.  I need track the
-    // number of times a realfd is open.  Note that this is across cages in
-    // order to enable a library to have  situations where two cages have the 
-    // same fd open.  The (fdkind,underfd) tuple is the key and the number of
-    // times it appears is the value.  If it reaches 0, the entry is removed.
+    // number of times a (fdkind,underfd) is open.  Note that this is across 
+    // cages in order to enable a library to have  situations where two cages 
+    // have the same fd open.  The (fdkind,underfd) tuple is the key and the 
+    // number of times it appears is the value.  If it reaches 0, the entry 
+    // is removed.
     #[derive(Debug)]
     static ref FDCOUNT: DashMap<(u32,u64), u64> = {
         DashMap::new()
@@ -420,7 +421,7 @@ fn _decrement_fdcount(entry:FDTableEntry) {
     }
 }
 
-// Helpers to track the count of times each realfd is used
+// Helpers to track the count of times each (fdkind,underfd) is used
 // #[doc(hidden)]
 fn _increment_fdcount(entry:FDTableEntry) {
 
@@ -529,6 +530,9 @@ pub fn get_bitmask_for_select(cageid:u64, nfds:u64, bits:Option<fd_set>, fdkinds
                     // Is unparsed...  Clippy's suggestion to insert if missing
                     retunparsedtable.entry(entry.fdkind).or_default();
                     retunparsedtable.get_mut(&entry.fdkind).unwrap().insert(entry);
+                    // and update the mappingtable to have the bit from the
+                    // original fd...
+                    mappingtable.insert((entry.fdkind,entry.underfd),pos);
                 }
                 else {
 
@@ -594,9 +598,6 @@ pub fn prepare_bitmasks_for_select(cageid:u64, nfds:u64, rbits:Option<fd_set>, w
 // need for your return from a select call and the number of unique flags
 // set...
 
-// I hate doing these, but don't know how to make this interface better...
-//#[allow(clippy::type_complexity)]
-//#[allow(clippy::too_many_arguments)]
 // I given them the hashmap, so don't need flexibility in what they return...
 #[allow(clippy::implicit_hasher)]
 #[must_use] // must use the return value if you call it.
@@ -700,7 +701,7 @@ pub fn convert_virtualfds_for_poll(cageid:u64, virtualfds:HashSet<u64>) -> (Hash
 
 
 
-// helper to call after calling poll.  replaces the realfds the vector
+// helper to call after calling poll.  replaces the fds in the vector
 // with virtual ones...
 // #[doc = include_str!("../docs/convert_poll_result_back_to_virtual.md")]
 // I give them the hashmap, so don't need flexibility in what they return...
@@ -899,8 +900,6 @@ pub fn virtualize_epoll_ctl(cageid:u64, epfd:u64, op:i32, virtfd:u64, event:epol
 
     let virtfdkind:u32;
 
-    // check if the virtfd is real and error...
-    // I don't care about its contents except to ensure it isn't real...
     if let Some(tableentry) = FDTABLE.get(&cageid).unwrap()[virtfd as usize] {
         // Right now, I don't support this, so error...
         if tableentry.fdkind == FDT_KINDEPOLL {
@@ -915,29 +914,43 @@ pub fn virtualize_epoll_ctl(cageid:u64, epfd:u64, op:i32, virtfd:u64, event:epol
     }
 
     let mut eptable = EPOLLTABLE.lock().unwrap();
-    let userhm = eptable.thisepolltable.get_mut(&epentrynum).unwrap().userhandledhashmap.entry(virtfdkind).or_default();
+//    let userhm = eptable.thisepolltable.get_mut(&epentrynum).unwrap().userhandledhashmap.entry(virtfdkind).or_default();
+    let userhm = &mut eptable.thisepolltable.get_mut(&epentrynum).unwrap().userhandledhashmap;
 
     match op {
         EPOLL_CTL_ADD => {
-            if userhm.contains_key(&virtfd) {
+            let thisuserhm = userhm.entry(virtfdkind).or_default();
+            if thisuserhm.contains_key(&virtfd) {
                 return Err(threei::Errno::EEXIST as u64);
             }
             // BUG: Need to check for ELOOP here once I support EPOLLFDs
             // referencing each other...
 
-            userhm.insert(virtfd, event);
+            thisuserhm.insert(virtfd, event);
         },
         EPOLL_CTL_MOD => {
-            if !userhm.contains_key(&virtfd) {
+            if !userhm.contains_key(&virtfdkind) {
                 return Err(threei::Errno::ENOENT as u64);
             }
-            userhm.insert(virtfd, event);
+            let thisuserhm: &mut HashMap<u64, epoll_event> = userhm.get_mut(&virtfdkind).unwrap();
+            if !thisuserhm.contains_key(&virtfd) {
+                return Err(threei::Errno::ENOENT as u64);
+            }
+            thisuserhm.insert(virtfd, event);
         },
         EPOLL_CTL_DEL => {
-            if !userhm.contains_key(&virtfd) {
+            if !userhm.contains_key(&virtfdkind) {
                 return Err(threei::Errno::ENOENT as u64);
             }
-            userhm.remove(&virtfd);
+            let thisuserhm: &mut HashMap<u64, epoll_event> = userhm.get_mut(&virtfdkind).unwrap();
+            if !thisuserhm.contains_key(&virtfd) {
+                return Err(threei::Errno::ENOENT as u64);
+            }
+            thisuserhm.remove(&virtfd);
+            // If this was the last entry, delete the key altogether...
+            if thisuserhm.is_empty() {
+                userhm.remove(&virtfdkind);
+            }
         },
         _ => {
             return Err(threei::Errno::EINVAL as u64);

@@ -21,7 +21,7 @@ use libc::*;
 use std::ffi::CString;
 use std::ffi::CStr;
 
-use crate::safeposix::impipe::*;
+use crate::safeposix::impipe::{self, *};
 
 use libc::*;
 use std::{os::fd::RawFd, ptr};
@@ -572,19 +572,25 @@ impl Cage {
         };
 
         let mut return_code = 0;
+        let mut unreal_read = HashSet::new();
+        let mut unreal_write = HashSet::new();
 
         /* TODO
-            We need to handle results of impipe select results
+            1. Do we need to handle errfds?
+            2. Err returns?
         */
         loop {
 
             for (fdkind_flag, entry) in unparsedtables[0].iter() {
                 if *fdkind_flag == FDKIND_IMPIPE {
                     for impipe_entry in entry {
-                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
+                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.underfd) {
                             if pipe_entry.pipe.check_select_read() {
                                 return_code = return_code + 1;
-                                // unrealreadset.insert(*);
+                                match mappingtable.get(&(*fdkind_flag, impipe_entry.underfd)) {
+                                    Some(&virfd) => unreal_read.insert(virfd),
+                                    None => return syscall_error(Errno::EBADFD, "select", "impipe")
+                                };
                             }
                         }
                     }
@@ -594,26 +600,19 @@ impl Cage {
             for (fdkind_flag, entry) in unparsedtables[1].iter() {
                 if *fdkind_flag == FDKIND_IMPIPE {
                     for impipe_entry in entry {
-                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
+                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.underfd) {
                             if pipe_entry.pipe.check_select_write() {
                                 return_code = return_code + 1;
-                                // unrealreadset.insert(*impfd_write);
+                                match mappingtable.get(&(*fdkind_flag, impipe_entry.underfd)) {
+                                    Some(&virfd) => unreal_write.insert(virfd),
+                                    None => return syscall_error(Errno::EBADFD, "select", "impipe")
+                                };
                             }
                         }
                     }
                 }
             }
 
-
-            for (fdkind_flag, entry) in unparsedtables[2].iter() {
-                if *fdkind_flag == FDKIND_IMPIPE {
-                    for impipe_entry in entry {
-                        if let Some(_pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
-                            // ...
-                        }
-                    }
-                }
-            }
 
             // we break if there is any file descriptor ready
             // or timeout is reached
@@ -629,12 +628,11 @@ impl Cage {
             }
         }
         // Revert result
-        // HOW we convert im-pipe result back with kernek result..? We don't know the virtual fd value...
         let (read_flags, read_result) = fdtables::get_one_virtual_bitmask_from_select_result(
             FDKIND_KERNEL, 
             nfds as u64, 
             Some(real_readfds), 
-            HashSet::new(), 
+            unreal_read, 
             None, 
             &mappingtable
         );
@@ -647,7 +645,7 @@ impl Cage {
             FDKIND_KERNEL, 
             nfds as u64, 
             Some(real_writefds), 
-            HashSet::new(), 
+            unreal_write, 
             None, 
             &mappingtable
         );
