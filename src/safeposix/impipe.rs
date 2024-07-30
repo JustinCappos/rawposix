@@ -23,14 +23,16 @@
 /// To learn more about pipes
 /// [pipe(7)](https://man7.org/linux/man-pages/man7/pipe.7.html)
 use crate::safeposix::cage::*;
+use crate::fdtables::FDTableEntry;
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Condvar};
 use std::sync::atomic::{AtomicBool, Ordering};
 use rb::*;
 use std::cmp::min;
 use std::slice;
 use std::thread::yield_now;
-use libc::iovec;
+use libc::{O_RDONLY, O_WRONLY, iovec};
+use std::ffi::CString;
 
 // lets define a few constants for the standard size of a Linux page and errnos
 const PAGE_SIZE: usize = 4096;
@@ -386,30 +388,182 @@ impl IMPipe {
 
 // RawPOSIX specific datastructures
 pub use std::sync::LazyLock;
-pub use dashmap::{mapref::entry::Entry, DashMap};
+pub use dashmap::{mapref::entry::Entry, DashMap, DashSet};
+
+use crate::interface::GenSockaddr;
+
 pub const USE_IM_PIPE: bool = true;
 
 const MAXPIPE: u64 = 1024;
 
-pub struct PipeTableEntry {
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ConnState {
+    NOTCONNECTED,
+    DISCONNECTED,
+    CONNECTED,
+    CONNRDONLY,
+    CONNWRONLY,
+    LISTEN,
+    INPROGRESS,
+}
+
+pub enum IPCTableEntry {
+    Pipe(PipeEntry),
+    DomainSocket(SocketHandle),
+}
+
+pub struct PipeEntry {
     pub pipe: Arc<IMPipe>,
 }
 
-pub static PIPE_TABLE: LazyLock<DashMap<u64, Arc<PipeTableEntry>>> = 
+//This structure contains all socket-associated data that is not held in the fd
+pub struct SocketHandle {
+    pub domain: i32,
+    pub socktype: i32,
+    pub protocol: i32,
+    pub mode: i32,
+    pub socket_options: i32,
+    pub tcp_options: i32,
+    pub state: ConnState,
+    pub localaddr: Option<GenSockaddr>,
+    pub remoteaddr: Option<GenSockaddr>,
+    pub sendpipe: Option<Arc<IMPipe>>,
+    pub receivepipe: Option<Arc<IMPipe>>
+}
+
+pub static IPC_TABLE: LazyLock<DashMap<u64, IPCTableEntry>> = 
     LazyLock::new(|| 
         DashMap::new()
 );
 
 pub fn insert_next_pipe(pipe: Arc<IMPipe>) -> Option<u64> {
 
-    let ptentry = PipeTableEntry{pipe};
+    let ipcentry = IPCTableEntry::Pipe(PipeEntry{pipe});
 
-    for pipeno in 0..MAXPIPE {
-        if let Entry::Vacant(v) = PIPE_TABLE.entry(pipeno) {
-            v.insert(Arc::new(ptentry));
-            return Some(pipeno);
+    for ipcnum in 0..MAXPIPE {
+        if let Entry::Vacant(v) = IPC_TABLE.entry(ipcnum) {
+            v.insert(ipcentry);
+            return Some(ipcnum);
         }
     }
 
     return None;
+}
+
+pub fn insert_next_sockhandle(domain: i32, socktype: i32, protocol: i32, mode: i32) -> Option<u64> {
+
+    let ipcentry = IPCTableEntry::DomainSocket(SocketHandle{domain, socktype, protocol, mode: mode, socket_options: 0, tcp_options: 0, state: ConnState::NOTCONNECTED, localaddr: None, remoteaddr: None, sendpipe: None, receivepipe: None});
+
+    for ipcnum in 0..MAXPIPE {
+        if let Entry::Vacant(v) = IPC_TABLE.entry(ipcnum) {
+            v.insert(ipcentry);
+            return Some(ipcnum);
+        }
+    }
+
+    return None;
+}
+
+// Doman Socket Connection Data Structures
+
+pub static DS_CONNECTION_TABLE: LazyLock<DashMap<CString, DSConnTableEntry>> = 
+    LazyLock::new(|| 
+        DashMap::new()
+);
+
+pub static BOUND_SOCKETS: LazyLock<DashSet<CString>> = 
+LazyLock::new(|| 
+    DashSet::new()
+);
+
+
+pub struct ConnCondVar {
+    lock: Arc<Mutex<i32>>,
+    cv: Condvar,
+}
+
+impl ConnCondVar {
+    pub fn new() -> Self {
+        Self {
+            lock: Arc::new(Mutex::new(0)),
+            cv: Condvar::new(),
+        }
+    }
+
+    pub fn wait(&self) {
+        let mut guard = self.lock.lock().unwrap();
+        *guard += 1;
+        let _result = self.cv.wait(guard);
+    }
+
+    pub fn broadcast(&self) -> bool {
+        let guard = self.lock.lock().unwrap();
+        if *guard == 1 {
+            self.cv.notify_all();
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+
+pub struct DSConnTableEntry {
+    pub sockaddr: GenSockaddr,
+    pub receive_pipe: Arc<IMPipe>,
+    pub send_pipe: Arc<IMPipe>,
+    pub cond_var: Option<Arc<ConnCondVar>>,
+}
+
+impl DSConnTableEntry {
+    pub fn get_cond_var(&self) -> Option<&Arc<ConnCondVar>> {
+        self.cond_var.as_ref()
+    }
+    pub fn get_sockaddr(&self) -> &GenSockaddr {
+        &self.sockaddr
+    }
+    pub fn get_send_pipe(&self) -> &Arc<IMPipe> {
+        &self.send_pipe
+    }
+    pub fn get_receive_pipe(&self) -> &Arc<IMPipe> {
+        &self.receive_pipe
+    }
+}
+
+
+pub fn close_im_pipe(impipe_entry:FDTableEntry, count: u64) {
+    if count > 0 { return; }
+
+    if let IPCTableEntry::Pipe(ref pipe_entry) = *IPC_TABLE.get(&impipe_entry.underfd).unwrap(){
+
+        if impipe_entry.perfdinfo as i32 & O_RDONLY != 0 { 
+            pipe_entry.pipe.set_readers_closed();
+            if pipe_entry.pipe.check_writers_closed() {
+                IPC_TABLE.remove(&impipe_entry.underfd);
+            }
+        } else if impipe_entry.perfdinfo as i32 & O_WRONLY != 0 { 
+            pipe_entry.pipe.set_writers_closed();
+            if pipe_entry.pipe.check_readers_closed() {
+                IPC_TABLE.remove(&impipe_entry.underfd);
+            }
+        }
+    }
+}
+
+pub fn close_im_socket(imsock_entry:FDTableEntry, count: u64) {
+    if count > 0 { return; }
+
+    if let IPCTableEntry::DomainSocket(ref sock_entry) = *IPC_TABLE.get(&imsock_entry.underfd).unwrap(){
+
+        if let Some(sendpipe) = &sock_entry.sendpipe {
+            sendpipe.set_writers_closed();
+            if sendpipe.check_readers_closed() {
+                IPC_TABLE.remove(&imsock_entry.underfd);
+            }
+        } else if let Some(receivepipe) = &sock_entry.receivepipe {
+            receivepipe.set_readers_closed();
+            if receivepipe.check_writers_closed() {
+                IPC_TABLE.remove(&imsock_entry.underfd);
+            }
+        }
+    }
 }

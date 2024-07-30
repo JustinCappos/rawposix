@@ -2,9 +2,11 @@
 // Network related system calls
 // outlines and implements all of the networking system calls that are being emulated/faked in Lind
 
-use super::net_constants::*;
+use super::net_constants;
 use crate::{interface::FdSet, safeposix::cage::*};
 use crate::interface::*;
+use crate::interface;
+use super::sys_constants;
 
 use crate::fdtables;
 
@@ -20,8 +22,12 @@ use std::mem::size_of;
 use libc::*;
 use std::ffi::CString;
 use std::ffi::CStr;
+use std::sync::Arc;
 
-use crate::safeposix::impipe::*;
+use crate::safeposix::filesystem::convpath;
+use crate::safeposix::filesystem::normpath;
+
+use crate::safeposix::impipe::{IMPipe, USE_IM_PIPE, IPC_TABLE, DS_CONNECTION_TABLE, BOUND_SOCKETS, IPCTableEntry, ConnState, ConnCondVar, DSConnTableEntry, insert_next_sockhandle};
 
 use libc::*;
 use std::{os::fd::RawFd, ptr};
@@ -44,6 +50,11 @@ impl Cage {
      *   Then return virtual fd
      */
     pub fn socket_syscall(&self, domain: i32, socktype: i32, protocol: i32) -> i32 {
+
+        if USE_IM_PIPE && domain == net_constants::AF_UNIX { 
+            return self.socket_impipe_syscall(domain, socktype, protocol) 
+        }
+
         let kernel_fd = unsafe { libc::socket(domain, socktype, protocol) };
         /*
             get_unused_virtual_fd(cageid,realfd,is_cloexec,optionalinfo) -> Result<virtualfd, EMFILE>
@@ -64,6 +75,30 @@ impl Cage {
         return fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, false, 0).unwrap() as i32;
     }
 
+    pub fn socket_impipe_syscall(&self, domain: i32, socktype: i32, protocol: i32) -> i32 {
+        match protocol {
+            libc::IPPROTO_UDP => {
+                return syscall_error(Errno::EOPNOTSUPP, "socket", "UDP not supported for unix")
+            }
+            libc::IPPROTO_TCP => {
+                
+                let should_cloexec = socktype & O_CLOEXEC != 0;
+
+                let ipcentry = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666).unwrap();
+
+                return fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, ipcentry, should_cloexec, socktype as u64).unwrap() as i32;
+
+            }
+            _ => {
+                return syscall_error(
+                    Errno::EOPNOTSUPP,
+                    "connect",
+                    "Unknown protocol in connect",
+                )
+            }
+        }
+    }
+
     /* 
      *   Get the kernel fd with provided virtual fd first
      *   bind() will return 0 when success and -1 when fail
@@ -78,58 +113,92 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let mut new_addr = SockaddrUnix::default();
+        if vfd.fdkind == FDKIND_IMSOCK {
+            self.bind_impipe_syscall(vfd, addr)
+        } else {
 
-        let (finalsockaddr, addrlen) = match addr {
-            GenSockaddr::V6(addrref6) => (
-                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>(),
-            ),
-            GenSockaddr::V4(addrref) => (
-                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>(),
-            ),
-            GenSockaddr::Unix(addrrefu) => {
-                // Convert sun_path to LIND_ROOT path
-                let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
-                let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
+            let mut new_addr = SockaddrUnix::default();
 
-                // Ensure the length of lind_path does not exceed sun_path capacity
-                if lind_path.len() >= addrrefu.sun_path.len() {
-                    panic!("New path is too long to fit in sun_path");
-                }
+            let (finalsockaddr, addrlen) = match addr {
+                GenSockaddr::V6(addrref6) => (
+                    (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrV6>(),
+                ),
+                GenSockaddr::V4(addrref) => (
+                    (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrV4>(),
+                ),
+                GenSockaddr::Unix(addrrefu) => {
+                    // Convert sun_path to LIND_ROOT path
+                    let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
+                    let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
 
-                new_addr = SockaddrUnix {
-                    sun_family: addrrefu.sun_family,
-                    sun_path: [0; 108],
-                };
+                    // Ensure the length of lind_path does not exceed sun_path capacity
+                    if lind_path.len() >= addrrefu.sun_path.len() {
+                        panic!("New path is too long to fit in sun_path");
+                    }
 
-                // Copy the new path into sun_path
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        lind_path.as_ptr(),
-                        new_addr.sun_path.as_mut_ptr() as *mut u8,
-                        lind_path.len()
-                    );
-                    *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                    new_addr = SockaddrUnix {
+                        sun_family: addrrefu.sun_family,
+                        sun_path: [0; 108],
+                    };
+
+                    // Copy the new path into sun_path
+                    unsafe {
+                        ptr::copy_nonoverlapping(
+                            lind_path.as_ptr(),
+                            new_addr.sun_path.as_mut_ptr() as *mut u8,
+                            lind_path.len()
+                        );
+                        *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                    }
+                    
+                    (
+                        (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                        size_of::<SockaddrUnix>(),
+                    )
+                    
                 }
                 
-                (
-                    (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
-                    size_of::<SockaddrUnix>(),
-                )
-                
+            };
+
+            let ret = unsafe { libc::bind(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
+            if ret < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "bind");
             }
-            
-        };
-
-        let ret = unsafe { libc::bind(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "bind");
+            ret
         }
-        ret
     }
+
+    pub fn bind_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, addr: &GenSockaddr) -> i32 {
+        if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+            match sockhandle.protocol {
+                libc::IPPROTO_UDP => {
+                    return syscall_error(Errno::EOPNOTSUPP, "bind", "UDP not supported for unix")
+                }
+                libc::IPPROTO_TCP => {
+                    sockhandle.localaddr = Some(addr.clone());
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EOPNOTSUPP,
+                        "connect",
+                        "Unknown protocol in connect",
+                    )
+                }
+            }
+            let relpath = normpath(convpath(addr.path()), self);
+            let relative_path = relpath.to_str().unwrap();
+            let full_path = format!("{}{}", LIND_ROOT, relative_path);
+            let localpathbuf = CString::new(full_path).unwrap();
+
+            BOUND_SOCKETS.insert(localpathbuf);
+
+            0
+        } else { return syscall_error(Errno::EBADF, "bind", "Bad File Descriptor"); }
+    }
+
 
     /*  
      *   Get the kernel fd with provided virtual fd first
@@ -142,57 +211,121 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let mut new_addr = SockaddrUnix::default();
+        if vfd.fdkind == FDKIND_IMSOCK {
+            self.connect_impipe_syscall(vfd, addr)
+        } else {
 
-        let (finalsockaddr, addrlen) = match addr {
-            GenSockaddr::V6(addrref6) => (
-                (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>(),
-            ),
-            GenSockaddr::V4(addrref) => (
-                (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>(),
-            ),
-            GenSockaddr::Unix(addrrefu) => {
-                // Convert sun_path to LIND_ROOT path
-                let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
-                let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
+            let mut new_addr = SockaddrUnix::default();
 
-                // Ensure the length of lind_path does not exceed sun_path capacity
-                if lind_path.len() >= addrrefu.sun_path.len() {
-                    panic!("New path is too long to fit in sun_path");
+            let (finalsockaddr, addrlen) = match addr {
+                GenSockaddr::V6(addrref6) => (
+                    (addrref6 as *const SockaddrV6).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrV6>(),
+                ),
+                GenSockaddr::V4(addrref) => (
+                    (addrref as *const SockaddrV4).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrV4>(),
+                ),
+                GenSockaddr::Unix(addrrefu) => {
+                    // Convert sun_path to LIND_ROOT path
+                    let original_path = unsafe { CStr::from_ptr(addrrefu.sun_path.as_ptr() as *const i8).to_str().unwrap() };
+                    let lind_path = format!("{}{}", LIND_ROOT, &original_path[..]); // Skip the initial '/' in original path
+
+                    // Ensure the length of lind_path does not exceed sun_path capacity
+                    if lind_path.len() >= addrrefu.sun_path.len() {
+                        panic!("New path is too long to fit in sun_path");
+                    }
+
+                    new_addr = SockaddrUnix {
+                        sun_family: addrrefu.sun_family,
+                        sun_path: [0; 108],
+                    };
+
+                    // Copy the new path into sun_path
+                    unsafe {
+                        ptr::copy_nonoverlapping(
+                            lind_path.as_ptr(),
+                            new_addr.sun_path.as_mut_ptr() as *mut u8,
+                            lind_path.len()
+                        );
+                        *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
+                    }
+                    
+                    (
+                        (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
+                        size_of::<SockaddrUnix>(),
+                    )
+                    
                 }
+            };
 
-                new_addr = SockaddrUnix {
-                    sun_family: addrrefu.sun_family,
-                    sun_path: [0; 108],
-                };
-
-                // Copy the new path into sun_path
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        lind_path.as_ptr(),
-                        new_addr.sun_path.as_mut_ptr() as *mut u8,
-                        lind_path.len()
-                    );
-                    *new_addr.sun_path.get_unchecked_mut(lind_path.len()) = 0; // Null-terminate the string
-                }
-                
-                (
-                    (&new_addr as *const SockaddrUnix).cast::<libc::sockaddr>(),
-                    size_of::<SockaddrUnix>(),
-                )
-                
+            let ret = unsafe { libc::connect(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
+            if ret < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "connect");
             }
-        };
-
-        let ret = unsafe { libc::connect(vfd.underfd as i32, finalsockaddr, addrlen as u32) };
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "connect");
+            ret
         }
-        ret
     }
+
+    pub fn connect_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, addr: &GenSockaddr) -> i32 {
+        if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+            match sockhandle.protocol {
+                libc::IPPROTO_UDP => {
+                    return syscall_error(Errno::EOPNOTSUPP, "connect", "UDP not supported for unix")
+                }
+                libc::IPPROTO_TCP => {
+                    let relpath = normpath(convpath(sockhandle.localaddr.unwrap().path()), self);
+                    let relative_path = relpath.to_str().unwrap();
+                    let full_path = format!("{}{}", LIND_ROOT, relative_path);
+                    let localpathbuf = CString::new(full_path).unwrap();
+
+                    let isbound = BOUND_SOCKETS.get(&localpathbuf);
+                    if isbound.is_none() {
+                        return syscall_error(Errno::ENOENT, "connect", "not valid unix domain path");
+                    }
+
+                    sockhandle.remoteaddr = Some(addr.clone());
+                    let pipe1 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
+                    let pipe2 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
+    
+                    let _ = sockhandle.sendpipe.insert(pipe1.clone());
+                    let _ = sockhandle.receivepipe.insert(pipe2.clone());
+
+                    let connvar = if imsock_entry.perfdinfo as i32 & O_NONBLOCK == 0 {
+                        Some(Arc::new(ConnCondVar::new()))
+                    } else {
+                        None
+                    };
+
+                    let connentry = DSConnTableEntry {
+                        sockaddr: sockhandle.localaddr.unwrap().clone(),
+                        receive_pipe: Some(pipe1.clone()).unwrap(),
+                        send_pipe: Some(pipe2.clone()).unwrap(),
+                        cond_var: connvar.clone(),
+                    };
+
+                    DS_CONNECTION_TABLE.insert(CString::new(addr.path()).unwrap(), connentry);
+
+                    if imsock_entry.perfdinfo as i32 & O_NONBLOCK == 0 {
+                        sockhandle.state = ConnState::INPROGRESS;
+                        connvar.unwrap().wait();
+                    }
+
+                    sockhandle.state = ConnState::CONNECTED;
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EOPNOTSUPP,
+                        "connect",
+                        "Unknown protocol in connect",
+                    )
+                }
+            }
+            0
+        } else { return syscall_error(Errno::EBADF, "bind", "Bad File Descriptor"); }
+    }
+
 
     /*  
      *   Get the kernel fd with provided virtual fd first
@@ -290,12 +423,62 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::send(vfd.underfd as i32, buf as *const c_void, buflen, flags) as i32};
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "send");
+        if vfd.fdkind == FDKIND_IMSOCK {
+            self.send_impipe_syscall(vfd, buf, buflen, flags)
+        } else {
+
+            let ret = unsafe { libc::send(vfd.underfd as i32, buf as *const c_void, buflen, flags) as i32};
+            if ret < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "send");
+            }
+            ret
         }
-        ret
+    }
+
+    pub fn send_impipe_syscall(&self,  imsock_entry: fdtables::FDTableEntry, buf: *const u8, buflen: usize, _flags: i32) -> i32 {
+        if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+            match sockhandle.protocol {
+                libc::IPPROTO_UDP => {
+                    return syscall_error(Errno::EOPNOTSUPP, "send", "UDP not supported for unix")
+                }
+                libc::IPPROTO_TCP => {
+                    if (sockhandle.state != ConnState::CONNECTED)
+                        && (sockhandle.state != ConnState::CONNWRONLY)
+                    {
+                        return syscall_error(
+                            Errno::ENOTCONN,
+                            "send",
+                            "The descriptor is not connected",
+                        );
+                    }
+
+                    let nonblocking = imsock_entry.perfdinfo as i32 & O_NONBLOCK != 0;
+
+                    let ret = match sockhandle.sendpipe.as_ref() {
+                        Some(sendpipe) => {
+                            sendpipe.write_to_pipe(buf, buflen, nonblocking) as i32
+                        }
+                        None => {
+                            return syscall_error(Errno::EAGAIN, "send", "there is no data available right now, try again later");
+                        }
+                    };
+
+                    if ret == -(Errno::EPIPE as i32) {
+                        interface::lind_kill_from_id(self.cageid, sys_constants::SIGPIPE);
+                    }
+
+                    ret
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EOPNOTSUPP,
+                        "listen",
+                        "Unknown protocol in connect",
+                    )
+                }
+            }
+        } else { return syscall_error(Errno::EBADF, "send", "Bad File Descriptor"); }
     }
 
     /*  
@@ -360,12 +543,55 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::recv(vfd.underfd as i32, buf as *mut c_void, len, flags) as i32 };
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "recv");
+        if vfd.fdkind == FDKIND_IMSOCK {
+            self.recv_impipe_syscall(vfd, buf, len, flags)
+        } else {
+
+            let ret = unsafe { libc::recv(vfd.underfd as i32, buf as *mut c_void, len, flags) as i32 };
+            if ret < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "recv");
+            }
+            ret
         }
-        ret
+    }
+
+    pub fn recv_impipe_syscall(&self,  imsock_entry: fdtables::FDTableEntry, buf: *mut u8, len: usize, _flags: i32) -> i32 {
+        if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+            match sockhandle.protocol {
+                libc::IPPROTO_UDP => {
+                    return syscall_error(Errno::EOPNOTSUPP, "listen", "UDP not supported for unix")
+                }
+                libc::IPPROTO_TCP => {
+                    if (sockhandle.state != ConnState::CONNECTED) && (sockhandle.state != ConnState::CONNRDONLY)
+                    {
+                        return syscall_error(
+                            Errno::ENOTCONN,
+                            "recvfrom",
+                            "The descriptor is not connected",
+                        );
+                    }
+
+                    let nonblocking = imsock_entry.perfdinfo as i32 & O_NONBLOCK != 0;
+
+                    match sockhandle.receivepipe.as_ref() {
+                        Some(receivepipe) => {
+                            receivepipe.write_to_pipe(buf, len, nonblocking) as i32
+                        }
+                        None => {
+                            return syscall_error(Errno::EAGAIN, "recv", "there is no data available right now, try again later");
+                        }
+                    }
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EOPNOTSUPP,
+                        "listen",
+                        "Unknown protocol in connect",
+                    )
+                }
+            }
+        } else { return syscall_error(Errno::EBADF, "listen", "Bad File Descriptor"); }
     }
 
     /*  
@@ -379,12 +605,59 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::listen(vfd.underfd as i32, backlog) };
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "listen");
+        if vfd.fdkind == FDKIND_IMSOCK {
+            self.listen_impipe_syscall(vfd, backlog)
+        } else {
+
+            let ret = unsafe { libc::listen(vfd.underfd as i32, backlog) };
+            if ret < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "listen");
+            }
+            ret
+
         }
-        ret
+    }
+
+    pub fn listen_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, _backlog: i32) -> i32 {
+        if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+            match sockhandle.protocol {
+                libc::IPPROTO_UDP => {
+                    return syscall_error(Errno::EOPNOTSUPP, "listen", "UDP not supported for unix")
+                }
+                libc::IPPROTO_TCP => {
+                    match sockhandle.state {
+                        ConnState::LISTEN => {
+                            return 0; //Already done!
+                        }
+        
+                        ConnState::CONNECTED
+                        | ConnState::CONNRDONLY
+                        | ConnState::CONNWRONLY
+                        | ConnState::INPROGRESS
+                        | ConnState:: DISCONNECTED => {
+                            return syscall_error(
+                                Errno::EOPNOTSUPP,
+                                "listen",
+                                "We don't support closing a prior socket connection on listen",
+                            );
+                        }
+        
+                        ConnState::NOTCONNECTED => {
+                            sockhandle.state = ConnState::LISTEN;
+                            return 0;
+                        }
+                    }
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EOPNOTSUPP,
+                        "listen",
+                        "Unknown protocol in connect",
+                    )
+                }
+            }
+        } else { return syscall_error(Errno::EBADF, "listen", "Bad File Descriptor"); }
     }
 
     /*  
@@ -429,60 +702,155 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let (finalsockaddr, mut addrlen) = match addr {
-            Some(GenSockaddr::V6(ref mut addrref6)) => (
-                (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV6>() as u32,
-            ),
-            Some(GenSockaddr::V4(ref mut addrref)) => (
-                (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
-                size_of::<SockaddrV4>() as u32,
-            ),
-            Some(GenSockaddr::Unix(ref mut addrrefu)) => (
-                (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
-                size_of::<SockaddrUnix>() as u32,
-            ),
-            None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
-        };
+        if vfd.fdkind == FDKIND_IMSOCK {
+            self.accept_impipe_syscall(vfd, addr)
+        } else {
 
-        let ret_kernelfd = unsafe { libc::accept(vfd.underfd as i32, finalsockaddr, &mut addrlen as *mut u32) };
+            let (finalsockaddr, mut addrlen) = match addr {
+                Some(GenSockaddr::V6(ref mut addrref6)) => (
+                    (addrref6 as *mut SockaddrV6).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrV6>() as u32,
+                ),
+                Some(GenSockaddr::V4(ref mut addrref)) => (
+                    (addrref as *mut SockaddrV4).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrV4>() as u32,
+                ),
+                Some(GenSockaddr::Unix(ref mut addrrefu)) => (
+                    (addrrefu as *mut SockaddrUnix).cast::<libc::sockaddr>(),
+                    size_of::<SockaddrUnix>() as u32,
+                ),
+                None => (std::ptr::null::<libc::sockaddr>() as *mut libc::sockaddr, 0),
+            };
 
-        if ret_kernelfd < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "accept");
-        }
+            let ret_kernelfd = unsafe { libc::accept(vfd.underfd as i32, finalsockaddr, &mut addrlen as *mut u32) };
 
-        // change the GenSockaddr type according to the sockaddr we received 
-        // GenSockAddr will be modified after libc::accept returns 
-        // So we only need to modify values in GenSockAddr, and rest of the things will be finished in dispatcher stage
+            if ret_kernelfd < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "accept");
+            }
 
-        if let Some(sockaddr) = addr {
-            if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
-                unsafe {
-                    if std::slice::from_raw_parts(sockaddr_unix.sun_path.as_ptr() as *const u8, LIND_ROOT.len()) == LIND_ROOT.as_bytes() {
-                        // Move ptr to exclue LIND_ROOT
-                        let new_path_ptr = sockaddr_unix.sun_path.as_ptr().add(LIND_ROOT.len());
-                
-                        // sun_path in RawPOSIX will always be 108
-                        let new_path_len = 108 - LIND_ROOT.len();
-                
-                        let mut temp_path = vec![0u8; sockaddr_unix.sun_path.len()];
-                
-                        std::ptr::copy_nonoverlapping(new_path_ptr, temp_path.as_mut_ptr(), new_path_len);
-                
-                        for i in 0..sockaddr_unix.sun_path.len() {
-                            sockaddr_unix.sun_path[i] = 0;
+            // change the GenSockaddr type according to the sockaddr we received 
+            // GenSockAddr will be modified after libc::accept returns 
+            // So we only need to modify values in GenSockAddr, and rest of the things will be finished in dispatcher stage
+
+            if let Some(sockaddr) = addr {
+                if let GenSockaddr::Unix(ref mut sockaddr_unix) = sockaddr{
+                    unsafe {
+                        if std::slice::from_raw_parts(sockaddr_unix.sun_path.as_ptr() as *const u8, LIND_ROOT.len()) == LIND_ROOT.as_bytes() {
+                            // Move ptr to exclue LIND_ROOT
+                            let new_path_ptr = sockaddr_unix.sun_path.as_ptr().add(LIND_ROOT.len());
+                    
+                            // sun_path in RawPOSIX will always be 108
+                            let new_path_len = 108 - LIND_ROOT.len();
+                    
+                            let mut temp_path = vec![0u8; sockaddr_unix.sun_path.len()];
+                    
+                            std::ptr::copy_nonoverlapping(new_path_ptr, temp_path.as_mut_ptr(), new_path_len);
+                    
+                            for i in 0..sockaddr_unix.sun_path.len() {
+                                sockaddr_unix.sun_path[i] = 0;
+                            }
+                    
+                            std::ptr::copy_nonoverlapping(temp_path.as_ptr(), sockaddr_unix.sun_path.as_mut_ptr(), new_path_len);
                         }
-                
-                        std::ptr::copy_nonoverlapping(temp_path.as_ptr(), sockaddr_unix.sun_path.as_mut_ptr(), new_path_len);
                     }
                 }
             }
-        }
 
-        let ret_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, ret_kernelfd as u64, false, 0).unwrap();
-        
-        ret_virtualfd as i32
+            let ret_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, ret_kernelfd as u64, false, 0).unwrap();
+            
+            ret_virtualfd as i32
+        }
+    }
+    pub fn accept_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, addr: &mut Option<&mut GenSockaddr>) -> i32 {
+        if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+            match sockhandle.protocol {
+                libc::IPPROTO_UDP => {
+                    return syscall_error(Errno::EOPNOTSUPP, "accept", "UDP not supported for unix")
+                }
+                libc::IPPROTO_TCP => {
+                    if sockhandle.state != ConnState::LISTEN {
+                        return syscall_error(
+                            Errno::EINVAL,
+                            "accept",
+                            "Socket must be listening before accept is called",
+                        );
+                    }
+
+                    let mut remote_addr: GenSockaddr;
+                    let sendpipe;
+                    let receivepipe;
+
+                    loop {
+
+                        let relpath = normpath(convpath(sockhandle.localaddr.unwrap().path()), self);
+                        let relative_path = relpath.to_str().unwrap();
+                        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+                        let localpathbuf = CString::new(full_path).unwrap();
+
+                        let dsconnobj = DS_CONNECTION_TABLE.get(&localpathbuf);
+    
+                        if let Some(ds) = dsconnobj {
+                            // we loop here to accept the connection
+                            // if we get a connection object from the accept table, we complete the
+                            // connection and set up the address and pipes
+                            // if theres no object, we retry, except in the case of non-blocking accept
+                            // where we return EAGAIN
+                            if let Some(connvar) = ds.get_cond_var() {
+                                if !connvar.broadcast() {
+                                    drop(ds);
+                                    continue;
+                                }
+                            }
+                            remote_addr = ds.sockaddr.clone();
+                            receivepipe = ds.receive_pipe.clone();
+                            sendpipe = ds.send_pipe.clone();
+                            drop(ds);
+                            DS_CONNECTION_TABLE.remove(&localpathbuf);
+                            break;
+                        } else {
+                            if 0 != (imsock_entry.perfdinfo as i32& O_NONBLOCK) {
+                                // if non block return EAGAIN
+                                return syscall_error(
+                                    Errno::EAGAIN,
+                                    "accept",
+                                    "host system accept call failed",
+                                );
+                            }
+                        }
+                    }
+
+                    let should_cloexec = sockhandle.socktype & O_CLOEXEC != 0;
+                    let newipcentry = insert_next_sockhandle(sockhandle.domain, sockhandle.socktype, sockhandle.protocol, S_IFSOCK as i32 | 0o666).unwrap();
+
+                    if let IPCTableEntry::DomainSocket(ref mut newsockhandle) = *IPC_TABLE.get_mut(&newipcentry).unwrap() {
+                        newsockhandle.localaddr = Some(sockhandle.localaddr.unwrap().clone());
+                        newsockhandle.remoteaddr = Some(remote_addr.clone());
+                        newsockhandle.mode = sockhandle.mode;
+                        newsockhandle.state = ConnState::CONNECTED;
+                        let _ = sockhandle.sendpipe.insert(sendpipe.clone());
+                        let _ = sockhandle.receivepipe.insert(receivepipe.clone());
+                    }
+
+                    // if we were provided an address lets copy out our remote address
+                    if let Some(GenSockaddr::Unix(ref mut copyaddr)) = addr {
+                        if let GenSockaddr::Unix(ref mut remotecopy) = remote_addr {
+                            unsafe { std::ptr::copy(remotecopy as *mut interface::SockaddrUnix as *mut u8, copyaddr as *mut interface::SockaddrUnix as *mut u8, size_of::<SockaddrUnix>()); }
+                        }
+                    }
+
+                    return fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, newipcentry, should_cloexec, sockhandle.socktype as u64).unwrap() as i32;
+
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EOPNOTSUPP,
+                        "accept",
+                        "Unknown protocol in connect",
+                    )
+                }
+            }
+        } else { return syscall_error(Errno::EBADF, "listen", "Bad File Descriptor"); }
     }
 
     /* 
@@ -578,42 +946,42 @@ impl Cage {
         */
         loop {
 
-            for (fdkind_flag, entry) in unparsedtables[0].iter() {
-                if *fdkind_flag == FDKIND_IMPIPE {
-                    for impipe_entry in entry {
-                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
-                            if pipe_entry.pipe.check_select_read() {
-                                return_code = return_code + 1;
-                                // unrealreadset.insert(*);
-                            }
-                        }
-                    }
-                }
-            }
+            // for (fdkind_flag, entry) in unparsedtables[0].iter() {
+            //     if *fdkind_flag == FDKIND_IMPIPE {
+            //         for impipe_entry in entry {
+            //             if let Some(pipe_entry) = IPC_TABLE.get(&impipe_entry.perfdinfo) {
+            //                 if pipe_entry.pipe.check_select_read() {
+            //                     return_code = return_code + 1;
+            //                     // unrealreadset.insert(*);
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
-            for (fdkind_flag, entry) in unparsedtables[1].iter() {
-                if *fdkind_flag == FDKIND_IMPIPE {
-                    for impipe_entry in entry {
-                        if let Some(pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
-                            if pipe_entry.pipe.check_select_write() {
-                                return_code = return_code + 1;
-                                // unrealreadset.insert(*impfd_write);
-                            }
-                        }
-                    }
-                }
-            }
+            // for (fdkind_flag, entry) in unparsedtables[1].iter() {
+            //     if *fdkind_flag == FDKIND_IMPIPE {
+            //         for impipe_entry in entry {
+            //             if let Some(pipe_entry) = IPC_TABLE.get(&impipe_entry.perfdinfo) {
+            //                 if pipe_entry.pipe.check_select_write() {
+            //                     return_code = return_code + 1;
+            //                     // unrealreadset.insert(*impfd_write);
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
 
-            for (fdkind_flag, entry) in unparsedtables[2].iter() {
-                if *fdkind_flag == FDKIND_IMPIPE {
-                    for impipe_entry in entry {
-                        if let Some(_pipe_entry) = PIPE_TABLE.get(&impipe_entry.perfdinfo) {
-                            // ...
-                        }
-                    }
-                }
-            }
+            // for (fdkind_flag, entry) in unparsedtables[2].iter() {
+            //     if *fdkind_flag == FDKIND_IMPIPE {
+            //         for impipe_entry in entry {
+            //             if let Some(_pipe_entry) = IPC_TABLE.get(&impipe_entry.perfdinfo) {
+            //                 // ...
+            //             }
+            //         }
+            //     }
+            // }
 
             // we break if there is any file descriptor ready
             // or timeout is reached
@@ -960,24 +1328,24 @@ impl Cage {
 
         loop {
             for (impfd, entry) in impvec.iter() {
-                if let Some(pipe_entry) = PIPE_TABLE.get(&impfd) {
+                if let Some(pipe_entry) = IPC_TABLE.get(&impfd) {
                     //impipe_entry.perfdinfo as i32 & O_RDONLY != 0
-                    if entry.perfdinfo as i32 & O_RDONLY != 0 {
-                        if pipe_entry.pipe.check_select_read() {
-                            return_code = return_code + 1;
-                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
-                            r_pollstruct.revents = libc::POLLIN;
-                        } 
+                    // if entry.perfdinfo as i32 & O_RDONLY != 0 {
+                    //     if pipe_entry.pipe.check_select_read() {
+                    //         return_code = return_code + 1;
+                    //         let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                    //         r_pollstruct.revents = libc::POLLIN;
+                    //     } 
                         
-                    } else {
-                        //impipe_entry.perfdinfo as i32 & O_WRONLY != 0
-                        if pipe_entry.pipe.check_select_write() {
-                            return_code = return_code + 1;
-                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
-                            r_pollstruct.revents = libc::POLLOUT;
-                        }
+                    // } else {
+                    //     //impipe_entry.perfdinfo as i32 & O_WRONLY != 0
+                    //     if pipe_entry.pipe.check_select_write() {
+                    //         return_code = return_code + 1;
+                    //         let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                    //         r_pollstruct.revents = libc::POLLOUT;
+                    //     }
                         
-                    }
+                    // }
                 }
             }
 
@@ -1188,6 +1556,54 @@ impl Cage {
         virtual_socket_vector.sock1 = vsv_1 as i32;
         virtual_socket_vector.sock2 = vsv_2 as i32;
         return 0;
+    }
+
+    pub fn socketpair_impipe_syscall(
+        &self,
+        domain: i32,
+        socktype: i32,
+        protocol: i32,
+        virtual_socket_vector: &mut SockPair,
+    ) -> i32 {
+        match protocol {
+            libc::IPPROTO_UDP => {
+                return syscall_error(Errno::EOPNOTSUPP, "listen", "UDP not supported for unix")
+            }
+            libc::IPPROTO_TCP => {
+                // check for cloexec flags, we'll need cloexec for the virtualfd
+                let should_cloexec = socktype & O_CLOEXEC != 0;
+
+
+                let socketidx1 = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666).unwrap();
+                let socketidx2 = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666).unwrap();
+
+                let pipe1 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
+                let pipe2 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
+
+                if let IPCTableEntry::DomainSocket(ref mut sockhandle1) = *IPC_TABLE.get_mut(&socketidx1).unwrap() {
+                    let _ = sockhandle1.sendpipe.insert(pipe1.clone());
+                    let _ = sockhandle1.receivepipe.insert(pipe2.clone());
+                }
+
+                if let IPCTableEntry::DomainSocket(ref mut sockhandle2) = *IPC_TABLE.get_mut(&socketidx2).unwrap() {
+                    let _ = sockhandle2.sendpipe.insert(pipe2.clone());
+                    let _ = sockhandle2.receivepipe.insert(pipe1.clone());
+                }
+
+                let vsv_1 = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, socketidx1, should_cloexec, socktype as u64).unwrap();
+                let vsv_2 = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, socketidx2, should_cloexec, socktype as u64).unwrap();
+                virtual_socket_vector.sock1 = vsv_1 as i32;
+                virtual_socket_vector.sock2 = vsv_2 as i32;
+                return 0;
+            }
+            _ => {
+                return syscall_error(
+                    Errno::EOPNOTSUPP,
+                    "listen",
+                    "Unknown protocol in connect",
+                )
+            }
+        }
     }
 
     /*

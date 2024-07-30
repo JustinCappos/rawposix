@@ -19,7 +19,7 @@ use crate::safeposix::shm::*;
 use crate::interface::ShmidsStruct;
 use crate::interface::StatData;
 
-use crate::safeposix::impipe::*;
+use crate::safeposix::impipe::{IMPipe, USE_IM_PIPE, IPC_TABLE, IPCTableEntry, insert_next_pipe};
 
 use libc::*;
 use std::io::stdout;
@@ -357,18 +357,17 @@ impl Cage {
     pub fn read_impipe_syscall(&self, impipe_entry: fdtables::FDTableEntry, readbuf: *mut u8, count: usize) -> i32 {
         //in memory pipe
 
-        let pipe_entry = PIPE_TABLE.get(&impipe_entry.underfd).unwrap();
+        if let IPCTableEntry::Pipe(ref pipe_entry) = *IPC_TABLE.get(&impipe_entry.underfd).unwrap(){
 
-        if impipe_entry.perfdinfo as i32 & O_WRONLY != 0 { return syscall_error(Errno::EBADF, "read", "File Descriptor not open for reading"); }
+            if impipe_entry.perfdinfo as i32 & O_WRONLY != 0 { return syscall_error(Errno::EBADF, "read", "File Descriptor not open for reading"); }
 
-        let mut nonblocking = false;
-        if impipe_entry.perfdinfo as i32 & O_NONBLOCK != 0 {
-            nonblocking = true;
-        }
+            let mut nonblocking = false;
+            if impipe_entry.perfdinfo as i32 & O_NONBLOCK != 0 {
+                nonblocking = true;
+            }
 
-        let ret = pipe_entry.pipe.read_from_pipe(readbuf, count, nonblocking);
-            
-        return ret;
+            return pipe_entry.pipe.read_from_pipe(readbuf, count, nonblocking);
+        } else { return syscall_error(Errno::EBADF, "read", "Bad File Descriptor"); }
     }
 
     //------------------------------------PREAD SYSCALL------------------------------------
@@ -425,7 +424,8 @@ impl Cage {
     }
 
     pub fn write_impipe_syscall(&self, impipe_entry: fdtables::FDTableEntry, buf: *const u8, count: usize) -> i32 {
-            let pipe_entry = PIPE_TABLE.get(&impipe_entry.underfd).unwrap();
+
+        if let IPCTableEntry::Pipe(ref pipe_entry) = *IPC_TABLE.get(&impipe_entry.underfd).unwrap(){
 
             if impipe_entry.perfdinfo as i32 & O_RDONLY != 0 { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
 
@@ -441,6 +441,7 @@ impl Cage {
             }
                 
             return ret;
+        } else { return syscall_error(Errno::EBADF, "write", "Bad File Descriptor"); }
     }
 
     //------------------------------------PWRITE SYSCALL------------------------------------
@@ -502,23 +503,23 @@ impl Cage {
         iovcnt: i32,
     ) -> i32 {
         //in memory pipe
+        if let IPCTableEntry::Pipe(ref pipe_entry) = *IPC_TABLE.get(&impipe_entry.underfd).unwrap(){
 
-        let pipe_entry = PIPE_TABLE.get(&impipe_entry.underfd).unwrap();
+            if impipe_entry.perfdinfo as i32 & O_RDONLY != 0 { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
 
-        if impipe_entry.perfdinfo as i32 & O_RDONLY != 0 { return syscall_error(Errno::EBADF, "write", "File Descriptor not open for writing"); }
-
-        let mut nonblocking = false;
-        if impipe_entry.perfdinfo as i32 & O_NONBLOCK != 0 {
-            nonblocking = true;
-        }
-
-        let ret = pipe_entry.pipe.write_vectored_to_pipe(iovec, iovcnt, nonblocking);
-
-        if ret == -(Errno::EPIPE as i32) {
-            interface::lind_kill_from_id(self.cageid, sys_constants::SIGPIPE);
-        }
-            
-        return ret;
+            let mut nonblocking = false;
+            if impipe_entry.perfdinfo as i32 & O_NONBLOCK != 0 {
+                nonblocking = true;
+            }
+    
+            let ret = pipe_entry.pipe.write_vectored_to_pipe(iovec, iovcnt, nonblocking);
+    
+            if ret == -(Errno::EPIPE as i32) {
+                interface::lind_kill_from_id(self.cageid, sys_constants::SIGPIPE);
+            }
+                
+            return ret;
+        } else { return syscall_error(Errno::EBADF, "read", "Bad File Descriptor"); }
     }
 
     //------------------------------------LSEEK SYSCALL------------------------------------
@@ -1062,9 +1063,7 @@ impl Cage {
 
         // check for cloexec flags, we'll need cloexec for the virtualfd
 
-        let should_cloexec = if flags & O_CLOEXEC != 0 {
-            true
-        } else { false };
+        let should_cloexec = flags & O_CLOEXEC != 0;
 
         //insert into pipe table for each end, get indexes
         let pipereadidx = insert_next_pipe(pipe.clone()).unwrap();

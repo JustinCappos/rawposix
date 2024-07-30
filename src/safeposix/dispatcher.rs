@@ -116,9 +116,12 @@ use std::collections::HashMap;
 
 use super::cage::*;
 use super::syscalls::kernel_close;
+
 const FDKIND_KERNEL: u32 = 0;
 const FDKIND_IMPIPE: u32 = 1;
+const FDKIND_IMSOCK: u32 = 2;
 
+use crate::safeposix::impipe;
 use std::io::{Read, Write};
 use std::io;
 
@@ -1081,6 +1084,12 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     fdtables::get_specific_virtual_fd(1, 1, FDKIND_KERNEL, 1, false, 0).unwrap();
     // STDERR
     fdtables::get_specific_virtual_fd(1, 2, FDKIND_KERNEL, 2, false, 0).unwrap();
+
+    if impipe::USE_IM_PIPE {
+        fdtables::register_close_handlers(FDKIND_IMPIPE, impipe::close_im_pipe, impipe::close_im_pipe);
+        fdtables::register_close_handlers(FDKIND_IMSOCK, impipe::close_im_socket, impipe::close_im_socket);
+
+    }
 
 }
 
