@@ -1395,7 +1395,7 @@ impl Cage {
                     for (virtfd, entry) in fdtuple {
                         impipe_vec.push((virtfd, entry.clone()));
                     }
-                    return self.poll_impipe_syscall(virtual_fds, impipe_vec, timeout);
+                    return self.poll_impipe(virtual_fds, impipe_vec, timeout);
                 }
 
                 _ => {
@@ -1422,7 +1422,7 @@ impl Cage {
         }
     }
 
-    pub fn poll_impipe_syscall(&self, virtual_fds: &mut [PollStruct], impvec: Vec<(u64, fdtables::FDTableEntry)>, timeout: i32) -> i32 {
+    pub fn poll_impipe(&self, virtual_fds: &mut [PollStruct], impvec: Vec<(u64, fdtables::FDTableEntry)>, timeout: i32) -> i32 {
         let start_time = starttimer();
         let r_timeout = if timeout >= 0 {
             Some(RustDuration::from_millis(
@@ -1441,24 +1441,24 @@ impl Cage {
 
         loop {
             for (impfd, entry) in impvec.iter() {
-                if let Some(pipe_entry) = IPC_TABLE.get(&impfd) {
+                if let IPCTableEntry::Pipe(ref pipe_entry) = *IPC_TABLE.get(&entry.underfd).unwrap() {
                     //impipe_entry.perfdinfo as i32 & O_RDONLY != 0
-                    // if entry.perfdinfo as i32 & O_RDONLY != 0 {
-                    //     if pipe_entry.pipe.check_select_read() {
-                    //         return_code = return_code + 1;
-                    //         let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
-                    //         r_pollstruct.revents = libc::POLLIN;
-                    //     } 
+                    if entry.perfdinfo as i32 & O_RDONLY != 0 {
+                        if pipe_entry.pipe.check_select_read() {
+                            return_code = return_code + 1;
+                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                            r_pollstruct.revents = libc::POLLIN;
+                        } 
                         
-                    // } else {
-                    //     //impipe_entry.perfdinfo as i32 & O_WRONLY != 0
-                    //     if pipe_entry.pipe.check_select_write() {
-                    //         return_code = return_code + 1;
-                    //         let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
-                    //         r_pollstruct.revents = libc::POLLOUT;
-                    //     }
+                    } else {
+                        //impipe_entry.perfdinfo as i32 & O_WRONLY != 0
+                        if pipe_entry.pipe.check_select_write() {
+                            return_code = return_code + 1;
+                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                            r_pollstruct.revents = libc::POLLOUT;
+                        }
                         
-                    // }
+                    }
                 }
             }
 
