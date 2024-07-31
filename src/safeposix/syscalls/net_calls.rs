@@ -950,28 +950,28 @@ impl Cage {
         loop {
             for (fdkind_flag, entry) in unparsedtables[0].iter() {
                 if *fdkind_flag == FDKIND_IMPIPE {
-                    let res = self.select_impipe_read(fdkind_flag, entry, &mut unreal_read, &mut return_code, mappingtable);
+                    let res = self.select_impipe_read(fdkind_flag, entry, &mut unreal_read, &mut return_code, mappingtable.clone());
                     if res != 0 {
-                        return res;
+                        return syscall_error(Errno::EINVAL, "select", "");
                     }
                 } else if *fdkind_flag == FDKIND_IMSOCK {
-                    let res = self.select_imsock_read(fdkind_flag, entry, &mut unreal_read, &mut return_code, mappingtable);
+                    let res = self.select_imsock_read(fdkind_flag, entry, &mut unreal_read, &mut return_code, mappingtable.clone());
                     if res != 0 {
-                        return res;
+                        return syscall_error(Errno::EINVAL, "select", "");
                     }
                 }
             }
 
             for (fdkind_flag, entry) in unparsedtables[1].iter() {
                 if *fdkind_flag == FDKIND_IMPIPE {
-                    let res = self.select_impipe_write(fdkind_flag, entry, &mut unreal_write, &mut return_code, mappingtable);
+                    let res = self.select_impipe_write(fdkind_flag, entry, &mut unreal_write, &mut return_code, mappingtable.clone());
                     if res != 0 {
-                        return res;
+                        return syscall_error(Errno::EINVAL, "select", "");
                     }
                 } else if *fdkind_flag == FDKIND_IMSOCK {
                     let res = self.select_imsock_write(entry);
                     if res != 0 {
-                        return res;
+                        return syscall_error(Errno::EINVAL, "select", "");
                     }
                 }
             }
