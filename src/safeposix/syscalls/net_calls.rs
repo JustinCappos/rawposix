@@ -1037,7 +1037,7 @@ impl Cage {
 
     pub fn select_impipe_read(
         &self, 
-        fdkind_flag: &u32,
+        fdkind: &u32,
         entry: &HashSet<FDTableEntry>, 
         unreal_read: &mut HashSet<u64>, 
         return_code: &mut i32,
@@ -1048,7 +1048,7 @@ impl Cage {
                 if impipe_entry.perfdinfo as i32 & O_RDONLY != 0 {
                     if pipe_entry.pipe.check_select_read() {
                         *return_code += 1;
-                        match mappingtable.get(&(*fdkind_flag, impipe_entry.underfd)) {
+                        match mappingtable.get(&(*fdkind, impipe_entry.underfd)) {
                             Some(&virfd) => unreal_read.insert(virfd),
                             None => return syscall_error(Errno::EBADFD, "select", "impipe")
                         };
@@ -1061,50 +1061,45 @@ impl Cage {
 
     pub fn select_imsock_read(
         &self, 
-        fdkind_flag: &u32,
+        fdkind: &u32,
         entry: &HashSet<FDTableEntry>, 
         unreal_read: &mut HashSet<u64>, 
         return_code: &mut i32,
         mappingtable: HashMap<(u32, u64), u64>,
     ) -> i32 {
-        let mut newconnection = false;
         for imsock_entry in entry {
-            if let IPCTableEntry::DomainSocket(ref sock_entry) = *IPC_TABLE.get(&imsock_entry.underfd).unwrap() {
-                if sock_entry.domain != net_constants::AF_UNIX {
-                    return syscall_error(Errno::EACCES, "select", "");
+            if let IPCTableEntry::DomainSocket(ref mut sock_entry) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+                match sock_entry.state {
+                    ConnState::INPROGRESS => {
+                        let remotepathstring = CString::new(sock_entry.remoteaddr.unwrap().path()).unwrap();
+                        let dsconnobj = DS_CONNECTION_TABLE.get(&remotepathstring);
+                        if dsconnobj.is_none() {
+                        sock_entry.state = ConnState::CONNECTED;
+                        }
+                    },
+                    ConnState::LISTEN => {
+                        let localpathstring = CString::new(sock_entry.localaddr.unwrap().path()).unwrap();
+                        let dsconnobj = DS_CONNECTION_TABLE.get(&localpathstring);
+                        if dsconnobj.is_some() {
+                            match mappingtable.get(&(*fdkind, imsock_entry.underfd)) {
+                                Some(&virfd) => unreal_read.insert(virfd),
+                                None => return syscall_error(Errno::EINVAL, "select", "invalid operation")
+                            };
+                            *return_code += 1;
+                        }
+                    },
+                    ConnState::CONNECTED | ConnState::CONNRDONLY => {
+                        let receivepipe = sock_entry.receivepipe.as_ref().unwrap();
+                        if receivepipe.check_select_read() {
+                            match mappingtable.get(&(*fdkind, imsock_entry.underfd)) {
+                                Some(&virfd) => unreal_read.insert(virfd),
+                                None => return syscall_error(Errno::EINVAL, "select", "invalid operation")
+                            };
+                            *return_code += 1;
+                        }
+                    },
+                    _ => {}
                 }
-                if sock_entry.state == ConnState::INPROGRESS {
-                    let remotepathstring = CString::new(sock_entry.remoteaddr.unwrap().path()).unwrap();
-                    let dsconnobj = DS_CONNECTION_TABLE.get(&remotepathstring);
-                    if dsconnobj.is_none() {
-                        newconnection = true;
-                    }
-                }
-                if sock_entry.state == ConnState::LISTEN {
-                    let localpathstring = CString::new(sock_entry.localaddr.unwrap().path()).unwrap();
-                    let dsconnobj = DS_CONNECTION_TABLE.get(&localpathstring);
-                    if dsconnobj.is_some() {
-                        match mappingtable.get(&(*fdkind_flag, imsock_entry.underfd)) {
-                            Some(&virfd) => unreal_read.insert(virfd),
-                            None => return syscall_error(Errno::EINVAL, "select", "invalid operation")
-                        };
-                        *return_code += 1;
-                    }
-                } else if sock_entry.state == ConnState::CONNECTED || newconnection {
-                    let receivepipe = sock_entry.receivepipe.as_ref().unwrap();
-                    if receivepipe.check_select_read() {
-                        match mappingtable.get(&(*fdkind_flag, imsock_entry.underfd)) {
-                            Some(&virfd) => unreal_read.insert(virfd),
-                            None => return syscall_error(Errno::EINVAL, "select", "invalid operation")
-                        };
-                        *return_code += 1;
-                    }
-                }
-                //???
-                // if newconnection {
-                //     let mut sock_tmp = *sock_entry.clone();
-                //     sock_entry.state = ConnState::CONNECTED;
-                // }
             }
         }
         0
@@ -1112,7 +1107,7 @@ impl Cage {
 
     pub fn select_impipe_write(
         &self, 
-        fdkind_flag: &u32,
+        fdkind: &u32,
         entry: &HashSet<FDTableEntry>, 
         unreal_write: &mut HashSet<u64>, 
         return_code: &mut i32,
@@ -1123,7 +1118,7 @@ impl Cage {
                 if impipe_entry.perfdinfo as i32 & O_WRONLY != 0 {
                     if pipe_entry.pipe.check_select_write() {
                         *return_code += 1;
-                        match mappingtable.get(&(*fdkind_flag, impipe_entry.underfd)) {
+                        match mappingtable.get(&(*fdkind, impipe_entry.underfd)) {
                             Some(&virfd) => unreal_write.insert(virfd),
                             None => return syscall_error(Errno::EBADFD, "select", "impipe")
                         };
@@ -1139,14 +1134,13 @@ impl Cage {
         &self, 
         entry: &HashSet<FDTableEntry>, 
     ) -> i32 {
-        let mut newconnection = false;
         for imsock_entry in entry {
-            if let IPCTableEntry::DomainSocket(ref sock_entry) = *IPC_TABLE.get(&imsock_entry.underfd).unwrap() {
-                if sock_entry.state == ConnState::INPROGRESS {
+            if let IPCTableEntry::DomainSocket(ref mut sock_entry) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+                if sock_entry.state == ConnState::INPROGRESS || sock_entry.state == ConnState::CONNWRONLY { // and writeonly
                     let remotepathstring = CString::new(sock_entry.remoteaddr.unwrap().path()).unwrap();
                     let dsconnobj = DS_CONNECTION_TABLE.get(&remotepathstring);
                     if dsconnobj.is_none() {
-                        newconnection = true;
+                        sock_entry.state == ConnState::CONNECTED;
                     }
                 }
             }
@@ -1388,16 +1382,14 @@ impl Cage {
                         
                         return ret;
                     }
-                }
-
-                FDKIND_IMPIPE => {
+                },
+                FDKIND_IMPIPE | FDKIND_IMSOCK => {
                     let mut impipe_vec: Vec<(u64, fdtables::FDTableEntry)> = Vec::new();
                     for (virtfd, entry) in fdtuple {
                         impipe_vec.push((virtfd, entry.clone()));
                     }
-                    return self.poll_impipe(virtual_fds, impipe_vec, timeout);
-                }
-
+                    return self.poll_impipeds(virtual_fds, impipe_vec, timeout);
+                },
                 _ => {
                     /*TODO 
                         Need to confirm the error num (we could add fdkind specific error..? eg: EFDKIND)
@@ -1422,7 +1414,7 @@ impl Cage {
         }
     }
 
-    pub fn poll_impipe(&self, virtual_fds: &mut [PollStruct], impvec: Vec<(u64, fdtables::FDTableEntry)>, timeout: i32) -> i32 {
+    pub fn poll_impipeds(&self, virtual_fds: &mut [PollStruct], impvec: Vec<(u64, fdtables::FDTableEntry)>, timeout: i32) -> i32 {
         let start_time = starttimer();
         let r_timeout = if timeout >= 0 {
             Some(RustDuration::from_millis(
@@ -1441,23 +1433,51 @@ impl Cage {
 
         loop {
             for (impfd, entry) in impvec.iter() {
-                if let IPCTableEntry::Pipe(ref pipe_entry) = *IPC_TABLE.get(&entry.underfd).unwrap() {
-                    //impipe_entry.perfdinfo as i32 & O_RDONLY != 0
-                    if entry.perfdinfo as i32 & O_RDONLY != 0 {
-                        if pipe_entry.pipe.check_select_read() {
-                            return_code = return_code + 1;
-                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
-                            r_pollstruct.revents = libc::POLLIN;
-                        } 
-                        
-                    } else {
-                        //impipe_entry.perfdinfo as i32 & O_WRONLY != 0
-                        if pipe_entry.pipe.check_select_write() {
-                            return_code = return_code + 1;
-                            let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
-                            r_pollstruct.revents = libc::POLLOUT;
+                match *IPC_TABLE.get_mut(&entry.underfd).unwrap() {
+                    IPCTableEntry::Pipe(ref pipe_entry) => {
+                        if entry.perfdinfo as i32 & O_RDONLY != 0 {
+                            if pipe_entry.pipe.check_select_read() {
+                                return_code = return_code + 1;
+                                let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                                r_pollstruct.revents = net_constants::POLLIN;
+                            } 
+                            
+                        } else if entry.perfdinfo as i32 & O_WRONLY != 0 { 
+                            if pipe_entry.pipe.check_select_write() {
+                                return_code = return_code + 1;
+                                let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                                r_pollstruct.revents = net_constants::POLLOUT;
+                            }
+                        } else { return syscall_error(Errno::EINVAL, "poll", "invalid"); }
+                    },
+                    IPCTableEntry::DomainSocket(ref mut sock_entry) => {
+                        match sock_entry.state {
+                            ConnState::INPROGRESS | ConnState::CONNWRONLY => {
+                                let remotepathstring = CString::new(sock_entry.remoteaddr.unwrap().path()).unwrap();
+                                let dsconnobj = DS_CONNECTION_TABLE.get(&remotepathstring);
+                                if dsconnobj.is_none() {
+                                sock_entry.state = ConnState::CONNECTED;
+                                }
+                            },
+                            ConnState::LISTEN => {
+                                let localpathstring = CString::new(sock_entry.localaddr.unwrap().path()).unwrap();
+                                let dsconnobj = DS_CONNECTION_TABLE.get(&localpathstring);
+                                if dsconnobj.is_some() {
+                                    let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                                    r_pollstruct.revents = net_constants::POLLIN;
+                                    return_code += 1;
+                                }
+                            },
+                            ConnState::CONNECTED | ConnState::CONNRDONLY => {
+                                let receivepipe = sock_entry.receivepipe.as_ref().unwrap();
+                                if receivepipe.check_select_read() {
+                                    let r_pollstruct = virtual_fds.iter_mut().find(|rps| rps.fd == *impfd as i32).unwrap();
+                                    r_pollstruct.revents = net_constants::POLLOUT;
+                                    return_code += 1;
+                                }
+                            },
+                            _ => {}
                         }
-                        
                     }
                 }
             }
