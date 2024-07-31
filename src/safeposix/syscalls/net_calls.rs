@@ -1140,7 +1140,7 @@ impl Cage {
                     let remotepathstring = CString::new(sock_entry.remoteaddr.unwrap().path()).unwrap();
                     let dsconnobj = DS_CONNECTION_TABLE.get(&remotepathstring);
                     if dsconnobj.is_none() {
-                        sock_entry.state == ConnState::CONNECTED;
+                        sock_entry.state = ConnState::CONNECTED;
                     }
                 }
             }
