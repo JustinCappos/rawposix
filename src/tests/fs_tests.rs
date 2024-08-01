@@ -16,7 +16,7 @@ pub mod fs_tests {
     use std::ptr;
     use libc::*;
     use std::ffi::CStr;
-    use crate::example_grates::translate_virtual_fd;
+    // use crate::example_grates::translate_virtual_fd;
 
     use crate::tests::fs_tests::fs_tests::shm::SHM_METADATA;
     use crate::interface::StatData;
@@ -26,7 +26,7 @@ pub mod fs_tests {
 
     pub fn test_fs() {
         // ut_lind_fs_open();
-        // ut_lind_fs_fork();
+        ut_lind_fs_fork();
         // ut_lind_fs_simple(); // has to go first, else the data files created screw with link count test
         // rdwrtest();
 
@@ -117,42 +117,42 @@ pub mod fs_tests {
     //     lindrustfinalize();
     // }
 
-    // pub fn ut_lind_fs_fork() {
-    //     lindrustinit(0);
-    //     let cage = interface::cagetable_getref(1);
+    pub fn ut_lind_fs_fork() {
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
         
-    //     // Fork child process
-    //     assert_eq!(cage.fork_syscall(2), 0);
-    //     // Child process
-    //     let thread_child = interface::helper_thread(move || {
-    //         interface::sleep(interface::RustDuration::from_millis(500));
-    //         let cage1 = interface::cagetable_getref(2);
-    //         let fd1 = cage1.open_syscall("/foobar", O_RDWR, S_LIND);
-    //         assert_eq!(cage1.lseek_syscall(fd1, 5, SEEK_SET), 5);
-    //         assert_eq!(cage1.write_syscall(fd1, str2cbuf(" world"), 6), 6);
-    //         assert_eq!(cage1.lseek_syscall(fd1, 0, SEEK_SET), 0);
-    //         let mut read_buf2 = sizecbuf(12);
-    //         assert_eq!(cage1.read_syscall(fd1, read_buf2.as_mut_ptr(), 12), 12);
-    //         assert_eq!(cbuf2str(&read_buf2), "hello world!");
-    //         cage1.exit_syscall(libc::EXIT_SUCCESS);
-    //     });
-    //     //Parent processes
-    //     let thread_parent = interface::helper_thread(move || {
-    //         let fd = cage.open_syscall("/foobar", O_CREAT | O_RDWR, S_LIND);
-    //         assert!(fd >= 0);
-    //         assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
+        // Fork child process
+        assert_eq!(cage.fork_syscall(2), 0);
+        // Child process
+        let thread_child = interface::helper_thread(move || {
+            interface::sleep(interface::RustDuration::from_millis(500));
+            let cage1 = interface::cagetable_getref(2);
+            let fd1 = cage1.open_syscall("/foobar", O_RDWR, S_LIND);
+            assert_eq!(cage1.lseek_syscall(fd1, 5, SEEK_SET), 5);
+            assert_eq!(cage1.write_syscall(fd1, str2cbuf(" world"), 6), 6);
+            assert_eq!(cage1.lseek_syscall(fd1, 0, SEEK_SET), 0);
+            let mut read_buf2 = sizecbuf(12);
+            assert_eq!(cage1.read_syscall(fd1, read_buf2.as_mut_ptr(), 12), 12);
+            assert_eq!(cbuf2str(&read_buf2), "hello world!");
+            cage1.exit_syscall(libc::EXIT_SUCCESS);
+        });
+        //Parent processes
+        let thread_parent = interface::helper_thread(move || {
+            let fd = cage.open_syscall("/foobar", O_CREAT | O_RDWR, S_LIND);
+            assert!(fd >= 0);
+            assert_eq!(cage.write_syscall(fd, str2cbuf("hello there!"), 12), 12);
 
-    //         assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
-    //         let mut read_buf1 = sizecbuf(5);
-    //         assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
-    //         assert_eq!(cbuf2str(&read_buf1), "hello");
-    //         // interface::sleep(interface::RustDuration::from_millis(1000));
-    //         cage.exit_syscall(libc::EXIT_SUCCESS);
-    //     });
-    //     thread_child.join().unwrap();
-    //     thread_parent.join().unwrap();
-    //     lindrustfinalize();
-    // }
+            assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
+            let mut read_buf1 = sizecbuf(5);
+            assert_eq!(cage.read_syscall(fd, read_buf1.as_mut_ptr(), 5), 5);
+            assert_eq!(cbuf2str(&read_buf1), "hello");
+            // interface::sleep(interface::RustDuration::from_millis(1000));
+            cage.exit_syscall(libc::EXIT_SUCCESS);
+        });
+        thread_child.join().unwrap();
+        thread_parent.join().unwrap();
+        lindrustfinalize();
+    }
 
     // pub fn ut_lind_fs_simple() {
     //     lindrustinit(0);
