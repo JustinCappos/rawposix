@@ -43,19 +43,19 @@ pub const PIPE_CAPACITY: usize = 65536;
 // pub const DEFAULTTIME: u64 = 1323630836;
 
 // //Standard flag combinations
-// pub const S_IRWXA: u32 = 0o777;
-// pub const S_IRWXU: u32 = 0o700;
-// pub const S_IRUSR: u32 = 0o400;
-// pub const S_IWUSR: u32 = 0o200;
-// pub const S_IXUSR: u32 = 0o100;
-// pub const S_IRWXG: u32 = 0o070;
-// pub const S_IRGRP: u32 = 0o040;
-// pub const S_IWGRP: u32 = 0o020;
-// pub const S_IXGRP: u32 = 0o010;
-// pub const S_IRWXO: u32 = 0o007;
-// pub const S_IROTH: u32 = 0o004;
-// pub const S_IWOTH: u32 = 0o002;
-// pub const S_IXOTH: u32 = 0o001;
+pub const S_IRWXA: u32 = 0o777;
+pub const S_IRWXU: u32 = 0o700;
+pub const S_IRUSR: u32 = 0o400;
+pub const S_IWUSR: u32 = 0o200;
+pub const S_IXUSR: u32 = 0o100;
+pub const S_IRWXG: u32 = 0o070;
+pub const S_IRGRP: u32 = 0o040;
+pub const S_IWGRP: u32 = 0o020;
+pub const S_IXGRP: u32 = 0o010;
+pub const S_IRWXO: u32 = 0o007;
+pub const S_IROTH: u32 = 0o004;
+pub const S_IWOTH: u32 = 0o002;
+pub const S_IXOTH: u32 = 0o001;
 
 // //Commands for FCNTL
 // pub const F_DUPFD: i32 = 0;
