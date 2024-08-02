@@ -258,7 +258,6 @@ pub fn remove_cage_from_fdtable(cageid: u64) {
 
     // Take only the Some items in here (clippy suggested)
     for entry in myfdrow.into_iter().flatten() {
-        println!("fdtableentry: {:?}", myfdrow);
         _decrement_fdcount(*entry);
     }
 
