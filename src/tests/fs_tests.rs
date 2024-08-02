@@ -287,9 +287,9 @@ pub mod fs_tests {
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
         let filepath = "/chmodTestFile2";
         let mut statdata = StatData::default();
-        let fd = cage.open_syscall(filepath, flags, S_IRWXA);
+        let fd = cage.open_syscall(filepath, flags, 0o755);
         assert_eq!(cage.stat_syscall(filepath, &mut statdata), 0);
-        assert_eq!(statdata.st_mode, S_IRWXA | S_IFREG as u32);
+        assert_eq!(statdata.st_mode, 0o755 | S_IFREG as u32);
         //0o7777 is an arbitrary value that does not correspond to any combination of
         // valid mode bits
         assert_eq!(
