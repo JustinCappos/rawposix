@@ -644,6 +644,9 @@ impl Cage {
     *   Then return virtual fd
     */
     pub fn dup_syscall(&self, virtual_fd: i32, _start_desc: Option<i32>) -> i32 {
+        if virtual_fd < 0 {
+            return syscall_error(Errno::EBADFD, "dup", "Bad File Descriptor");
+        }
         let wrappedvfd = fdtables::translate_virtual_fd(self.cageid, virtual_fd as u64);
         if wrappedvfd.is_err() {
             return syscall_error(Errno::EBADF, "dup", "Bad File Descriptor");
