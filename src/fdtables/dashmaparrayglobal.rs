@@ -387,6 +387,8 @@ fn _decrement_fdcount(entry:FDTableEntry) {
 
     let mytuple = (entry.fdkind, entry.underfd);
 
+    println!("[FDTables] mytuple: {:?}", mytuple);
+    
     let newcount:u64 = FDCOUNT.get(&mytuple).unwrap().value() - 1;
 
     let intermediatech;

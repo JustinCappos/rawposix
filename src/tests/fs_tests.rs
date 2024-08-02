@@ -186,6 +186,8 @@ pub mod fs_tests {
         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
         assert_eq!(cage.close_syscall(fd), 0);
 
+        println!("after close2");
+
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
     }
