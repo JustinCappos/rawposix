@@ -333,9 +333,10 @@ pub mod fs_tests {
         //correctly results in `The value of the mode argument is invalid` error
         //0o7777 is an arbitrary value that does not correspond to any combination of
         // valid mode bits or supported file types
+        /* The extra bits are special permission bits in native linux */
         assert_eq!(
             cage.fchmod_syscall(fd, 0o7777 as u32),
-            -(Errno::EINVAL as i32)
+            0
         );
 
         //checking if passing an invalid file descriptor to `fchmod_syscall` correctly
