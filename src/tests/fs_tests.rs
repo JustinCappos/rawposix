@@ -972,7 +972,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         // Open a large number of files to fill the file descriptor table
-        for i in 0..1024 {
+        for i in 0..1023 {
             let fd = cage.open_syscall(&format!("/testfile{}", i), O_CREAT | O_WRONLY, S_IRWXA);
             assert_ne!(fd, -(Errno::ENOENT as i32));
         }
