@@ -75,6 +75,12 @@ impl Cage {
         return fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, false, 0).unwrap() as i32;
     }
 
+    /* 
+     *   Creates a new virtual fd and in memory socket
+     *   Then return virtual fd
+     *
+     *   returns ENFILE if pipe limit is reached, otherwise returns virtualfd
+     */
     pub fn socket_impipe_syscall(&self, domain: i32, socktype: i32, protocol: i32) -> i32 {
         match protocol {
             libc::IPPROTO_UDP => {
@@ -84,9 +90,13 @@ impl Cage {
                 
                 let should_cloexec = socktype & O_CLOEXEC != 0;
 
-                let ipcentry = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666).unwrap();
+                let ipcentry = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666);
 
-                return fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, ipcentry, should_cloexec, socktype as u64).unwrap() as i32;
+                if ipcentry.is_none() {
+                    return syscall_error(Errno::ENFILE, "socket", "Open pipe limit reached");
+                }
+
+                return fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, ipcentry.unwrap(), should_cloexec, socktype as u64).unwrap() as i32;
 
             }
             _ => {
@@ -171,6 +181,11 @@ impl Cage {
         }
     }
 
+    /* 
+     *   Binds IM socket to provided address
+     *   only supported for tcp unix sockets
+     *   bind() will return 0 when success and -1 when fail
+     */
     pub fn bind_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, addr: &GenSockaddr) -> i32 {
         if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
             match sockhandle.protocol {
@@ -178,6 +193,7 @@ impl Cage {
                     return syscall_error(Errno::EOPNOTSUPP, "bind", "UDP not supported for unix")
                 }
                 libc::IPPROTO_TCP => {
+                    // bind address to the sockhandles local address
                     sockhandle.localaddr = Some(addr.clone());
                 }
                 _ => {
@@ -193,6 +209,8 @@ impl Cage {
             let full_path = format!("{}{}", LIND_ROOT, relative_path);
             let localpathbuf = CString::new(full_path).unwrap();
 
+            // insert our path into the bound sockets list
+            // we can only connect with a bound socket
             BOUND_SOCKETS.insert(localpathbuf);
 
             0
@@ -268,6 +286,13 @@ impl Cage {
         }
     }
 
+    /*  
+     *   Attempts to connect a client IM socket to a listening server
+     *   
+     *   connect() will return 0 when success and -1 on failure
+     *   will error with ENOENT if socket is not bound
+     *   or EINPROGRESS if connection in non blocking
+     */
     pub fn connect_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, addr: &GenSockaddr) -> i32 {
         if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
             match sockhandle.protocol {
@@ -280,18 +305,22 @@ impl Cage {
                     let full_path = format!("{}{}", LIND_ROOT, relative_path);
                     let localpathbuf = CString::new(full_path).unwrap();
 
+                    // if we're not already bound with our local address we error
                     let isbound = BOUND_SOCKETS.get(&localpathbuf);
                     if isbound.is_none() {
                         return syscall_error(Errno::ENOENT, "connect", "not valid unix domain path");
                     }
 
-                    sockhandle.remoteaddr = Some(addr.clone());
+                    // create a pipe for each direction of the 2-way socket connection
                     let pipe1 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
                     let pipe2 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
     
+                    // set one pipe as this sockets send pipe, and others receive pipe
+                    // these will be reversed on the paired socket via accept()
                     let _ = sockhandle.sendpipe.insert(pipe1.clone());
                     let _ = sockhandle.receivepipe.insert(pipe2.clone());
 
+                    // if were blocking, lets create a Condvar to block on
                     let connvar = if imsock_entry.perfdinfo as i32 & O_NONBLOCK == 0 {
                         Some(Arc::new(ConnCondVar::new()))
                     } else {
@@ -300,19 +329,27 @@ impl Cage {
 
                     let connentry = DSConnTableEntry {
                         sockaddr: sockhandle.localaddr.unwrap().clone(),
-                        receive_pipe: Some(pipe1.clone()).unwrap(),
+                        receive_pipe: Some(pipe1.clone()).unwrap(), // reverse these for accept
                         send_pipe: Some(pipe2.clone()).unwrap(),
                         cond_var: connvar.clone(),
                     };
 
+                    // insert our entry into the connection table for accept()
                     DS_CONNECTION_TABLE.insert(CString::new(addr.path()).unwrap(), connentry);
 
-                    if imsock_entry.perfdinfo as i32 & O_NONBLOCK == 0 {
-                        sockhandle.state = ConnState::INPROGRESS;
-                        connvar.unwrap().wait();
-                    }
+                    // set remote address
+                    sockhandle.remoteaddr = Some(addr.clone());
 
-                    sockhandle.state = ConnState::CONNECTED;
+                    if imsock_entry.perfdinfo as i32 & O_NONBLOCK == 0 {
+                        // if were blocking wait on the conditional variable for an accept, then set state to connected
+                        connvar.unwrap().wait();
+                        sockhandle.state = ConnState::CONNECTED;
+                    } else {
+                        // if were nonblocking, just set state to in progress and return errno
+                        // TODO handle setting to connected
+                        sockhandle.state = ConnState::INPROGRESS;
+                        return syscall_error(Errno::EINPROGRESS, "connect", "Connection in progress");
+                    }
                 }
                 _ => {
                     return syscall_error(
@@ -436,6 +473,14 @@ impl Cage {
         }
     }
 
+    /*  
+     *   Attempts to send over IM socekt
+     *   send() will return the number of bytes sent, and -1 on failure
+     *   returns ENOTCONN if socket is not connected for writing
+     *   EAGAIN if the socket is nonblocking and cannot write
+     *   or EPIPE if the socket tries to write to a closed end
+     *   this is accompanied by SIGPIPE
+     */
     pub fn send_impipe_syscall(&self,  imsock_entry: fdtables::FDTableEntry, buf: *const u8, buflen: usize, _flags: i32) -> i32 {
         if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
             match sockhandle.protocol {
@@ -453,6 +498,7 @@ impl Cage {
                         );
                     }
 
+                    // check blocking flags from perfdinfo
                     let nonblocking = imsock_entry.perfdinfo as i32 & O_NONBLOCK != 0;
 
                     let ret = match sockhandle.sendpipe.as_ref() {
@@ -556,6 +602,13 @@ impl Cage {
         }
     }
 
+    /*  
+     *   Attempt to receive on an IM socket
+     *   returns bytes received upon success
+     *   on failure -1 is returned with errnos:
+     *   ENOTCONN if socket is not connected for receiving
+     *   EAGAIN if socket is nonblocking and no data is available
+     */
     pub fn recv_impipe_syscall(&self,  imsock_entry: fdtables::FDTableEntry, buf: *mut u8, len: usize, _flags: i32) -> i32 {
         if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
             match sockhandle.protocol {
@@ -572,6 +625,7 @@ impl Cage {
                         );
                     }
 
+                    // get blocking flags from perfdinfo
                     let nonblocking = imsock_entry.perfdinfo as i32 & O_NONBLOCK != 0;
 
                     match sockhandle.receivepipe.as_ref() {
@@ -619,6 +673,11 @@ impl Cage {
         }
     }
 
+    /*  
+     *   Set a not connected IM socket for listening
+     *   listen() will return 0 when success and -1 when fail
+     *   Will return ENOTSUPPORT if trying to listen on a socket thats already connected
+     */
     pub fn listen_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, _backlog: i32) -> i32 {
         if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
             match sockhandle.protocol {
@@ -629,8 +688,7 @@ impl Cage {
                     match sockhandle.state {
                         ConnState::LISTEN => {
                             return 0; //Already done!
-                        }
-        
+                        },
                         ConnState::CONNECTED
                         | ConnState::CONNRDONLY
                         | ConnState::CONNWRONLY
@@ -639,10 +697,9 @@ impl Cage {
                             return syscall_error(
                                 Errno::EOPNOTSUPP,
                                 "listen",
-                                "We don't support closing a prior socket connection on listen",
+                                "We don't support changing a prior connection to listen",
                             );
-                        }
-        
+                        },
                         ConnState::NOTCONNECTED => {
                             sockhandle.state = ConnState::LISTEN;
                             return 0;
@@ -671,14 +728,78 @@ impl Cage {
         }
         let vfd = wrappedvfd.unwrap();
 
-        let ret = unsafe { libc::shutdown(vfd.underfd as i32, how) };
+        if vfd.fdkind == FDKIND_IMSOCK {
+            self.shutdown_impipe_syscall(vfd, how)
+        } else {
 
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "bind");
+            let ret = unsafe { libc::shutdown(vfd.underfd as i32, how) };
+
+            if ret < 0 {
+                let errno = get_errno();
+                return handle_errno(errno, "bind");
+            }
+
+            ret
         }
+    }
 
-        ret
+    /*  
+     *   Call shutdown on IM Socket to fully or partially shutdown connection
+     *   shutdown() will return 0 when success and -1 when fail with
+     *   EINVAL with invalid how value
+     */
+    pub fn shutdown_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, how: i32) -> i32 {
+        if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
+            match sockhandle.protocol {
+                libc::IPPROTO_UDP => {
+                    return syscall_error(Errno::EOPNOTSUPP, "accept", "UDP not supported for unix")
+                }
+                libc::IPPROTO_TCP => {
+                    match how {
+                        libc::SHUT_WR => {
+                            match sockhandle.state {
+                                ConnState::LISTEN => (), // nothing happens for WR on listening socket
+                                ConnState::CONNECTED | ConnState::CONNRDONLY => {
+                                    sockhandle.state = ConnState::CONNRDONLY; // sockhandle becomes or stays RDONLY
+                                }
+                                _ => { // WRONLY, INPROGRESS, NOTCONNECTED, DISCONNECTED become disconnected
+                                    sockhandle.state = ConnState::DISCONNECTED;
+                                }
+                            }
+                        }
+                        libc::SHUT_RD => {
+                            match sockhandle.state {
+                                ConnState::CONNECTED | ConnState::CONNWRONLY => {
+                                    sockhandle.state = ConnState::CONNWRONLY; // sockhandle becomes or stays WRONLY
+                                }
+                                _ => { // LISTEN, RDONLY, INPROGRESS, NOTCONNECTED, DISCONNECTED become/stay disconnected
+                                    sockhandle.state = ConnState::DISCONNECTED;
+                                }
+                            }
+                        }
+                        libc::SHUT_RDWR => {
+                            sockhandle.state = ConnState::DISCONNECTED;
+                        }
+                        _ => {
+                            //See http://linux.die.net/man/2/shutdown for nuance to this error
+                            return syscall_error(
+                                Errno::EINVAL,
+                                "shutdown",
+                                "the shutdown how argument passed is not supported",
+                            );
+                        }
+                    }
+                    0 // success
+                }
+                _ => {
+                    return syscall_error(
+                        Errno::EOPNOTSUPP,
+                        "shutdown",
+                        "Unknown protocol in connect",
+                    )
+                }
+            }
+        } else { return syscall_error(Errno::EBADF, "shutdown", "Bad File Descriptor"); }
     }
 
     /*  
@@ -762,6 +883,13 @@ impl Cage {
             ret_virtualfd as i32
         }
     }
+
+    /*  
+    *  Call accept on IM socket
+    *  Returns new accepted socket on succes or -1 on failure with
+    *  EINVAL if server socket isn't listening
+    *  EAGAIN if accept is non-blocking and connection isn't available
+    */
     pub fn accept_impipe_syscall(&self, imsock_entry: fdtables::FDTableEntry, addr: &mut Option<&mut GenSockaddr>) -> i32 {
         if let IPCTableEntry::DomainSocket(ref mut sockhandle) = *IPC_TABLE.get_mut(&imsock_entry.underfd).unwrap() {
             match sockhandle.protocol {
@@ -781,6 +909,7 @@ impl Cage {
                     let sendpipe;
                     let receivepipe;
 
+                    // lets loop to accept the connection for blocking, if we're nonblocking we'll exit quickly
                     loop {
 
                         let relpath = normpath(convpath(sockhandle.localaddr.unwrap().path()), self);
@@ -788,6 +917,7 @@ impl Cage {
                         let full_path = format!("{}{}", LIND_ROOT, relative_path);
                         let localpathbuf = CString::new(full_path).unwrap();
 
+                        // check the connection table for connections on the localaddr
                         let dsconnobj = DS_CONNECTION_TABLE.get(&localpathbuf);
     
                         if let Some(ds) = dsconnobj {
@@ -803,9 +933,11 @@ impl Cage {
                                 }
                             }
                             remote_addr = ds.sockaddr.clone();
+                            // we've already swapped these from the connecting socket so just set them in the sockhandle
                             receivepipe = ds.receive_pipe.clone();
                             sendpipe = ds.send_pipe.clone();
                             drop(ds);
+                            // remove from the table since we are now connected
                             DS_CONNECTION_TABLE.remove(&localpathbuf);
                             break;
                         } else {
@@ -820,9 +952,17 @@ impl Cage {
                         }
                     }
 
+                    // create new sockhandle for accepted fd
                     let should_cloexec = sockhandle.socktype & O_CLOEXEC != 0;
-                    let newipcentry = insert_next_sockhandle(sockhandle.domain, sockhandle.socktype, sockhandle.protocol, S_IFSOCK as i32 | 0o666).unwrap();
+                    let wrappednewipcentry = insert_next_sockhandle(sockhandle.domain, sockhandle.socktype, sockhandle.protocol, S_IFSOCK as i32 | 0o666);
 
+                    if wrappednewipcentry.is_none() {
+                        return syscall_error(Errno::ENFILE, "socket", "Open pipe limit reached");
+                    }
+
+                    let newipcentry = wrappednewipcentry.unwrap();
+
+                    // and populate the sockethandle with addresses, state, and pipes
                     if let IPCTableEntry::DomainSocket(ref mut newsockhandle) = *IPC_TABLE.get_mut(&newipcentry).unwrap() {
                         newsockhandle.localaddr = Some(sockhandle.localaddr.unwrap().clone());
                         newsockhandle.remoteaddr = Some(remote_addr.clone());
@@ -850,7 +990,7 @@ impl Cage {
                     )
                 }
             }
-        } else { return syscall_error(Errno::EBADF, "listen", "Bad File Descriptor"); }
+        } else { return syscall_error(Errno::EBADF, "accept", "Bad File Descriptor"); }
     }
 
     /* 
@@ -1691,6 +1831,11 @@ impl Cage {
         return 0;
     }
 
+    /*  
+     *  Return a paired set of IM sockets
+     *   socketpair() will return 0 when success and -1 on failure
+     *   returns ENFILE if there are no available pipes
+     */
     pub fn socketpair_impipe_syscall(
         &self,
         domain: i32,
@@ -1707,12 +1852,21 @@ impl Cage {
                 let should_cloexec = socktype & O_CLOEXEC != 0;
 
 
-                let socketidx1 = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666).unwrap();
-                let socketidx2 = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666).unwrap();
+                // create a sockhandle for each socket
+                let wrappedsocketidx1 = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666);
+                let wrappedsocketidx2 = insert_next_sockhandle(domain, socktype, protocol, S_IFSOCK as i32 | 0o666);
+
+                if wrappedsocketidx1.is_none() || wrappedsocketidx2.is_none() {
+                    return syscall_error(Errno::ENFILE, "socketpair", "Open pipe limit reached");
+                }
+
+                let socketidx1 = wrappedsocketidx1.unwrap();
+                let socketidx2 = wrappedsocketidx2.unwrap();
 
                 let pipe1 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
                 let pipe2 = Arc::new(IMPipe::new_with_capacity(UDSOCK_CAPACITY));
 
+                // now insert two pipes into each, swapping which is send and which is receive
                 if let IPCTableEntry::DomainSocket(ref mut sockhandle1) = *IPC_TABLE.get_mut(&socketidx1).unwrap() {
                     let _ = sockhandle1.sendpipe.insert(pipe1.clone());
                     let _ = sockhandle1.receivepipe.insert(pipe2.clone());
@@ -1723,6 +1877,7 @@ impl Cage {
                     let _ = sockhandle2.receivepipe.insert(pipe1.clone());
                 }
 
+                // return two fds in supplied array
                 let vsv_1 = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, socketidx1, should_cloexec, socktype as u64).unwrap();
                 let vsv_2 = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMSOCK, socketidx2, should_cloexec, socktype as u64).unwrap();
                 virtual_socket_vector.sock1 = vsv_1 as i32;
@@ -1732,7 +1887,7 @@ impl Cage {
             _ => {
                 return syscall_error(
                     Errno::EOPNOTSUPP,
-                    "listen",
+                    "socketpair",
                     "Unknown protocol in connect",
                 )
             }

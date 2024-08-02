@@ -33,6 +33,15 @@ use std::slice;
 use std::thread::yield_now;
 use libc::{O_RDONLY, O_WRONLY, iovec};
 use std::ffi::CString;
+pub use std::sync::LazyLock;
+pub use dashmap::{mapref::entry::Entry, DashMap, DashSet};
+use crate::interface::GenSockaddr;
+
+// boolean to enable IMPIPE/IMSOCK use in syscalls
+pub const USE_IM_PIPE: bool = true;
+
+// setting max number of pipes/sockets to 1024
+const MAXPIPE: u64 = 1024;
 
 // lets define a few constants for the standard size of a Linux page and errnos
 const PAGE_SIZE: usize = 4096;
@@ -385,17 +394,7 @@ impl IMPipe {
     }
 }
 
-
-// RawPOSIX specific datastructures
-pub use std::sync::LazyLock;
-pub use dashmap::{mapref::entry::Entry, DashMap, DashSet};
-
-use crate::interface::GenSockaddr;
-
-pub const USE_IM_PIPE: bool = true;
-
-const MAXPIPE: u64 = 1024;
-
+// various sockethandle connection states for IMSockets
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ConnState {
     NOTCONNECTED,
@@ -431,11 +430,25 @@ pub struct SocketHandle {
     pub receivepipe: Option<Arc<IMPipe>>
 }
 
+// Table for ipc structures, contains either a pipe entry or domain socket handle
 pub static IPC_TABLE: LazyLock<DashMap<u64, IPCTableEntry>> = 
     LazyLock::new(|| 
         DashMap::new()
 );
 
+// Doman Socket Connection Data Structures
+
+pub static DS_CONNECTION_TABLE: LazyLock<DashMap<CString, DSConnTableEntry>> = 
+    LazyLock::new(|| 
+        DashMap::new()
+);
+
+pub static BOUND_SOCKETS: LazyLock<DashSet<CString>> = 
+LazyLock::new(|| 
+    DashSet::new()
+);
+
+// lazily search through IPC_TABLE for next available entry and insert pipe
 pub fn insert_next_pipe(pipe: Arc<IMPipe>) -> Option<u64> {
 
     let ipcentry = IPCTableEntry::Pipe(PipeEntry{pipe});
@@ -450,6 +463,7 @@ pub fn insert_next_pipe(pipe: Arc<IMPipe>) -> Option<u64> {
     return None;
 }
 
+// lazily search through IPC_TABLE for next available entry and insert sockethandle
 pub fn insert_next_sockhandle(domain: i32, socktype: i32, protocol: i32, mode: i32) -> Option<u64> {
 
     let ipcentry = IPCTableEntry::DomainSocket(SocketHandle{domain, socktype, protocol, mode: mode, socket_options: 0, tcp_options: 0, state: ConnState::NOTCONNECTED, localaddr: None, remoteaddr: None, sendpipe: None, receivepipe: None});
@@ -464,19 +478,9 @@ pub fn insert_next_sockhandle(domain: i32, socktype: i32, protocol: i32, mode: i
     return None;
 }
 
-// Doman Socket Connection Data Structures
-
-pub static DS_CONNECTION_TABLE: LazyLock<DashMap<CString, DSConnTableEntry>> = 
-    LazyLock::new(|| 
-        DashMap::new()
-);
-
-pub static BOUND_SOCKETS: LazyLock<DashSet<CString>> = 
-LazyLock::new(|| 
-    DashSet::new()
-);
-
-
+// Conditional variable struct to be used for making blocking socket connections
+// wraps a lock and condvar for an easy api to wait and broadcast
+// this variable is created on connect and is signaled to be released upon an accept call for the matching socket
 pub struct ConnCondVar {
     lock: Arc<Mutex<i32>>,
     cv: Condvar,
@@ -507,6 +511,10 @@ impl ConnCondVar {
     }
 }
 
+// connection table structure for connect/accept of IMSockets
+// we give this structure the connecting sockets address
+// two pipes for sending and receiving, that will be matched with the accepted socket
+// and the above CV for blocking until accepted
 pub struct DSConnTableEntry {
     pub sockaddr: GenSockaddr,
     pub receive_pipe: Arc<IMPipe>,
@@ -529,7 +537,9 @@ impl DSConnTableEntry {
     }
 }
 
-
+// close routine to be called when last pipe reference to an fd is called
+// will set readers/writers closed if the fd is last reference to either
+// or remove the entry from the IPC table if both sides are closed
 pub fn close_im_pipe(impipe_entry:FDTableEntry, count: u64) {
     if count > 0 { return; }
 
@@ -549,6 +559,9 @@ pub fn close_im_pipe(impipe_entry:FDTableEntry, count: u64) {
     }
 }
 
+// close routine to be called when last reference to socket fd is called
+// will set writers closed on send pipe or readers closed on receive pipe
+// if the other side is already closed it will remove the sockethandle from the ipc table
 pub fn close_im_socket(imsock_entry:FDTableEntry, count: u64) {
     if count > 0 { return; }
 

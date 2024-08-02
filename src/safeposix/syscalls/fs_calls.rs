@@ -423,6 +423,19 @@ impl Cage {
         }
     }
 
+    //------------------------------------IMPIPE - WRITE SYSCALL------------------------------------
+    /*
+    *   Retrieves pipe end from IPC_TABLE based on underfd
+    *   will call write to pipe with blocking or non-blocking based on 
+    *   perfdinfo flags
+    *
+    *   write() will return:
+    *   - the number of bytes writen is returned on success
+    *   - will fail with EBADF if entry is invalid
+    *   - EAGAIN if nonblocking and not ready for writing
+    *   - or EPIPE if an attempt is made to write to a closed end
+    *   - this will also trigger sending the signal SIGPIPE
+    */
     pub fn write_impipe_syscall(&self, impipe_entry: fdtables::FDTableEntry, buf: *const u8, count: usize) -> i32 {
 
         if let IPCTableEntry::Pipe(ref pipe_entry) = *IPC_TABLE.get(&impipe_entry.underfd).unwrap(){
@@ -496,6 +509,19 @@ impl Cage {
         }
     }
 
+    //------------------------------------IMPIPE - WRITEV SYSCALL------------------------------------
+    /*
+    *   Retrieves pipe end from IPC_TABLE based on underfd
+    *   will call writev to pipe with blocking or non-blocking based on 
+    *   perfdinfo flags
+    *
+    *   writev() will return:
+    *   - the number of bytes writen is returned on success
+    *   - will fail with EBADF if entry is invalid
+    *   - EAGAIN if nonblocking and not ready for writing
+    *   - or EPIPE if an attempt is made to write to a closed end
+    *   - this will also trigger sending the signal SIGPIPE
+    */
     pub fn writev_impipe_syscall(
         &self,
         impipe_entry: fdtables::FDTableEntry,
@@ -1057,6 +1083,14 @@ impl Cage {
         }
     }
 
+    //------------------IMPIPE - PIPE SYSCALL------------------
+    /*
+    *   the pipe and pipe2 system calls create an in-memory pipe
+    *   we create this pipe and insert its ends into the IPC_TABLE
+    *   then return fds for each end, storing the flags and if CLOEXEC is set in fdtables
+    *
+    *   pipe() will return 0 when sucess, -1 on failure if pipe limit is reached
+    */
     pub fn pipe2_impipe_syscall(&self, pipefd: &mut PipeArray, flags: i32) -> i32 {
         // lets make a standard pipe of 65,536 bytes
         let pipe = interface::RustRfc::new(IMPipe::new_with_capacity(PIPE_CAPACITY));
@@ -1066,11 +1100,15 @@ impl Cage {
         let should_cloexec = flags & O_CLOEXEC != 0;
 
         //insert into pipe table for each end, get indexes
-        let pipereadidx = insert_next_pipe(pipe.clone()).unwrap();
-        let pipewriteidx = insert_next_pipe(pipe.clone()).unwrap();
+        let pipereadidx = insert_next_pipe(pipe.clone());
+        let pipewriteidx = insert_next_pipe(pipe.clone());
 
-        pipefd.readfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMPIPE, pipereadidx, should_cloexec, (flags & O_RDONLY) as u64).unwrap() as i32;
-        pipefd.writefd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMPIPE, pipewriteidx, should_cloexec, (flags & O_WRONLY) as u64).unwrap() as i32;
+        if pipereadidx.is_none() || pipewriteidx.is_none() {
+            return syscall_error(Errno::ENFILE, "pipe2", "Open pipe limit reached");
+        }
+
+        pipefd.readfd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMPIPE, pipereadidx.unwrap(), should_cloexec, (flags & O_RDONLY) as u64).unwrap() as i32;
+        pipefd.writefd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_IMPIPE, pipewriteidx.unwrap(), should_cloexec, (flags & O_WRONLY) as u64).unwrap() as i32;
 
         return 0;
     }
