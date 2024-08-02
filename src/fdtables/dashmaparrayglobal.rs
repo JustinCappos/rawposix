@@ -4,6 +4,7 @@
 //      array is any faster...
 
 use crate::fdtables::threei;
+use crate::safeposix::cage;
 
 use dashmap::DashMap;
 
@@ -350,7 +351,7 @@ pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
     assert!(FDTABLE.contains_key(&cageid),"Unknown cageid in fdtable access");
 
     // derefing this so I don't hold a lock and deadlock close handlers
-    let mut myfdrow = FDTABLE.get_mut(&cageid).unwrap();
+    let mut myfdrow = *FDTABLE.get_mut(&cageid).unwrap();
 
 
     if myfdrow[virtfd as usize].is_some() {
@@ -358,6 +359,8 @@ pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
 
         // Zero out this entry before calling the close handler...
         myfdrow[virtfd as usize] = None;
+
+        FDTABLE.insert(cageid, myfdrow.clone());
 
         // always _decrement last as it may call the user handler...
         _decrement_fdcount(entry.unwrap());
