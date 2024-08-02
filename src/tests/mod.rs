@@ -2,8 +2,8 @@
                      // tests
 
 mod fs_tests;
-// mod ipc_tests;
-// mod networking_tests;
+mod ipc_tests;
+mod networking_tests;
 mod sys_tests;
 // use rand::Rng;
 use std::net::{TcpListener, UdpSocket};

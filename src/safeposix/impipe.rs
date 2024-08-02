@@ -392,7 +392,7 @@ pub use dashmap::{mapref::entry::Entry, DashMap, DashSet};
 
 use crate::interface::GenSockaddr;
 
-pub const USE_IM_PIPE: bool = true;
+pub const USE_IM_PIPE: bool = false;
 
 const MAXPIPE: u64 = 1024;
 
