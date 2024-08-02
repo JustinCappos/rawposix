@@ -594,7 +594,15 @@ impl Cage {
     *   chdir() will return 0 when sucess, -1 when fail 
     */
     pub fn chdir_syscall(&self, path: &str) -> i32 {
-        let ret = self.access_syscall(path, libc::F_OK);
+        let relpath = normpath(convpath(path), self);
+        let relative_path = relpath.to_str().unwrap();
+        let full_path = format!("{}{}", LIND_ROOT, relative_path);
+        let c_path = CString::new(full_path).unwrap();
+
+        // let ret = self.access_syscall(path, libc::F_OK);
+        let ret = unsafe {
+            libc::chdir(c_path.as_ptr())
+        };
 
         if ret < 0 {
             let errno = get_errno();
