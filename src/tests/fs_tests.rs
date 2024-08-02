@@ -592,7 +592,7 @@ pub mod fs_tests {
         //Creating a directory.
         assert_eq!(cage.mkdir_syscall("/testdir", S_IRWXA), 0);
 
-        /* Native linux require specific flags to open a dir */
+        /* Native linux require specific flags to open a dir - TESTED locally */
         let fd = cage.open_syscall("/testdir", O_RDONLY | O_DIRECTORY, S_IRWXA);
 
         
@@ -601,6 +601,8 @@ pub mod fs_tests {
         //`mmap_syscall()` correctly results in `The `fildes`
         //argument refers to a file whose type is not
         //supported by mmap` error.
+
+        /* Native linux will return ENODEV - TESTED locally */
         assert_eq!(
             cage.mmap_syscall(0 as *mut u8, 5, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0),
             -(Errno::EACCES as i32)
