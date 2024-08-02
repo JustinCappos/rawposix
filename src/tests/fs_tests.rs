@@ -974,12 +974,12 @@ pub mod fs_tests {
         // Open a large number of files to fill the file descriptor table
         for i in 0..1021 {
             let fd = cage.open_syscall(&format!("/testfile{}", i), O_CREAT | O_WRONLY, S_IRWXA);
-            assert_ne!(fd, -(Errno::ENOENT as i32));
+            assert_ne!(fd, -(Errno::EMFILE as i32));
         }
 
         // Attempt to duplicate a file descriptor, which should fail
         let fd = cage.open_syscall("/testfile", O_CREAT | O_WRONLY, S_IRWXA);
-        assert_ne!(fd, -(Errno::ENOENT as i32));
+        assert_ne!(fd, -(Errno::EMFILE as i32));
         let new_fd = cage.dup_syscall(fd, None);
         assert_eq!(new_fd, -(Errno::EBADF as i32));
 

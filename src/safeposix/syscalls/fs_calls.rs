@@ -63,9 +63,10 @@ impl Cage {
 
         let should_cloexec = (oflag & O_CLOEXEC) != 0;
 
-        let virtual_fd = fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, should_cloexec, 0).unwrap();
-
-        virtual_fd as i32
+        match fdtables::get_unused_virtual_fd(self.cageid, FDKIND_KERNEL, kernel_fd as u64, should_cloexec, 0) {
+            Ok(virtual_fd) => return virtual_fd as i32,
+            Err(_) => return syscall_error(Errno::EMFILE, "open", "Too many files opened")
+        }
     }
 
     //------------------MKDIR SYSCALL------------------
