@@ -426,6 +426,7 @@ pub mod fs_tests {
         //and `MAP_SHARED` flags correctly results in `The value
         //of flags is invalid (`MAP_PRIVATE` and `MAP_SHARED`
         //cannot be both set)` error.
+        /* Native linux default to treating the combination as one or the other. TESTED locally */
         assert_eq!(
             cage.mmap_syscall(
                 0 as *mut u8,
@@ -435,7 +436,7 @@ pub mod fs_tests {
                 fd,
                 0
             ),
-            -(Errno::EINVAL as i32)
+            0
         );
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
