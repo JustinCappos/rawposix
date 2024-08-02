@@ -593,6 +593,8 @@ pub mod fs_tests {
         assert_eq!(cage.mkdir_syscall("/testdir", S_IRWXA), 0);
         let fd = cage.open_syscall("/testdir", O_RDWR, S_IRWXA);
 
+        println!("fd: {:?}", fd);
+
         //Checking if passing the created directory to
         //`mmap_syscall()` correctly results in `The `fildes`
         //argument refers to a file whose type is not
