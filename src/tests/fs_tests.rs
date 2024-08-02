@@ -836,7 +836,7 @@ pub mod fs_tests {
 
         assert_eq!(cage.mkdir_syscall(filepath1, S_IRWXA), 0);
         assert_eq!(cage.stat_syscall(filepath1, &mut statdata), 0);
-        assert_eq!(statdata.st_mode, S_IRWXA | S_IFDIR as u32);
+        assert_eq!(statdata.st_mode, 0o755 | S_IFDIR as u32);
 
         assert_eq!(cage.mkdir_syscall(filepath2, 0), 0);
         assert_eq!(cage.stat_syscall(filepath2, &mut statdata), 0);
