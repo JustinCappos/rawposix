@@ -126,14 +126,13 @@ pub mod sys_tests {
         // and also performs clean env setup
         let _thelock = setup::lock_and_init();
         let cage1 = interface::cagetable_getref(1);
-        // Spawn a new child
-        cage1.fork_syscall(2);
+        // Exec a new child
+        assert_eq!(cage1.exec_syscall(2), 0);
         // Assert that the fork was correct
         let child_cage = interface::cagetable_getref(2);
         assert_eq!(child_cage.getuid_syscall(), -1);
         assert_eq!(child_cage.getuid_syscall(), DEFAULT_UID as i32);
-        // Spawn exec and check if it returns 0
-        assert_eq!(cage1.exec_syscall(2), 0);
+        
         lindrustfinalize();
     }
 }
