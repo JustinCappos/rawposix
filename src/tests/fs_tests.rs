@@ -159,11 +159,21 @@ pub mod fs_tests {
         //write should work
         let mut fd = cage.open_syscall("/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
         assert_eq!(cage.write_syscall(fd, str2cbuf("Hello There!"), 12), 12);
+
+        println!("fd1: {:?}", fd);
+
         assert_eq!(cage.close_syscall(fd), 0);
+
+        println!("after close1");
 
         //close the file and then open it again... and then close it again
         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
+
+        println!("fd2: {:?}", fd);
+
         assert_eq!(cage.close_syscall(fd), 0);
+
+        println!("after close2");
 
         //let's try some things with connect
         //we are going to open a socket with a UDP specification...
@@ -179,14 +189,20 @@ pub mod fs_tests {
         println!("after bind");
 
         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
+
+        println!("fd3: {:?}", fd);
+
         assert_eq!(cage.close_syscall(fd), 0);
 
-        println!("after close1");
+        println!("after close3");
 
         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
+
+        println!("fd4: {:?}", fd);
+
         assert_eq!(cage.close_syscall(fd), 0);
 
-        println!("after close2");
+        println!("after close4");
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
 
