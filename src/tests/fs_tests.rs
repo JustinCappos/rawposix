@@ -591,9 +591,11 @@ pub mod fs_tests {
 
         //Creating a directory.
         assert_eq!(cage.mkdir_syscall("/testdir", S_IRWXA), 0);
-        let fd = cage.open_syscall("/testdir", O_RDWR, S_IRWXA);
 
-        println!("fd: {:?}", fd);
+        /* Native linux require specific flags to open a dir */
+        let fd = cage.open_syscall("/testdir", O_RDONLY | O_DIRECTORY, S_IRWXA);
+
+        
 
         //Checking if passing the created directory to
         //`mmap_syscall()` correctly results in `The `fildes`
