@@ -533,18 +533,22 @@ pub mod fs_tests {
         //Checking if passing a negative offset correctly
         //results in `Addresses in the range [off,off+len)
         //are invalid for the object specified by `fildes`` error.
+
+        /* Native linux will return EINVAL - TESTED locally */
         assert_eq!(
             cage.mmap_syscall(0 as *mut u8, 5, PROT_READ | PROT_WRITE, MAP_SHARED, fd, -10),
-            -(Errno::ENXIO as i32)
+            -(Errno::EINVAL as i32)
         );
 
         //Checking if passing an offset that seeks beyond the end
         //of the file correctly results in `Addresses in the
         //range [off,off+len) are invalid for the object specified
         //by `fildes`` error.
+
+        /* Native linux will return EINVAL - TESTED locally */
         assert_eq!(
             cage.mmap_syscall(0 as *mut u8, 5, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 25),
-            -(Errno::ENXIO as i32)
+            -(Errno::EINVAL as i32)
         );
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
