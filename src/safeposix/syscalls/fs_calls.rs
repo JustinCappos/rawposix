@@ -590,9 +590,17 @@ impl Cage {
 
     //------------------------------------CHDIR SYSCALL------------------------------------
     /*
+    *   We first check if desired path exists in native
     *   chdir() will return 0 when sucess, -1 when fail 
     */
     pub fn chdir_syscall(&self, path: &str) -> i32 {
+        let ret = self.access_syscall(path, libc::F_OK);
+
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "chdir");
+        }
+        
         let truepath = normpath(convpath(path), self);
         
         //at this point, syscall isn't an error
