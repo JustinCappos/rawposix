@@ -767,6 +767,8 @@ pub mod fs_tests {
         assert_eq!(cage.mkdir_syscall("/subdir1/subdir2", S_IRWXA), 0);
 
         //Retrieving a valid directory file descriptor
+
+        /* Native linux require specific flags to open a dir */
         let fd1 = cage.open_syscall("/subdir1", O_RDONLY | O_DIRECTORY, S_IRWXA);
         let fd2 = cage.open_syscall("/subdir1/subdir2", O_RDONLY | O_DIRECTORY, S_IRWXA);
 

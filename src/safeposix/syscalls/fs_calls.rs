@@ -584,6 +584,24 @@ impl Cage {
             let errno = get_errno();
             return handle_errno(errno, "fchdir");
         }
+
+        // Get the working directory in native
+        let mut buf = [0; PATH_MAX as usize];
+        let cwdret = unsafe {
+            libc::getcwd(buf.as_mut_ptr(), buf.len())
+        };
+        if cwdret == ptr::null_mut() {
+            let errno = get_errno();
+            return handle_errno(errno, "fchdir");
+        }
+        let cwdcstr = unsafe { CStr::from_ptr(buf.as_ptr() as *const i8) };
+        let cwd = cwdcstr.to_str().unwrap();
+        // Update RawPOSIX working directory
+        let raw_path = &cwd[LIND_ROOT.len()..];
+        let true_path = normpath(convpath(raw_path), self);
+        let mut cwd_container = self.cwd.write();
+        *cwd_container = interface::RustRfc::new(true_path);
+
         return ret;
         
     }
