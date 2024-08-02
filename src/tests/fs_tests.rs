@@ -871,7 +871,7 @@ pub mod fs_tests {
             cage.stat_syscall("/subdirMultiple1/subdirMultiple2", &mut statdata),
             0
         );
-        assert_eq!(statdata.st_mode, S_IRWXA | S_IFDIR as u32);
+        assert_eq!(statdata.st_mode, 0o755 | S_IFDIR as u32);
 
         assert_eq!(
             cage.stat_syscall(
