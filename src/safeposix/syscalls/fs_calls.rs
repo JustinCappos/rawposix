@@ -646,9 +646,6 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
-        if translate_virtual_fd(self.cageid, virtual_fd as u64) == Err(Errno::EBADFD as u64) {
-            return syscall_error(Errno::EBADFD, "close", "invalid file descriptor");
-        }
         match fdtables::close_virtualfd(self.cageid, virtual_fd as u64) {
             Ok(()) => {
                 return 0;
@@ -817,6 +814,10 @@ impl Cage {
                         ((libc::mmap(addr as *mut c_void, len, prot, flags, vfd.underfd as i32, off) as i64) 
                             & 0xffffffff) as i32
                     };
+                    if ret < 0 {
+                        let errno = get_errno();
+                        return handle_errno(errno, "mmap");
+                    }
                     return ret;
                 },
                 Err(_e) => {
@@ -826,10 +827,15 @@ impl Cage {
         }
         
         // Do type conversion to translate from c_void into i32
-        unsafe {
+        let ret = unsafe {
             ((libc::mmap(addr as *mut c_void, len, prot, flags, -1, off) as i64) 
                 & 0xffffffff) as i32
+        };
+        if ret < 0 {
+            let errno = get_errno();
+            return handle_errno(errno, "mmap");
         }
+        return ret;
     }
 
     //------------------------------------MUNMAP SYSCALL------------------------------------
