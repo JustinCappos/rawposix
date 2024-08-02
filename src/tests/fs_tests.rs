@@ -767,8 +767,8 @@ pub mod fs_tests {
         assert_eq!(cage.mkdir_syscall("/subdir1/subdir2", S_IRWXA), 0);
 
         //Retrieving a valid directory file descriptor
-        let fd1 = cage.open_syscall("/subdir1", O_RDWR, S_IRWXA);
-        let fd2 = cage.open_syscall("/subdir1/subdir2", O_RDWR, S_IRWXA);
+        let fd1 = cage.open_syscall("/subdir1", O_RDONLY | O_DIRECTORY, S_IRWXA);
+        let fd2 = cage.open_syscall("/subdir1/subdir2", O_RDONLY | O_DIRECTORY, S_IRWXA);
 
         //Changing to a new current working directory, and then obtaining
         //the current working directory using `getcwd_syscall()` to see
@@ -779,8 +779,6 @@ pub mod fs_tests {
         let bufptr1: *mut u8 = &mut buf1[0];
         assert_eq!(cage.getcwd_syscall(bufptr1, 9), 0);
         assert_eq!(std::str::from_utf8(&buf1).unwrap(), "/subdir1\0");
-
-        println!("III");
 
         assert_eq!(cage.access_syscall("subdir2", F_OK), 0);
         assert_eq!(cage.fchdir_syscall(fd2), 0);
