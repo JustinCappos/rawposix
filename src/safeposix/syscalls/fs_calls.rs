@@ -5,6 +5,7 @@ use super::fs_constants;
 // File system related system calls
 use super::fs_constants::*;
 use super::sys_constants;
+use crate::fdtables::translate_virtual_fd;
 use crate::interface;
 use crate::interface::get_errno;
 use crate::interface::handle_errno;
@@ -645,6 +646,9 @@ impl Cage {
     *   close() will return 0 when sucess, -1 when fail 
     */
     pub fn close_syscall(&self, virtual_fd: i32) -> i32 {
+        if translate_virtual_fd(self.cageid, virtual_fd as u64) == Err(Errno::EBADFD as u64) {
+            return syscall_error(Errno::EBADFD, "close", "invalid file descriptor");
+        }
         match fdtables::close_virtualfd(self.cageid, virtual_fd as u64) {
             Ok(()) => {
                 return 0;
