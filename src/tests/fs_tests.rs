@@ -169,10 +169,14 @@ pub mod fs_tests {
         //we are going to open a socket with a UDP specification...
         let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
 
+        println!("sockfd: {:?}", sockfd);
+
         //bind should not be interesting
         let mut sockad = interface::GenSockaddr::V4(interface::SockaddrV4::default());
         sockad.set_family(libc::AF_INET as u16);
         assert_eq!(cage.bind_syscall(sockfd, &sockad), 0);
+
+        println!("after bind");
 
         fd = cage.open_syscall("/broken_close_file", O_RDWR, S_IRWXA);
         assert_eq!(cage.close_syscall(fd), 0);
