@@ -391,25 +391,6 @@ fn _decrement_fdcount(entry:FDTableEntry) {
 
     let mytuple = (entry.fdkind, entry.underfd);
 
-    println!("(fdkind, underfd) to remove: {:?}", mytuple);
-    println!("Contents of FDTABLE:");
-    for entry in FDTABLE.iter() {
-        let (key, value) = entry.pair();
-        println!("Cage ID: {}", key);
-        for (i, fd_entry) in value.iter().enumerate() {
-            if let Some(entry) = fd_entry {
-                println!("  FD Index: {}, Entry: {:?}", i, entry);
-            }
-        }
-    }
-
-    println!("Contents of FDCOUNT:");
-    for entry in FDCOUNT.iter() {
-        let ((fdkind, underfd), count) = entry.pair();
-        println!("FD Kind: {}, Underlying FD: {}, Count: {}", fdkind, underfd, count);
-    }
-    println!("");
-
     let newcount:u64 = FDCOUNT.get(&mytuple).unwrap().value() - 1;
 
     let intermediatech;
