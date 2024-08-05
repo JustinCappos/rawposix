@@ -1081,6 +1081,8 @@ pub mod fs_tests {
             assert_ne!(fd, -(Errno::ENOENT as i32));
         }
 
+        println!("1");
+        
         // Attempt to duplicate a file descriptor, which should fail
         let fd = cage.open_syscall("/testfile", O_CREAT | O_WRONLY, S_IRWXA);
         assert_ne!(fd, -(Errno::ENOENT as i32));
