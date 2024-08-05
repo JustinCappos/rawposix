@@ -999,7 +999,7 @@ pub mod fs_tests {
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
         let filepath = "/dup2file";
 
-        let fd = cage.open_syscall(filepath, flags, S_IRWXA);
+        let fd = cage.open_syscall(filepath, flags, 0o755);
 
         assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
 
