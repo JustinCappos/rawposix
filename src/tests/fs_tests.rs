@@ -1284,25 +1284,10 @@ pub mod fs_tests {
         let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, 0o755);
 
         //try to use FIONBIO for a non-socket
-        // assert_eq!(
-        //     cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
-        //     0
-        // );
-        if cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8) < 0 {
-            // let err = unsafe {
-            //     libc::__errno_location()
-            // };
-            // let err_str = unsafe {
-            //     libc::strerror(*err)
-            // };
-            // let err_msg = unsafe {
-            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
-            // };
-            // println!("errno: {:?}", err);
-            // println!("Error message: {:?}", err_msg);
-            // io::stdout().flush().unwrap();
-            panic!();
-        }
+        assert_eq!(
+            cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
+            0
+        );
 
         //clear the O_NONBLOCK flag
         assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
