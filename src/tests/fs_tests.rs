@@ -1151,7 +1151,7 @@ pub mod fs_tests {
         let cage = interface::cagetable_getref(1);
 
         let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        let filefd = cage.open_syscall("/fcntl_file_1", O_CREAT | O_EXCL, S_IRWXA);
+        let filefd = cage.open_syscall("/fcntl_file_1", O_CREAT | O_EXCL, 0o755);
 
         //changing O_CLOEXEC file descriptor flag and checking if it was correctly set
         assert_eq!(cage.fcntl_syscall(sockfd, F_SETFD, O_CLOEXEC), 0);
