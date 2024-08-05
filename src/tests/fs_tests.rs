@@ -1008,6 +1008,8 @@ pub mod fs_tests {
         //should be a no-op since the last line did the same thing
         let fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
 
+        println!("[dup2] fd: {}", fd);
+        
         //read/write tests for the files
         assert_eq!(
             cage.lseek_syscall(fd, 0, SEEK_END),
