@@ -661,6 +661,10 @@ impl Cage {
     /* 
     */
     pub fn dup2_syscall(&self, old_virtualfd: i32, new_virtualfd: i32) -> i32 {
+        if old_virtualfd < 0 || new_virtualfd < 0 {
+            return syscall_error(Errno::EBADF, "dup", "Bad File Descriptor");
+        }
+        
         match fdtables::translate_virtual_fd(self.cageid, old_virtualfd as u64) {
             Ok(old_vfd) => {
                 let new_kernelfd = unsafe {

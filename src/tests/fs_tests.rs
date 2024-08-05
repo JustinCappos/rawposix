@@ -1084,9 +1084,7 @@ pub mod fs_tests {
         // Attempt to duplicate a file descriptor, which should fail
         let fd = cage.open_syscall("/testfile", O_CREAT | O_WRONLY, S_IRWXA);
         assert_ne!(fd, -(Errno::ENOENT as i32));
-        println!("1");
         let new_fd = cage.dup2_syscall(fd, 5); // Try to duplicate to an existing fd
-        println!("2");
         assert_eq!(new_fd, -(Errno::EBADF as i32));
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
