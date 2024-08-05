@@ -1239,8 +1239,10 @@ pub mod fs_tests {
         //and different from the original file descriptor
         let filefd2 = cage.fcntl_syscall(filefd1, F_DUPFD, 100);
         assert!(filefd2 >= 100 && filefd2 != filefd1);
-        println!("filefd1: {}",filefd1);
-        println!("filefd2: {}", filefd2);
+        let kernelfd = translate_virtual_fd(1, filefd1 as u64).unwrap();
+        let kernelfd2 = translate_virtual_fd(1, filefd1 as u64).unwrap();
+        println!("filefd1: {} | kernelfd: {}",filefd1, kernelfd.underfd);
+        println!("filefd2: {} | kernelfd: {}", filefd2, kernelfd2.underfd);
 
         //to check if both file descriptors refer to the same fie, we can write into a
         // file using one file descriptor, read from the file using another file
