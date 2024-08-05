@@ -1452,7 +1452,7 @@ pub mod fs_tests {
         // Case: When only newpath is empty, expect an error ENOENT
         let oldpath = "/oldpath";
         let newpath = "";
-        assert_eq!(cage.link_syscall(oldpath, newpath), -(Errno::EPERM as i32));
+        assert_eq!(cage.link_syscall(oldpath, newpath), -(Errno::ENOENT as i32));
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
