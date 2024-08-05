@@ -1705,7 +1705,7 @@ pub mod fs_tests {
 
         let cage = interface::cagetable_getref(1);
 
-        let oldpath = "/link_invalid_testdir/olddir";
+        let oldpath = "/invalidtestdir/olddir";
         let newpath = "/newpath";
 
         // Create the directory for the oldpath with the parent not having read
