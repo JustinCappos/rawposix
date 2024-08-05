@@ -925,18 +925,25 @@ impl Cage {
     *   rmdir() will return 0 when sucess, -1 when fail 
     */
     pub fn rmdir_syscall(&self, path: &str) -> i32 {
-        let relpath = normpath(convpath(path), self);
-        let relative_path = relpath.to_str().unwrap();
-        let full_path = format!("{}{}", LIND_ROOT, relative_path);
-        let c_path = CString::new(full_path).unwrap();
-        let ret = unsafe {
-            libc::rmdir(c_path.as_ptr())
-        };
-        if ret < 0 {
-            let errno = get_errno();
-            return handle_errno(errno, "rmdir");
+        match path {
+            "" => return syscall_error(Errno::ENOENT, "rmdir", "A directory component in pathname does not exist"),
+            "/" => return syscall_error(Errno::EBUSY, "rmdir", "pathname is currently in use by the system or some process that prevents its removal"),
+            _ => {
+                let relpath = normpath(convpath(path), self);
+                let relative_path = relpath.to_str().unwrap();
+                let full_path = format!("{}{}", LIND_ROOT, relative_path);
+                let c_path = CString::new(full_path).unwrap();
+                let ret = unsafe {
+                    libc::rmdir(c_path.as_ptr())
+                };
+                if ret < 0 {
+                    let errno = get_errno();
+                    return handle_errno(errno, "rmdir");
+                }
+                return ret;
+            }
         }
-        ret
+        
     }
 
     //------------------RENAME SYSCALL------------------
