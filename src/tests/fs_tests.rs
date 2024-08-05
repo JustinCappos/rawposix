@@ -1003,15 +1003,19 @@ pub mod fs_tests {
 
         assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
 
+        println!("[dup2] fd-1: {}", fd);
+        let kfd = translate_virtual_fd(1, fd as u64).unwrap();
+        println!("[dup2] kfd-1:{}", kfd.underfd);
+
         //trying to dup fd into fd + 1
         let _fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
 
         //should be a no-op since the last line did the same thing
         let fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
 
-        println!("[dup2] fd: {}", fd);
+        println!("[dup2] fd-2: {}", fd);
         let kfd = translate_virtual_fd(1, fd as u64).unwrap();
-        println!("[dup2] kfd:{}", kfd.underfd);
+        println!("[dup2] kfd-2:{}", kfd.underfd);
 
         //read/write tests for the files
         assert_eq!(
