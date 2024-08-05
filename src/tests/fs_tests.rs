@@ -14,6 +14,7 @@ pub mod fs_tests {
     use libc::*;
     use crate::interface::ShmidsStruct;
     pub use std::ffi::CStr as RustCStr;
+    use std::mem;
 
     use crate::fdtables::FDTABLE;
 
@@ -1263,110 +1264,141 @@ pub mod fs_tests {
         lindrustfinalize();
     }
 
-    // #[test]
-    // pub fn ut_lind_fs_ioctl_valid_args() {
-    //     //acquiring a lock on TESTMUTEX prevents other tests from running concurrently,
-    //     // and also performs clean env setup
-    //     let _thelock = setup::lock_and_init();
+    #[test]
+    pub fn ut_lind_fs_ioctl_valid_args() {
+        //acquiring a lock on TESTMUTEX prevents other tests from running concurrently,
+        // and also performs clean env setup
+        let _thelock = setup::lock_and_init();
 
-    //     let cage = interface::cagetable_getref(1);
+        lindrustinit(0);
+        let cage = interface::cagetable_getref(1);
 
-    //     //setting up two integer values (a zero value to test clearing nonblocking I/O
-    //     // behavior and a non-zero value to test setting nonblocking I/O
-    //     // behavior)
-    //     let mut arg0: i32 = 0;
-    //     let mut arg1: i32 = 1;
+        let mut union0: winsize = unsafe { mem::zeroed() };
+        let mut union1: winsize = unsafe { mem::zeroed() };
+        union1.ws_col = 1;
+        union1.ws_row = 1;
 
-    //     //ioctl requires a pointer to an integer to be passed with FIONBIO command
-    //     let union0: IoctlPtrUnion = IoctlPtrUnion { int_ptr: &mut arg0 };
-    //     let union1: IoctlPtrUnion = IoctlPtrUnion { int_ptr: &mut arg1 };
+        let union0_ptr: *mut winsize = &mut union0;
+        let union1_ptr: *mut winsize = &mut union1;
 
-    //     let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, 0o755);
 
-    //     //calling ioctl with FIONBIO command and a pointer to a zero-valued integer
-    //     //to clear the socket's nonblocking I/O, and checking if the flag was correctly
-    //     // set
-    //     assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0), 0);
-    //     assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
+        //try to use FIONBIO for a non-socket
+        // assert_eq!(
+        //     cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
+        //     0
+        // );
+        if cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8) < 0 {
+            // let err = unsafe {
+            //     libc::__errno_location()
+            // };
+            // let err_str = unsafe {
+            //     libc::strerror(*err)
+            // };
+            // let err_msg = unsafe {
+            //     CStr::from_ptr(err_str).to_string_lossy().into_owned()
+            // };
+            // println!("errno: {:?}", err);
+            // println!("Error message: {:?}", err_msg);
+            // io::stdout().flush().unwrap();
+            panic!();
+        }
 
-    //     //calling ioctl with FIONBIO command and a pointer to a non-zero-valued integer
-    //     //to set the socket's nonblocking I/O, and checking if the flag was correctly
-    //     // set
-    //     assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union1), 0);
-    //     assert_eq!(
-    //         cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK,
-    //         O_NONBLOCK
-    //     );
+        //clear the O_NONBLOCK flag
+        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
 
-    //     assert_eq!(cage.close_syscall(sockfd), 0);
+        //checking to see if the flag was updated
+        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
 
-    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-    //     lindrustfinalize();
-    // }
+        //set the O_NONBLOCK flag
+        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union1_ptr as *mut u8), 0);
 
-    // #[test]
-    // pub fn ut_lind_fs_ioctl_invalid_args() {
-    //     //acquiring a lock on TESTMUTEX prevents other tests from running concurrently,
-    //     // and also performs clean env setup
-    //     let _thelock = setup::lock_and_init();
+        //checking to see if the flag was updated
+        assert_eq!(
+            cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK,
+            O_NONBLOCK
+        );
 
-    //     let cage = interface::cagetable_getref(1);
+        //clear the O_NONBLOCK flag
+        assert_eq!(cage.ioctl_syscall(sockfd, FIONBIO, union0_ptr as *mut u8), 0);
 
-    //     //setting up two integer values (a zero value to test clearing nonblocking I/O
-    //     // behavior on non-socket type and a non-zero value to test setting
-    //     // nonblocking I/O behavior on non-socket type)
-    //     let mut arg0: i32 = 0;
-    //     let mut arg1: i32 = 1;
+        //checking to see if the flag was updated
+        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFL, 0) & O_NONBLOCK, 0);
 
-    //     //ioctl requires a pointer to an integer to be passed with FIONBIO command
-    //     let union0: IoctlPtrUnion = IoctlPtrUnion { int_ptr: &mut arg0 };
-    //     let union1: IoctlPtrUnion = IoctlPtrUnion { int_ptr: &mut arg1 };
+        assert_eq!(cage.close_syscall(filefd), 0);
+        assert_eq!(cage.close_syscall(sockfd), 0);
 
-    //     let sockfd = cage.socket_syscall(AF_INET, SOCK_STREAM, 0);
-    //     let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, S_IRWXA);
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
 
-    //     //trying to use FIONBIO command on a non-socket type (the file type in this
-    //     // case) for any 'ptrunion' value should throw a 'Not a typewriter'
-    //     // error
-    //     assert_eq!(
-    //         cage.ioctl_syscall(filefd, FIONBIO, union0),
-    //         -(Errno::ENOTTY as i32)
-    //     );
-    //     assert_eq!(
-    //         cage.ioctl_syscall(filefd, FIONBIO, union1),
-    //         -(Errno::ENOTTY as i32)
-    //     );
-    //     assert_eq!(cage.close_syscall(filefd), 0);
+    #[test]
+    pub fn ut_lind_fs_ioctl_invalid_args() {
+        //acquiring a lock on TESTMUTEX prevents other tests from running concurrently,
+        // and also performs clean env setup
+        let _thelock = setup::lock_and_init();
 
-    //     //calling 'ioctl' with a control function that is not implemented yet should
-    //     //return an 'Invalid argument' error
-    //     //21600 is an arbitrary integer that does not correspond to any implemented
-    //     //control functions for ioctl syscall
-    //     assert_eq!(
-    //         cage.ioctl_syscall(sockfd, 21600, union0),
-    //         -(Errno::EINVAL as i32)
-    //     );
+        let cage = interface::cagetable_getref(1);
 
-    //     //calling ioctl with FIONBIO command and a null pointer
-    //     //should return a 'Bad address' error
-    //     let null_ptr: *mut i32 = std::ptr::null_mut();
-    //     let union_null: IoctlPtrUnion = IoctlPtrUnion { int_ptr: null_ptr };
-    //     assert_eq!(
-    //         cage.ioctl_syscall(sockfd, FIONBIO, union_null),
-    //         -(Errno::EFAULT as i32)
-    //     );
+        //setting up two integer values (a zero value to test clearing nonblocking I/O
+        // behavior on non-socket type and a non-zero value to test setting
+        // nonblocking I/O behavior on non-socket type)
 
-    //     //calling ioctl on a closed file descriptor should throw a 'Bad file number'
-    //     // error
-    //     assert_eq!(cage.close_syscall(sockfd), 0);
-    //     assert_eq!(
-    //         cage.fcntl_syscall(sockfd, F_GETFL, 0),
-    //         -(Errno::EBADF as i32)
-    //     );
+        //ioctl requires a pointer to an integer to be passed with FIONBIO command
+        let mut union0: winsize = unsafe { mem::zeroed() };
+        let mut union1: winsize = unsafe { mem::zeroed() };
+        union1.ws_col = 1;
+        union1.ws_row = 1;
 
-    //     assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
-    //     lindrustfinalize();
-    // }
+        let union0_ptr: *mut winsize = &mut union0;
+        let union1_ptr: *mut winsize = &mut union1;
+
+        let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
+        let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, S_IRWXA);
+
+        //trying to use FIONBIO command on a non-socket type (the file type in this
+        // case) for any 'ptrunion' value should throw a 'Not a typewriter'
+        // error
+        assert_eq!(
+            cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
+            -(Errno::ENOTTY as i32)
+        );
+        assert_eq!(
+            cage.ioctl_syscall(filefd, FIONBIO, union1_ptr as *mut u8),
+            -(Errno::ENOTTY as i32)
+        );
+        assert_eq!(cage.close_syscall(filefd), 0);
+
+        //calling 'ioctl' with a control function that is not implemented yet should
+        //return an 'Invalid argument' error
+        //21600 is an arbitrary integer that does not correspond to any implemented
+        //control functions for ioctl syscall
+        assert_eq!(
+            cage.ioctl_syscall(sockfd, 21600, union0_ptr as *mut u8),
+            -(Errno::EINVAL as i32)
+        );
+
+        //calling ioctl with FIONBIO command and a null pointer
+        //should return a 'Bad address' error
+        let null_ptr: *mut u8 = std::ptr::null_mut();
+        // let union_null: IoctlPtrUnion = IoctlPtrUnion { int_ptr: null_ptr };
+        assert_eq!(
+            cage.ioctl_syscall(sockfd, FIONBIO, null_ptr as *mut u8),
+            -(Errno::EFAULT as i32)
+        );
+
+        //calling ioctl on a closed file descriptor should throw a 'Bad file number'
+        // error
+        assert_eq!(cage.close_syscall(sockfd), 0);
+        assert_eq!(
+            cage.fcntl_syscall(sockfd, F_GETFL, 0),
+            -(Errno::EBADF as i32)
+        );
+
+        assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
+        lindrustfinalize();
+    }
 
     #[test]
     pub fn ut_lind_fs_fdflags() {
