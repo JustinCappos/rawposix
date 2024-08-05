@@ -1205,13 +1205,15 @@ pub mod fs_tests {
         assert_eq!(cage.fcntl_syscall(filefd, 29, 0), -(Errno::EINVAL as i32));
         //when a negative arg is provided with F_SETFD, F_SETFL, or F_DUPFD,
         //Invalid Argument' error should be thrown as well
+
+        /* F_SETFD, F_SETFL with negative value args will not cause fcntl return error */
         assert_eq!(
             cage.fcntl_syscall(filefd, F_SETFD, -5),
-            -(Errno::EINVAL as i32)
+            0
         );
         assert_eq!(
             cage.fcntl_syscall(filefd, F_SETFL, -5),
-            -(Errno::EINVAL as i32)
+            0
         );
         assert_eq!(
             cage.fcntl_syscall(filefd, F_DUPFD, -5),
