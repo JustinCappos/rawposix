@@ -1215,7 +1215,7 @@ pub mod fs_tests {
             cage.fcntl_syscall(filefd, F_SETFL, -5),
             0
         );
-        assert!(
+        assert_eq!(
             cage.fcntl_syscall(filefd, F_DUPFD, -5),
             -(Errno::EINVAL as i32)
         );
