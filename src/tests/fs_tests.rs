@@ -1577,7 +1577,7 @@ pub mod fs_tests {
 
         let cage = interface::cagetable_getref(1);
 
-        let path = "/testdir";
+        let path = "/testdirunlink";
         // Create the directory
         assert_eq!(cage.mkdir_syscall(path, S_IRWXA), 0);
 
@@ -1710,7 +1710,7 @@ pub mod fs_tests {
 
         // Create the directory for the oldpath with the parent not having read
         // permission. Currently assigning "Write only" permissions
-        assert_eq!(cage.mkdir_syscall("/testdir", 0o200), 0);
+        assert_eq!(cage.mkdir_syscall("/invalidtestdir", 0o200), 0);
         let fd = cage.open_syscall(oldpath, O_CREAT | O_EXCL | O_WRONLY, 0o200);
         assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
 
