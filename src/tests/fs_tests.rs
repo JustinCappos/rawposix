@@ -1345,7 +1345,10 @@ pub mod fs_tests {
         // case) for any 'ptrunion' value should throw a 'Not a typewriter'
         // error
 
-        /* ...but these behaved inconsistently between systems, and even within the same system... */
+        /* Those invalid argument will success in native linux (ArchLinux)
+            [https://stackoverflow.com/a/1151077/22572322]
+            ...but these behaved inconsistently between systems, and even within the same system... 
+        */
         assert_eq!(
             cage.ioctl_syscall(filefd, FIONBIO, union0_ptr as *mut u8),
             0
@@ -1362,7 +1365,7 @@ pub mod fs_tests {
         //control functions for ioctl syscall
         assert_eq!(
             cage.ioctl_syscall(sockfd, 21600, union0_ptr as *mut u8),
-            -(Errno::EINVAL as i32)
+            -(Errno::ENOTTY as i32)
         );
 
         //calling ioctl with FIONBIO command and a null pointer
