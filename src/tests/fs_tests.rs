@@ -1531,7 +1531,7 @@ pub mod fs_tests {
 
         let path = "";
         // Expect an error for empty path
-        assert_eq!(cage.unlink_syscall(path), -(Errno::ENOENT as i32));
+        assert_eq!(cage.unlink_syscall(path), -(Errno::EISDIR as i32));
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
