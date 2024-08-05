@@ -114,6 +114,8 @@ const WRITEV_SYSCALL: i32 = 170;
 
 use std::collections::HashMap;
 
+use std::ffi::CString;
+
 use super::cage::*;
 use super::syscalls::kernel_close;
 
@@ -1047,6 +1049,13 @@ pub extern "C" fn lindrustinit(verbosity: isize) {
     fdtables::init_empty_cage(0);
     // Set the first 3 fd to STDIN / STDOUT / STDERR
     // STDIN
+    let dev_null = CString::new("/home/lind/lind_project/src/safeposix-rust/tmp/dev/null").unwrap();
+    unsafe {
+        libc::open(dev_null.as_ptr(), libc::O_RDONLY);
+        libc::open(dev_null.as_ptr(), libc::O_WRONLY);
+        libc::dup(1);
+    }
+    
     fdtables::get_specific_virtual_fd(0, 0, FDKIND_KERNEL, 0, false, 0).unwrap();
     // STDOUT
     fdtables::get_specific_virtual_fd(0, 1, FDKIND_KERNEL, 1, false, 0).unwrap();

@@ -1001,15 +1001,6 @@ pub mod fs_tests {
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
         let filepath = "/dup2file";
 
-        for entry in FDTABLE.iter() {
-            let (key, fd_array) = entry.pair();
-            println!("Cage ID: {}", key);
-            for fd_entry in fd_array.iter().flatten() { // Flatten removes None elements
-                println!("{}", fd_entry.underfd); // Using Display trait
-            }
-        }
-        println!("");
-
         let fd = cage.open_syscall(filepath, flags, 0o755);
 
         for entry in FDTABLE.iter() {
