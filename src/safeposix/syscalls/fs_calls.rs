@@ -664,7 +664,7 @@ impl Cage {
         if old_virtualfd < 0 || new_virtualfd < 0 {
             return syscall_error(Errno::EBADF, "dup", "Bad File Descriptor");
         }
-        
+
         match fdtables::translate_virtual_fd(self.cageid, old_virtualfd as u64) {
             Ok(old_vfd) => {
                 let new_kernelfd = unsafe {
@@ -752,10 +752,15 @@ impl Cage {
                 }
                 let vfd = wrappedvfd.unwrap();
                 if cmd == libc::F_DUPFD {
+                    if arg < 0 {
+                        return syscall_error(Errno::EINVAL, "fcntl", "op is F_DUPFD and arg is negative or is greater than the maximum allowable value");
+                    }
                     let new_kernelfd = unsafe { libc::fcntl(vfd.underfd as i32, cmd, arg) };
                     // Get status
-                    let new_virtualfd = fdtables::get_unused_virtual_fd(self.cageid, vfd.fdkind, new_kernelfd as u64, false, 0).unwrap();
-                    return new_virtualfd as i32;
+                    match fdtables::get_unused_virtual_fd(self.cageid, vfd.fdkind, new_kernelfd as u64, false, 0) {
+                        Ok(new_virtualfd) => return new_virtualfd as i32,
+                        Err(_e) => return syscall_error(Errno::EMFILE, "fcntl", "op is F_DUPFD and the per-process limit on the number of open file descriptors has been reached")
+                    }
                 }
                 let ret = unsafe { libc::fcntl(vfd.underfd as i32, cmd, arg) };
                 if ret < 0 {
