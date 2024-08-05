@@ -1270,7 +1270,6 @@ pub mod fs_tests {
         // and also performs clean env setup
         let _thelock = setup::lock_and_init();
 
-        lindrustinit(0);
         let cage = interface::cagetable_getref(1);
 
         let mut union0: winsize = unsafe { mem::zeroed() };
