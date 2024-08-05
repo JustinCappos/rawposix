@@ -1163,7 +1163,7 @@ pub mod fs_tests {
             cage.fcntl_syscall(filefd, F_SETFL, O_RDONLY | O_NONBLOCK),
             0
         );
-        assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), 2048);
+        assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), O_RDONLY | O_NONBLOCK);
 
         //when provided with 'F_GETFD' or 'F_GETFL' command, 'arg' should be ignored,
         // thus even negative arg values should produce nomal behavior
