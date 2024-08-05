@@ -2091,7 +2091,7 @@ pub mod fs_tests {
 
         //Trying to remove a directory by providing an empty string
         //should return `Given path is an empty string` error
-        assert_eq!(cage.rmdir_syscall(""), 0);
+        assert_eq!(cage.rmdir_syscall(""), -(Errno::ENOENT as i32));
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
