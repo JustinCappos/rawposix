@@ -1162,6 +1162,7 @@ pub mod fs_tests {
         //changing the file access mode to read-only, enabling the
         //O_NONBLOCK file status flag, and checking if they were correctly set
 
+        /* Usage are different - including using different parameters */
         assert_eq!(
             cage.fcntl_syscall(filefd, F_SETFL, O_RDONLY | O_NONBLOCK),
             0
@@ -1180,8 +1181,8 @@ pub mod fs_tests {
 
         //when provided with 'F_GETFD' or 'F_GETFL' command, 'arg' should be ignored,
         // thus even negative arg values should produce nomal behavior
-        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFD, -132), O_CLOEXEC);
-        assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, -1998), 2048);
+        assert_eq!(cage.fcntl_syscall(sockfd, F_GETFD, -132), FD_CLOEXEC);
+        assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, -1998), flags);
 
         assert_eq!(cage.close_syscall(filefd), 0);
         assert_eq!(cage.close_syscall(sockfd), 0);
