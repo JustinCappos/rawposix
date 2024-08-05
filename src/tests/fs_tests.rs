@@ -2128,7 +2128,7 @@ pub mod fs_tests {
 
         //Trying to remove the root directory should return
         //`Cannot remove root directory` error
-        assert_eq!(cage.rmdir_syscall("/"), -(Errno::EBUSY as i32));
+        assert_eq!(cage.rmdir_syscall("/"), -(Errno::ENOTEMPTY as i32));
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
