@@ -1711,17 +1711,18 @@ pub mod fs_tests {
         // Create the directory for the oldpath with the parent not having read
         // permission. Currently assigning "Write only" permissions
         assert_eq!(cage.mkdir_syscall("/invalidtestdir", 0o200), 0);
-        // let fd = cage.open_syscall(oldpath, O_CREAT | O_EXCL | O_WRONLY, 0o200);
         assert_eq!(
             cage.open_syscall(oldpath, O_CREAT | O_EXCL | O_WRONLY, 0o200),
             -(Errno::EACCES as i32)
         );
-        // assert_eq!(cage.lseek_syscall(fd, 0, SEEK_SET), 0);
 
         // Expect the linking to be successful, but this is a bug which must be fixed
         // as the parent directory doesn't have read permissions due to which it should
         // not be able to link the files.
-        assert_eq!(cage.link_syscall(oldpath, newpath), 0);
+        assert_eq!(
+            cage.link_syscall(oldpath, newpath),
+            -(Errno::EACCES as i32)
+        );
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
