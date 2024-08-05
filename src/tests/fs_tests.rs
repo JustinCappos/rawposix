@@ -1339,7 +1339,7 @@ pub mod fs_tests {
         let union1_ptr: *mut winsize = &mut union1;
 
         let sockfd = cage.socket_syscall(libc::AF_INET, libc::SOCK_STREAM, 0);
-        let filefd = cage.open_syscall("/ioctl_file", O_CREAT | O_EXCL, S_IRWXA);
+        let filefd = cage.open_syscall("/ioctl_file2", O_CREAT | O_EXCL, S_IRWXA);
 
         //trying to use FIONBIO command on a non-socket type (the file type in this
         // case) for any 'ptrunion' value should throw a 'Not a typewriter'
