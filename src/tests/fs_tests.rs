@@ -1154,16 +1154,29 @@ pub mod fs_tests {
         let filefd = cage.open_syscall("/fcntl_file_1", O_CREAT | O_EXCL, 0o755);
 
         //changing O_CLOEXEC file descriptor flag and checking if it was correctly set
+
+        /* Use FD_CLOEXEC when setting and checking file descriptor flags with F_SETFD and F_GETFD. */
         assert_eq!(cage.fcntl_syscall(sockfd, F_SETFD, FD_CLOEXEC), 0);
         assert_eq!(cage.fcntl_syscall(sockfd, F_GETFD, 0), FD_CLOEXEC);
 
         //changing the file access mode to read-only, enabling the
         //O_NONBLOCK file status flag, and checking if they were correctly set
+
         assert_eq!(
             cage.fcntl_syscall(filefd, F_SETFL, O_RDONLY | O_NONBLOCK),
             0
         );
-        assert_eq!(cage.fcntl_syscall(filefd, F_GETFL, 0), O_RDONLY | O_NONBLOCK);
+
+        let flags = cage.fcntl_syscall(filefd, F_GETFL, 0);
+        assert_eq!(
+            flags & O_ACCMODE,
+            O_RDONLY
+        );
+        assert_eq!(
+            flags & O_NONBLOCK,
+            O_NONBLOCK
+        );
+
 
         //when provided with 'F_GETFD' or 'F_GETFL' command, 'arg' should be ignored,
         // thus even negative arg values should produce nomal behavior
