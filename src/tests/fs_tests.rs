@@ -3,6 +3,7 @@
 pub mod fs_tests {
 
     use super::super::*;
+    use crate::fdtables::translate_virtual_fd;
     use crate::interface;
     use crate::safeposix::syscalls::fs_calls::*;
     use crate::safeposix::{cage::*, dispatcher::*, filesystem};
@@ -1009,7 +1010,9 @@ pub mod fs_tests {
         let fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
 
         println!("[dup2] fd: {}", fd);
-        
+        let kfd = translate_virtual_fd(1, fd as u64).unwrap();
+        println!("[dup2] kfd:{}", kfd.underfd);
+
         //read/write tests for the files
         assert_eq!(
             cage.lseek_syscall(fd, 0, SEEK_END),
