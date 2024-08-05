@@ -15,6 +15,8 @@ pub mod fs_tests {
     use crate::interface::ShmidsStruct;
     pub use std::ffi::CStr as RustCStr;
 
+    use crate::fdtables::FDTABLE;
+
     #[test]
     pub fn ut_lind_fs_simple() {
         //acquiring a lock on TESTMUTEX prevents other tests from running concurrently,
@@ -999,23 +1001,32 @@ pub mod fs_tests {
         let flags: i32 = O_TRUNC | O_CREAT | O_RDWR;
         let filepath = "/dup2file";
 
+        for entry in FDTABLE.iter() {
+            let (key, fd_array) = entry.pair();
+            println!("Cage ID: {}", key);
+            for fd_entry in fd_array.iter().flatten() { // Flatten removes None elements
+                println!("{}", fd_entry.underfd); // Using Display trait
+            }
+        }
+        println!("");
+
         let fd = cage.open_syscall(filepath, flags, 0o755);
 
-        assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
+        for entry in FDTABLE.iter() {
+            let (key, fd_array) = entry.pair();
+            println!("Cage ID: {}", key);
+            for fd_entry in fd_array.iter().flatten() { // Flatten removes None elements
+                println!("{}", fd_entry.underfd); // Using Display trait
+            }
+        }
 
-        println!("[dup2] fd-1: {}", fd);
-        let kfd = translate_virtual_fd(1, fd as u64).unwrap();
-        println!("[dup2] kfd-1:{}", kfd.underfd);
+        assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
 
         //trying to dup fd into fd + 1
         let _fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
 
         //should be a no-op since the last line did the same thing
         let fd2: i32 = cage.dup2_syscall(fd, fd + 1 as i32);
-
-        println!("[dup2] fd-2: {}", fd);
-        let kfd = translate_virtual_fd(1, fd as u64).unwrap();
-        println!("[dup2] kfd-2:{}", kfd.underfd);
 
         //read/write tests for the files
         assert_eq!(
