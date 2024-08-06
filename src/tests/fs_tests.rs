@@ -2145,11 +2145,11 @@ pub mod fs_tests {
         //We create a new parent directory `/parent_dir` and
         //its child directory '/parent_dir/dir`, thus calling `rmdir_syscall()`
         //on the parent directory should return `Directory is not empty` error
-        let path = "/parent_dir/dir";
-        assert_eq!(cage.mkdir_syscall("/parent_dir", S_IRWXA), 0);
+        let path = "/parent_dir_nonempty/dir";
+        assert_eq!(cage.mkdir_syscall("/parent_dir_nonempty", S_IRWXA), 0);
         assert_eq!(cage.mkdir_syscall(path, S_IRWXA), 0);
         assert_eq!(
-            cage.rmdir_syscall("/parent_dir"),
+            cage.rmdir_syscall("/parent_dir_nonempty"),
             -(Errno::ENOTEMPTY as i32)
         );
 
@@ -2191,8 +2191,8 @@ pub mod fs_tests {
         //We create a new parent directory `/parent_dir` with all write permission
         //flags (to be able to create its child directory) and its child directory
         //'/parent_dir/dir` with all write permision flags.
-        let path = "/parent_dir/dir";
-        assert_eq!(cage.mkdir_syscall("/parent_dir", S_IRWXA), 0);
+        let path = "/parent_dir_nowriteperm/dir";
+        assert_eq!(cage.mkdir_syscall("/parent_dir_nowriteperm", S_IRWXA), 0);
         assert_eq!(cage.mkdir_syscall(path, S_IRWXA), 0);
         //Now, we change the parent directories write permission flags to 0,
         //thus calling `rmdir_syscall()`on the child directory
@@ -2200,7 +2200,7 @@ pub mod fs_tests {
         //because the directory cannot be removed if its parent directory
         //does not allow write permission
         assert_eq!(
-            cage.chmod_syscall("/parent_dir", 0o400 | 0o040 | 0o004),
+            cage.chmod_syscall("/parent_dir_nowriteperm", 0o400 | 0o040 | 0o004),
             0
         );
         assert_eq!(cage.rmdir_syscall(path), -(Errno::EPERM as i32));
@@ -2229,9 +2229,9 @@ pub mod fs_tests {
         //Creating the parent directory that does not allow search permission
         //by excluding any read flags and specifying only write flags
         //to be able to delete the child directory.
-        let path = "/parent_dir/dir";
+        let path = "/parent_dir_permission/dir";
         assert_eq!(
-            cage.mkdir_syscall("/parent_dir", 0o200 | 0o020 | 0o002),
+            cage.mkdir_syscall("/parent_dir_permission", 0o200 | 0o020 | 0o002),
             0
         );
         //Creating the child directory with all the required flags
