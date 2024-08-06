@@ -2171,8 +2171,8 @@ pub mod fs_tests {
         //should return `Directory does not allow write permission` error
         //because the directory cannot be removed if it does not allow
         //write permission
-        let path = "/parent_dir/dir";
-        assert_eq!(cage.mkdir_syscall("/parent_dir", S_IRWXA), 0);
+        let path = "/parent_dir_nwchild/dir";
+        assert_eq!(cage.mkdir_syscall("/parent_dir_nwchild", S_IRWXA), 0);
         assert_eq!(cage.mkdir_syscall(path, 0), 0);
         assert_eq!(cage.rmdir_syscall(path), -(Errno::EPERM as i32));
 
@@ -2203,7 +2203,7 @@ pub mod fs_tests {
             cage.chmod_syscall("/parent_dir_nowriteperm", 0o400 | 0o040 | 0o004),
             0
         );
-        assert_eq!(cage.rmdir_syscall(path), -(Errno::EPERM as i32));
+        assert_eq!(cage.rmdir_syscall(path), -(Errno::EACCES as i32));
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
@@ -2229,9 +2229,9 @@ pub mod fs_tests {
         //Creating the parent directory that does not allow search permission
         //by excluding any read flags and specifying only write flags
         //to be able to delete the child directory.
-        let path = "/parent_dir_permission/dir";
+        let path = "/parent_dir_permissionbug/dir";
         assert_eq!(
-            cage.mkdir_syscall("/parent_dir_permission", 0o200 | 0o020 | 0o002),
+            cage.mkdir_syscall("/parent_dir_permissionbug", 0o200 | 0o020 | 0o002),
             0
         );
         //Creating the child directory with all the required flags
