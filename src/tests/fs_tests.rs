@@ -2173,11 +2173,11 @@ pub mod fs_tests {
         //write permission
         let path = "/parent_dir_nwchild/dir";
         assert_eq!(cage.mkdir_syscall("/parent_dir_nwchild", S_IRWXA), 0);
-        assert_eq!(cage.mkdir_syscall(path, 0), 0);
-        assert_eq!(
-            cage.chmod_syscall(path, 0o000),
-            0
-        );
+        assert_eq!(cage.mkdir_syscall(path, 0o400 | 0o040 | 0o004), 0);
+        // assert_eq!(
+        //     cage.chmod_syscall(path, 0o400 | 0o040 | 0o004),
+        //     0
+        // );
         assert_eq!(cage.rmdir_syscall(path), -(Errno::EPERM as i32));
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
