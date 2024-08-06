@@ -2241,8 +2241,8 @@ pub mod fs_tests {
         //Creating the child directory with all the required flags
         //and then deleting it. Because of the bug described above,
         //removing the directory will not return any errors.
-        assert_eq!(cage.mkdir_syscall(path, S_IRWXA), 0);
-        assert_eq!(cage.rmdir_syscall(path), 0);
+        assert_eq!(cage.mkdir_syscall(path, S_IRWXA), -(Errno::EACCES as i32));
+        assert_eq!(cage.rmdir_syscall("/parent_dir_permissionbug"), 0);
 
         assert_eq!(cage.exit_syscall(libc::EXIT_SUCCESS), libc::EXIT_SUCCESS);
         lindrustfinalize();
