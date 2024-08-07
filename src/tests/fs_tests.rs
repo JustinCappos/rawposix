@@ -1004,14 +1004,6 @@ pub mod fs_tests {
 
         let fd = cage.open_syscall(filepath, flags, 0o755);
 
-        for entry in FDTABLE.iter() {
-            let (key, fd_array) = entry.pair();
-            println!("Cage ID: {}", key);
-            for fd_entry in fd_array.iter().flatten() { // Flatten removes None elements
-                println!("{}", fd_entry.underfd); // Using Display trait
-            }
-        }
-
         assert_eq!(cage.write_syscall(fd, str2cbuf("12"), 2), 2);
 
         //trying to dup fd into fd + 1
