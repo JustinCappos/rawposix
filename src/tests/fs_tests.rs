@@ -163,6 +163,16 @@ pub mod fs_tests {
         //write should work
         let mut fd = cage.open_syscall("/broken_close_file", O_CREAT | O_EXCL | O_RDWR, S_IRWXA);
         assert_eq!(cage.write_syscall(fd, str2cbuf("Hello There!"), 12), 12);
+        println!("fd1: {}", fd);
+        for entry in FDTABLE.iter() {
+            let (key, fd_array) = entry.pair();
+            println!("Cage ID: {}", key);
+            for fd_entry in fd_array.iter().flatten() { // Flatten removes None elements
+                println!("{}", fd_entry.underfd); // Using Display trait
+            }
+        }
+        println!("");
+        
         assert_eq!(cage.close_syscall(fd), 0);
 
 
