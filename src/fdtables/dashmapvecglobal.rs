@@ -45,7 +45,7 @@ pub const ALGONAME: &str = "DashMapVecGlobal";
 lazy_static! {
 
     #[derive(Debug)]
-    static ref FDTABLE: DashMap<u64, Vec<Option<FDTableEntry>>> = {
+    pub static ref FDTABLE: DashMap<u64, Vec<Option<FDTableEntry>>> = {
         let m = DashMap::new();
         // Insert a cage so that I have something to fork / test later, if need
         // be. Otherwise, I'm not sure how I get this started. I think this
@@ -361,7 +361,7 @@ pub fn close_virtualfd(cageid:u64, virtfd:u64) -> Result<(),threei::RetVal> {
         myfdrow[virtfd as usize] = None;
 
         FDTABLE.insert(cageid, myfdrow.clone());
-        
+
         // always _decrement last as it may call the user handler...
         _decrement_fdcount(entry.unwrap());
         return Ok(());
