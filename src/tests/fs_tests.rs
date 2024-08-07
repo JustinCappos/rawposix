@@ -16,7 +16,7 @@ pub mod fs_tests {
     pub use std::ffi::CStr as RustCStr;
     use std::mem;
 
-    use crate::fdtables::FDTABLE;
+    // use crate::fdtables::FDTABLE;
 
     #[test]
     pub fn ut_lind_fs_simple() {
