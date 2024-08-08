@@ -692,7 +692,10 @@ impl Cage {
             Ok(()) => {
                 return 0;
             }
-            Err(_) => {
+            Err(e) => {
+                if e == Errno::EBADFD as u64 {
+                    return syscall_error(Errno::EBADFD, "close", "bad file descriptor");
+                } 
                 return -1;
             }
         }
